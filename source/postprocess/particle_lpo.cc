@@ -20,15 +20,10 @@
 
 #include <aspect/global.h>
 #include <aspect/postprocess/particle_lpo.h>
-#include <aspect/particle/property/lpo.h>
 #include <aspect/utilities.h>
 
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
-
-#include <boost/iostreams/filtering_streambuf.hpp>
-#include <boost/iostreams/copy.hpp>
-#include <boost/iostreams/filter/gzip.hpp>
 
 #include <stdio.h>
 #include <unistd.h>
@@ -37,6 +32,190 @@ namespace aspect
 {
   namespace Postprocess
   {
+    namespace internal
+    {
+      template<int dim>
+      void
+      ParticleOutput<dim>::build_patches(const dealii::Particles::ParticleHandler<dim> &particle_handler,
+                                         const aspect::Particle::Property::ParticlePropertyInformation &property_information,
+                                         std::vector<std::string> &exclude_output_properties,
+                                         const bool only_group_3d_vectors)
+      {
+        // First store the names of the data fields
+        dataset_names.reserve(property_information.n_components()+1);
+        dataset_names.push_back("id");
+
+        // just output all properties
+        for (unsigned int field_index = 0; field_index < property_information.n_fields(); ++field_index)
+          {
+            const unsigned n_components = property_information.get_components_by_field_index(field_index);
+            const std::string field_name = property_information.get_field_name_by_index(field_index);
+
+            bool found = false;
+            for (unsigned int i = 0; i < exclude_output_properties.size(); ++i)
+              {
+                if (field_name.find(exclude_output_properties[i]) != std::string::npos)
+                  {
+                    found = true;
+                    break;
+                  }
+              }
+
+            if (found == true)
+              continue;
+
+            // HDF5 only supports 3D vector output, therefore only treat output fields as vector if we
+            // have a dimension of 3 and 3 components.
+            const bool field_is_vector = (!only_group_3d_vectors)
+                                         ?
+                                         n_components == dim
+                                         :
+                                         dim == 3 && n_components == 3;
+
+            // If it is a 1D element, or a vector, print just the name, otherwise append the index after an underscore
+            if ((n_components == 1) || field_is_vector)
+              for (unsigned int component_index=0; component_index<n_components; ++component_index)
+                dataset_names.push_back(field_name);
+            else
+              for (unsigned int component_index=0; component_index<n_components; ++component_index)
+                dataset_names.push_back(field_name + "_" + Utilities::to_string(component_index));
+          }
+
+        // Second store which of these data fields are vectors
+
+        unsigned int field_position = property_information.n_fields() == 0 ? 0 : property_information.get_position_by_field_index(0);
+        for (unsigned int field_index = 0; field_index < property_information.n_fields(); ++field_index)
+          {
+            const unsigned n_components = property_information.get_components_by_field_index(field_index);
+
+            const std::string field_name = property_information.get_field_name_by_index(field_index);
+
+            bool found = false;
+            for (unsigned int i = 0; i < exclude_output_properties.size(); ++i)
+              {
+                if (field_name.find(exclude_output_properties[i]) != std::string::npos)
+                  {
+                    found = true;
+                    break;
+                  }
+              }
+
+            if (found == true)
+              continue;
+
+            // If the property has dim components, we treat it as vector
+            if (n_components == dim)
+              {
+#if DEAL_II_VERSION_GTE(9,1,0)
+                vector_datasets.push_back(std::make_tuple(field_position+1,
+                                                          field_position+n_components,
+                                                          field_name,
+                                                          DataComponentInterpretation::component_is_part_of_vector));
+#else
+                vector_datasets.push_back(std::make_tuple(field_position+1,
+                                                          field_position+n_components,
+                                                          field_name));
+#endif
+              }
+            field_position = field_position+n_components;
+
+          }
+
+        // Third build the actual patch data
+        patches.resize(particle_handler.n_locally_owned_particles());
+
+        typename dealii::Particles::ParticleHandler<dim>::particle_iterator particle = particle_handler.begin();
+
+        for (unsigned int i=0; particle != particle_handler.end(); ++particle, ++i)
+          {
+            patches[i].vertices[0] = particle->get_location();
+            patches[i].patch_index = i;
+            patches[i].n_subdivisions = 1;
+            patches[i].data.reinit(dataset_names.size(),1);
+
+            patches[i].data(0,0) = particle->get_id();
+
+            if (particle->has_properties())
+              {
+                const ArrayView<const double> properties = particle->get_properties();
+
+                unsigned int output_index = 1;
+                unsigned int field_index = 0;
+                unsigned int do_not_increase_for = 0;
+                std::string field_name = "";
+
+                for (unsigned int property_index = 0; property_index < properties.size(); ++property_index)
+                  {
+                    if (do_not_increase_for > 0)
+                      {
+                        do_not_increase_for--;
+                      }
+                    else
+                      {
+                        const unsigned n_components = property_information.get_components_by_field_index(field_index);
+                        field_name = property_information.get_field_name_by_index(field_index);
+
+                        do_not_increase_for = n_components - 1;
+                        field_index++;
+                      }
+
+                    bool found = false;
+                    for (unsigned int i = 0; i < exclude_output_properties.size(); ++i)
+                      {
+                        if (field_name.find(exclude_output_properties[i]) != std::string::npos)
+                          {
+                            found = true;
+                            break;
+                          }
+                      }
+
+                    if (found == true)
+                      continue;
+                    patches[i].data(output_index,0) = properties[property_index];
+                    output_index++;
+                  }
+              }
+          }
+      }
+
+      template <int dim>
+      const std::vector<DataOutBase::Patch<0,dim> > &
+      ParticleOutput<dim>::get_patches () const
+      {
+        return patches;
+      }
+
+      template <int dim>
+      std::vector< std::string >
+      ParticleOutput<dim>::get_dataset_names () const
+      {
+        return dataset_names;
+      }
+
+#if DEAL_II_VERSION_GTE(9,1,0)
+      template <int dim>
+      std::vector<
+      std::tuple<unsigned int,
+          unsigned int, std::string,
+          DataComponentInterpretation::DataComponentInterpretation> >
+          ParticleOutput<dim>::get_nonscalar_data_ranges () const
+      {
+        return vector_datasets;
+      }
+#else
+      template <int dim>
+      std::vector<
+      std::tuple<unsigned int,
+          unsigned int, std::string,
+          DataComponentInterpretation::DataComponentInterpretation> >
+          ParticleOutput<dim>::get_nonscalar_data_ranges () const
+      {
+        return vector_datasets;
+      }
+#endif
+
+    }
+
     template <int dim>
     LPO<dim>::LPO ()
       :
@@ -44,8 +223,8 @@ namespace aspect
       output_interval (0),
       // initialize this to a nonsensical value; set it to the actual time
       // the first time around we get to check it
-      last_output_time (std::numeric_limits<double>::quiet_NaN()),
-      output_file_number (numbers::invalid_unsigned_int),
+      last_output_time (std::numeric_limits<double>::quiet_NaN())
+      ,output_file_number (numbers::invalid_unsigned_int),
       group_files(0),
       write_in_background_thread(false)
     {}
@@ -55,27 +234,7 @@ namespace aspect
     {
       // make sure a thread that may still be running in the background,
       // writing data, finishes
-      background_thread_master.join ();
-      background_thread_content_raw.join ();
-      background_thread_content_draw_volume_weighting.join ();
-    }
-
-    template <int dim>
-    void
-    LPO<dim>::initialize ()
-    {
-      const unsigned int my_rank = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
-      this->random_number_generator.seed(random_number_seed+my_rank);
-      // todo: check wheter this works correctly. Since the get_random_number function takes a reference
-      // to the random_number_generator function, changing the function should mean that I have to update the
-      // get_random_number function as well. But I will need to test this.
-    }
-
-    template <int dim>
-    std::list<std::string>
-    LPO<dim>::required_other_postprocessors () const
-    {
-      return {"particles"};
+      background_thread.join ();
     }
 
 
@@ -83,8 +242,7 @@ namespace aspect
     // We need to pass the arguments by value, as this function can be called on a separate thread:
     void LPO<dim>::writer (const std::string filename, //NOLINT(performance-unnecessary-value-param)
                            const std::string temporary_output_location, //NOLINT(performance-unnecessary-value-param)
-                           const std::string *file_contents,
-                           const bool compress_contents)
+                           const std::string *file_contents)
     {
       std::string tmp_filename = filename;
       if (temporary_output_location != "")
@@ -123,7 +281,7 @@ namespace aspect
             close(tmp_file_desc);
         }
 
-      std::ofstream out(tmp_filename.c_str(), std::ofstream::binary);
+      std::ofstream out(tmp_filename.c_str());
 
       AssertThrow (out, ExcMessage(std::string("Trying to write to file <") +
                                    filename +
@@ -131,23 +289,7 @@ namespace aspect
 
       // now write and then move the tmp file to its final destination
       // if necessary
-      if (compress_contents)
-        {
-          namespace bio = boost::iostreams;
-
-          std::stringstream compressed;
-          std::stringstream origin(*file_contents);
-
-          bio::filtering_streambuf<bio::input> compress_out;
-          compress_out.push(bio::zlib_compressor());
-          compress_out.push(origin);
-          bio::copy(compress_out, out);
-        }
-      else
-        {
-          out << *file_contents;
-        }
-
+      out << *file_contents;
       out.close ();
 
       if (tmp_filename != filename)
@@ -166,14 +308,71 @@ namespace aspect
     }
 
     template <int dim>
+    void
+    LPO<dim>::write_master_files (const internal::ParticleOutput<dim> &data_out,
+                                  const std::string &solution_file_prefix,
+                                  const std::vector<std::string> &filenames)
+    {
+      const double time_in_years_or_seconds = (this->convert_output_to_years() ?
+                                               this->get_time() / year_in_seconds :
+                                               this->get_time());
+      const std::string
+      pvtu_master_filename = (solution_file_prefix +
+                              ".pvtu");
+      std::ofstream pvtu_master ((this->get_output_directory() + "particles/" +
+                                  pvtu_master_filename).c_str());
+      data_out.write_pvtu_record (pvtu_master, filenames);
+
+      // now also generate a .pvd file that matches simulation
+      // time and corresponding .pvtu record
+      times_and_pvtu_file_names.push_back(std::make_pair
+                                          (time_in_years_or_seconds, "particles/"+pvtu_master_filename));
+
+      const std::string
+      pvd_master_filename = (this->get_output_directory() + "particles.pvd");
+      std::ofstream pvd_master (pvd_master_filename.c_str());
+
+      DataOutBase::write_pvd_record (pvd_master, times_and_pvtu_file_names);
+
+      // finally, do the same for Visit via the .visit file for this
+      // time step, as well as for all time steps together
+      const std::string
+      visit_master_filename = (this->get_output_directory()
+                               + "particles/"
+                               + solution_file_prefix
+                               + ".visit");
+      std::ofstream visit_master (visit_master_filename.c_str());
+
+      DataOutBase::write_visit_record (visit_master, filenames);
+
+      {
+        // the global .visit file needs the relative path because it sits a
+        // directory above
+        std::vector<std::string> filenames_with_path;
+        for (std::vector<std::string>::const_iterator it = filenames.begin();
+             it != filenames.end();
+             ++it)
+          {
+            filenames_with_path.push_back("particles/" + (*it));
+          }
+
+        output_file_names_by_timestep.push_back (filenames_with_path);
+      }
+
+      std::ofstream global_visit_master ((this->get_output_directory() +
+                                          "particles.visit").c_str());
+
+      std::vector<std::pair<double, std::vector<std::string> > > times_and_output_file_names;
+      for (unsigned int timestep=0; timestep<times_and_pvtu_file_names.size(); ++timestep)
+        times_and_output_file_names.push_back(std::make_pair(times_and_pvtu_file_names[timestep].first,
+                                                             output_file_names_by_timestep[timestep]));
+      DataOutBase::write_visit_record (global_visit_master, times_and_output_file_names);
+    }
+
+    template <int dim>
     std::pair<std::string,std::string>
     LPO<dim>::execute (TableHandler &statistics)
     {
-
-      const Particle::Property::Manager<dim> &manager = this->get_particle_world().get_property_manager();
-
-      bool hexagonal_plugin_exists = manager.plugin_name_exists("decompose elastic matrix");
-
       // if this is the first time we get here, set the last output time
       // to the current time - output_interval. this makes sure we
       // always produce data during the first time step
@@ -182,7 +381,7 @@ namespace aspect
 
       // If it's not time to generate an output file or we do not write output
       // return early.
-      if (this->get_time() < last_output_time + output_interval && this->get_time() != end_time)
+      if (this->get_time() < last_output_time + output_interval)
         return std::make_pair("","");
 
       if (output_file_number == numbers::invalid_unsigned_int)
@@ -191,529 +390,288 @@ namespace aspect
         ++output_file_number;
 
       // Now prepare everything for writing the output and choose output format
-      std::string particle_file_prefix_master = this->get_output_directory() +  "particle_LPO/particles-" + Utilities::int_to_string (output_file_number, 5);
-      std::string particle_file_prefix_content_raw = this->get_output_directory() +  "particle_LPO/LPO-" + Utilities::int_to_string (output_file_number, 5);
-      std::string particle_file_prefix_content_draw_volume_weighting = this->get_output_directory() +  "particle_LPO/weighted_LPO-" + Utilities::int_to_string (output_file_number, 5);
+      std::string particle_file_prefix = "LPO-" + Utilities::int_to_string (output_file_number, 5);
 
-      const auto &particle_handler = this->get_particle_world().get_particle_handler();
+      const typename Particles::ParticleHandler<dim> &particle_handler = this->get_particle_world().get_particle_handler();
 
-      std::stringstream string_stream_master;
-      std::stringstream string_stream_content_raw;
-      std::stringstream string_stream_content_draw_volume_weighting;
-
-      string_stream_master << "id x y" << (dim == 3 ? " z" : " ") << " olivine_deformation_type"
-                           << (hexagonal_plugin_exists ? (std::string(" full_norm_square ")
-                                                          + "triclinic_norm_square_p1 triclinic_norm_square_p2 triclinic_norm_square_p3 "
-                                                          + "monoclinic_norm_square_p1 monoclinic_norm_square_p2 monoclinic_norm_square_p3 "
-                                                          + "orthohombic_norm_square_p1 orthohombic_norm_square_p2 orthohombic_norm_square_p3 "
-                                                          + "tetragonal_norm_square_p1 tetragonal_norm_square_p2 tetragonal_norm_square_p3 "
-                                                          + "hexagonal_norm_square_p1 hexagonal_norm_square_p2 hexagonal_norm_square_p3 "
-                                                          + "isotropic_norm_square") : "") << std::endl;
+      std::stringstream string_stream;
+      unsigned int timestep_number = this->get_timestep_number();
 
       // get particle data
-      bool wrote_weighted_header = false;
-      bool wrote_unweighted_header = false;
-      for (typename dealii::Particles::ParticleHandler<dim>::particle_iterator it = particle_handler.begin(); it != particle_handler.end(); ++it)
+      for (typename Particles::ParticleHandler<dim>::particle_iterator it = particle_handler.begin(); it != particle_handler.end(); ++it)
         {
 
           AssertThrow(it->has_properties(),
                       ExcMessage("No particle properties found. Make sure that the LPO particle property plugin is selected."));
 
-
+          std::vector<double> volume_fractions_olivine(n_grains);
+          std::vector<Tensor<2,3> > a_cosine_matrices_olivine(n_grains);
+          std::vector<double> volume_fractions_enstatite(n_grains);
+          std::vector<Tensor<2,3> > a_cosine_matrices_enstatite(n_grains);
 
           unsigned int id = it->get_id();
           const ArrayView<double> &properties = it->get_properties();
 
-          const Particle::Property::ParticlePropertyInformation &property_information = this->get_particle_world().get_property_manager().get_data_info();
 
-          AssertThrow(property_information.fieldname_exists("cpo mineral 0 type") ,
-                      ExcMessage("No LPO particle properties found. Make sure that the LPO particle property plugin is selected."));
-
-
-
-          const unsigned int lpo_data_position = property_information.n_fields() == 0
+          for (unsigned int property_index = 0; property_index < properties.size(); ++property_index)
+            {
+              const Particle::Property::ParticlePropertyInformation &property_information = this->get_particle_world().get_property_manager().get_data_info();
+              const unsigned int data_position = property_information.n_fields() == 0
                                                  ?
                                                  0
                                                  :
-                                                 property_information.get_position_by_field_name("cpo mineral 0 type");
-
-          Point<dim> position = it->get_location();
-
-          std::vector<unsigned int> deformation_type;
-          std::vector<double> volume_fraction_mineral;
-          std::vector<std::vector<double>> volume_fractions_grains;
-          std::vector<std::vector<Tensor<2,3> > > a_cosine_matrices_grains;
-
-          Particle::Property::LPO<dim>::load_particle_data(lpo_data_position,
-                                                           properties,
-                                                           deformation_type,
-                                                           volume_fraction_mineral,
-                                                           volume_fractions_grains,
-                                                           a_cosine_matrices_grains);
-
-          const unsigned int lpo_hex_data_position = property_information.n_fields() == 0 || hexagonal_plugin_exists == false
-                                                     ?
-                                                     0
-                                                     :
-                                                     property_information.get_position_by_field_name("lpo elastic axis e1");
-
-          // write master file
-          string_stream_master << id << " " << position << " " << properties[lpo_data_position];
-          if (hexagonal_plugin_exists == true)
-            {
-              string_stream_master << " " << properties[lpo_hex_data_position+12] << " " << properties[lpo_hex_data_position+13]
-                                   << " " << properties[lpo_hex_data_position+14] << " " << properties[lpo_hex_data_position+15]
-                                   << " " << properties[lpo_hex_data_position+16] << " " << properties[lpo_hex_data_position+17]
-                                   << " " << properties[lpo_hex_data_position+18] << " " << properties[lpo_hex_data_position+19]
-                                   << " " << properties[lpo_hex_data_position+20] << " " << properties[lpo_hex_data_position+21]
-                                   << " " << properties[lpo_hex_data_position+22] << " " << properties[lpo_hex_data_position+23]
-                                   << " " << properties[lpo_hex_data_position+24] << " " << properties[lpo_hex_data_position+25]
-                                   << " " << properties[lpo_hex_data_position+26] << " " << properties[lpo_hex_data_position+27]
-                                   << " " << properties[lpo_hex_data_position+28];
-            }
-          string_stream_master <<  std::endl;
-
-
-          // write content file
-          std::vector<std::vector<std::vector<double> > > euler_angles;
-          if (compute_raw_euler_angles == true)
-            {
-              euler_angles.resize(n_minerals);
-              for (unsigned int mineral_i = 0; mineral_i < n_minerals; ++mineral_i)
-                {
-
-                  euler_angles[mineral_i].resize(n_grains);
-                  for (unsigned int i_grain = 0; i_grain < n_grains; i_grain++)
-                    {
-                      euler_angles[mineral_i][i_grain] = euler_angles_from_rotation_matrix(a_cosine_matrices_grains[mineral_i][i_grain]);
-                    }
-                }
-            }
-
-          if (write_raw_lpo.size() != 0)
-            {
-              // write unweighted header
-              if (wrote_unweighted_header == false)
-                {
-                  string_stream_content_raw << "id" << " " << std::setprecision(12);
-                  for (unsigned int property_i = 0; property_i < write_raw_lpo.size(); ++property_i)
-                    {
-                      switch (write_raw_lpo[property_i].second)
-                        {
-                          case Output::VolumeFraction:
-                            string_stream_content_raw << "mineral_" << write_raw_lpo[property_i].first << "_volume_fraction" << " ";
-                            break;
-
-                          case Output::RotationMatrix:
-                            string_stream_content_raw << "mineral_" << write_raw_lpo[property_i].first << "_RM_0" << " "
-                                                      << "mineral_" << write_raw_lpo[property_i].first << "_RM_1" << " "
-                                                      << "mineral_" << write_raw_lpo[property_i].first << "_RM_2" << " "
-                                                      << "mineral_" << write_raw_lpo[property_i].first << "_RM_3" << " "
-                                                      << "mineral_" << write_raw_lpo[property_i].first << "_RM_4" << " "
-                                                      << "mineral_" << write_raw_lpo[property_i].first << "_RM_5" << " "
-                                                      << "mineral_" << write_raw_lpo[property_i].first << "_RM_6" << " "
-                                                      << "mineral_" << write_raw_lpo[property_i].first << "_RM_7" << " "
-                                                      << "mineral_" << write_raw_lpo[property_i].first << "_RM_8" << " ";
-                            break;
-
-                          case Output::EulerAngles:
-                            string_stream_content_raw << "mineral_" << write_raw_lpo[property_i].first << "_EA_phi" << " "
-                                                      << "mineral_" << write_raw_lpo[property_i].first << "_EA_theta" << " "
-                                                      << "mineral_" << write_raw_lpo[property_i].first << "_EA_z" << " ";
-                            break;
-
-                          default:
-                            Assert(false, ExcMessage("Internal error: raw LPO postprocess case not found."));
-                            break;
-                        }
-                    }
-                  string_stream_content_raw << std::endl;
-                  wrote_unweighted_header = true;
-                }
-
-              // write unweighted data
+                                                 property_information.get_position_by_field_name("lpo water content");
+              AssertThrow(data_position != 0,
+                          ExcMessage("No LPO particle properties found. Make sure that the LPO particle property plugin is selected."));
+              // loop over grain retrieve from data from each grain
+              unsigned int data_grain_i = 0;
               for (unsigned int grain_i = 0; grain_i < n_grains; ++grain_i)
                 {
-                  string_stream_content_raw << id << " ";
-                  for (unsigned int property_i = 0; property_i < write_raw_lpo.size(); ++property_i)
+                  // retrieve volume fraction for olvine grains
+                  volume_fractions_olivine[grain_i] = properties[data_position + data_grain_i *
+                                                                 (Tensor<2,3>::n_independent_components + 1) + 1];
+
+                  // retrieve a_{ij} for olvine grains
+                  //Tensor<2,dim> a_cosine_matrices_olivine;
+                  for (unsigned int i = 0; i < Tensor<2,3>::n_independent_components ; ++i)
                     {
-                      switch (write_raw_lpo[property_i].second)
-                        {
-                          case Output::VolumeFraction:
-                            string_stream_content_raw << volume_fractions_grains[write_raw_lpo[property_i].first][grain_i] << " ";
-                            break;
-
-                          case Output::RotationMatrix:
-                            string_stream_content_raw << a_cosine_matrices_grains[write_raw_lpo[property_i].first][grain_i] << " ";
-                            break;
-
-                          case Output::EulerAngles:
-                            Assert(compute_raw_euler_angles == true,
-                                   ExcMessage("Internal error: writing out raw Euler angles, without them being computed."));
-                            string_stream_content_raw << euler_angles[write_raw_lpo[property_i].first][grain_i][0] << " "
-                                                      <<  euler_angles[write_raw_lpo[property_i].first][grain_i][1] << " "
-                                                      <<  euler_angles[write_raw_lpo[property_i].first][grain_i][2] << " ";
-                            break;
-
-                          default:
-                            Assert(false, ExcMessage("Internal error: raw LPO postprocess case not found."));
-                            break;
-                        }
+                      const dealii::TableIndices<2> index = Tensor<2,3>::unrolled_to_component_indices(i);
+                      a_cosine_matrices_olivine[grain_i][index] = properties[data_position + data_grain_i *
+                                                                             (Tensor<2,3>::n_independent_components + 1) + 2 + i];
                     }
-                  string_stream_content_raw << std::endl;
-                }
 
-            }
-          if (write_draw_volume_weighted_lpo.size() != 0)
-            {
-              std::vector<std::vector<std::vector<double> >> weighted_euler_angles;
+                  // retrieve volume fraction for enstatite grains
+                  volume_fractions_enstatite[grain_i] = properties[data_position + (data_grain_i+1) *
+                                                                   (Tensor<2,3>::n_independent_components + 1) + 1];
 
-              weighted_euler_angles.resize(n_minerals);
-              for (unsigned int mineral_i = 0; mineral_i < n_minerals; ++mineral_i)
-                {
-                  weighted_euler_angles[mineral_i] = random_draw_volume_weighting(volume_fractions_grains[mineral_i], euler_angles[mineral_i]);
-
-                  Assert(weighted_euler_angles[mineral_i].size() == euler_angles[mineral_i].size(),
-                         ExcMessage("Weighted angles vector (size = " + std::to_string(weighted_euler_angles[mineral_i].size()) +
-                                    ") has different size from input angles (size = " + std::to_string(euler_angles[mineral_i].size()) + ")."));
-
-                }
-
-
-              std::vector<std::vector<Tensor<2,3> > > weighted_a_cosine_matrices;
-
-              if (compute_weighted_A_matrix == true)
-                {
-                  weighted_a_cosine_matrices.resize(n_minerals);
-                  for (unsigned int mineral_i = 0; mineral_i < n_minerals; ++mineral_i)
+                  // retrieve a_{ij} for enstatite grains
+                  //Tensor<2,dim> a_cosine_matrices;
+                  for (unsigned int i = 0; i < Tensor<2,3>::n_independent_components ; ++i)
                     {
-                      weighted_a_cosine_matrices[mineral_i].resize(weighted_euler_angles[mineral_i].size());
-
-                      for (unsigned int i = 0; i < weighted_euler_angles.size(); ++i)
-                        {
-                          weighted_a_cosine_matrices[mineral_i][i] = euler_angles_to_rotation_matrix(weighted_euler_angles[mineral_i][i][0],
-                                                                                                     weighted_euler_angles[mineral_i][i][1],
-                                                                                                     weighted_euler_angles[mineral_i][i][2]);
-                        }
+                      const dealii::TableIndices<2> index = Tensor<2,3>::unrolled_to_component_indices(i);
+                      a_cosine_matrices_enstatite[grain_i][index] = properties[data_position + (data_grain_i+1) *
+                                                                               (Tensor<2,3>::n_independent_components + 1) + 2 + i];
                     }
+                  data_grain_i = data_grain_i + 2;
                 }
 
-              // write weighted header
-              if (wrote_weighted_header == false)
-                {
-                  string_stream_content_draw_volume_weighting << "id" << " ";
-                  for (unsigned int property_i = 0; property_i < write_draw_volume_weighted_lpo.size(); ++property_i)
-                    {
-                      switch (write_draw_volume_weighted_lpo[property_i].second)
-                        {
-                          case Output::VolumeFraction:
-                            string_stream_content_draw_volume_weighting << "mineral_" << write_draw_volume_weighted_lpo[property_i].first << "_volume_fraction" << " ";
-                            break;
-
-                          case Output::RotationMatrix:
-                            string_stream_content_draw_volume_weighting << "mineral_" << write_draw_volume_weighted_lpo[property_i].first << "_RM_0" << " "
-                                                                        << "mineral_" << write_draw_volume_weighted_lpo[property_i].first << "_RM_1" << " "
-                                                                        << "mineral_" << write_draw_volume_weighted_lpo[property_i].first << "_RM_2" << " "
-                                                                        << "mineral_" << write_draw_volume_weighted_lpo[property_i].first << "_RM_3" << " "
-                                                                        << "mineral_" << write_draw_volume_weighted_lpo[property_i].first << "_RM_4" << " "
-                                                                        << "mineral_" << write_draw_volume_weighted_lpo[property_i].first << "_RM_5" << " "
-                                                                        << "mineral_" << write_draw_volume_weighted_lpo[property_i].first << "_RM_6" << " "
-                                                                        << "mineral_" << write_draw_volume_weighted_lpo[property_i].first << "_RM_7" << " "
-                                                                        << "mineral_" << write_draw_volume_weighted_lpo[property_i].first << "_RM_8" << " ";
-                            break;
-
-                          case Output::EulerAngles:
-                            string_stream_content_draw_volume_weighting << "mineral_" << write_draw_volume_weighted_lpo[property_i].first << "_EA_phi" << " "
-                                                                        << "mineral_" << write_draw_volume_weighted_lpo[property_i].first << "_EA_theta" << " "
-                                                                        << "mineral_" << write_draw_volume_weighted_lpo[property_i].first << "_EA_z" << " ";
-                            break;
-
-                          default:
-                            Assert(false, ExcMessage("Internal error: raw LPO postprocess case not found."));
-                            break;
-                        }
-                    }
-                  string_stream_content_draw_volume_weighting << std::endl;
-                  wrote_weighted_header = true;
-                }
-
-              // write data
               for (unsigned int grain_i = 0; grain_i < n_grains; ++grain_i)
-                {
-                  string_stream_content_draw_volume_weighting << id << " ";
-                  for (unsigned int property_i = 0; property_i < write_draw_volume_weighted_lpo.size(); ++property_i)
-                    {
-                      switch (write_draw_volume_weighted_lpo[property_i].second)
-                        {
-                          case Output::VolumeFraction:
-                            string_stream_content_draw_volume_weighting << volume_fractions_grains[write_draw_volume_weighted_lpo[property_i].first][grain_i] << " ";
-                            break;
-
-                          case Output::RotationMatrix:
-                            string_stream_content_draw_volume_weighting << weighted_a_cosine_matrices[write_draw_volume_weighted_lpo[property_i].first][grain_i] << " ";
-                            break;
-
-                          case Output::EulerAngles:
-                            Assert(compute_raw_euler_angles == true,
-                                   ExcMessage("Internal error: writing out raw Euler angles, without them being computed."));
-                            string_stream_content_draw_volume_weighting << weighted_euler_angles[write_draw_volume_weighted_lpo[property_i].first][grain_i][0] << " "
-                                                                        <<  weighted_euler_angles[write_draw_volume_weighted_lpo[property_i].first][grain_i][1] << " "
-                                                                        <<  weighted_euler_angles[write_draw_volume_weighted_lpo[property_i].first][grain_i][2] << " ";
-                            break;
-                          default:
-                            Assert(false, ExcMessage("Internal error: raw LPO postprocess case not found."));
-                            break;
-                        }
-                    }
-                  string_stream_content_draw_volume_weighting << std::endl;
-                }
+                string_stream << id << " "
+                             << volume_fractions_olivine[grain_i] << " "
+                             << a_cosine_matrices_olivine[grain_i][0][0] << " " <<  a_cosine_matrices_olivine[grain_i][0][1] << " " <<  a_cosine_matrices_olivine[grain_i][0][2] << " "
+                             << a_cosine_matrices_olivine[grain_i][1][0] << " " <<  a_cosine_matrices_olivine[grain_i][1][1] << " " <<  a_cosine_matrices_olivine[grain_i][1][2] << " "
+                             << a_cosine_matrices_olivine[grain_i][2][0] << " " <<  a_cosine_matrices_olivine[grain_i][2][1] << " " <<  a_cosine_matrices_olivine[grain_i][2][2] << " "
+                             << volume_fractions_enstatite[grain_i] << " "
+                             << a_cosine_matrices_enstatite[grain_i][0][0] << " " <<  a_cosine_matrices_enstatite[grain_i][0][1] << " " <<  a_cosine_matrices_enstatite[grain_i][0][2] << " "
+                             << a_cosine_matrices_enstatite[grain_i][1][0] << " " <<  a_cosine_matrices_enstatite[grain_i][1][1] << " " <<  a_cosine_matrices_enstatite[grain_i][1][2] << " "
+                             << a_cosine_matrices_enstatite[grain_i][2][0] << " " <<  a_cosine_matrices_enstatite[grain_i][2][1] << " " <<  a_cosine_matrices_enstatite[grain_i][2][2] << std::endl;
             }
         }
 
-      std::string filename_master = particle_file_prefix_master + "." + Utilities::int_to_string(dealii::Utilities::MPI::this_mpi_process (MPI_COMM_WORLD),4) + ".dat";
-      std::string filename_raw = particle_file_prefix_content_raw + "." + Utilities::int_to_string(dealii::Utilities::MPI::this_mpi_process (MPI_COMM_WORLD),4) + ".dat";
-      std::string filename_draw_volume_weighting = particle_file_prefix_content_draw_volume_weighting + "." + Utilities::int_to_string(dealii::Utilities::MPI::this_mpi_process (MPI_COMM_WORLD),4) + ".dat";
+      std::string filename = particle_file_prefix + "." + Utilities::int_to_string(dealii::Utilities::MPI::this_mpi_process (MPI_COMM_WORLD),4) + ".dat";
 
-      std::string *file_contents_master = new std::string (string_stream_master.str());
-      std::string *file_contents_raw = new std::string (string_stream_content_raw.str());
-      std::string *file_contents_draw_volume_weighting = new std::string (string_stream_content_draw_volume_weighting.str());
+          std::string *file_contents = new std::string (string_stream.str());
 
-      if (write_in_background_thread)
-        {
-          // Wait for all previous write operations to finish, should
-          // any be still active,
-          background_thread_master.join ();
-
-          // then continue with writing the master file
-          background_thread_master = Threads::new_thread (&writer,
-                                                          filename_master,
-                                                          temporary_output_location,
-                                                          file_contents_master,
-                                                          false);
-
-          if (write_raw_lpo.size() != 0)
+          if (write_in_background_thread)
             {
               // Wait for all previous write operations to finish, should
               // any be still active,
-              background_thread_content_raw.join ();
+              background_thread.join ();
 
               // then continue with writing our own data.
-              background_thread_content_raw = Threads::new_thread (&writer,
-                                                                   filename_raw,
-                                                                   temporary_output_location,
-                                                                   file_contents_raw,
-                                                                   compress_lpo_data_files);
+              background_thread = Threads::new_thread (&writer,
+                                                       filename,
+                                                       temporary_output_location,
+                                                       file_contents);
             }
+          else
+            writer(filename,temporary_output_location,file_contents);
 
-          if (write_draw_volume_weighted_lpo.size() != 0)
-            {
-              // Wait for all previous write operations to finish, should
-              // any be still active,
-              background_thread_content_draw_volume_weighting.join ();
 
-              // then continue with writing our own data.
-              background_thread_content_draw_volume_weighting = Threads::new_thread (&writer,
-                                                                                     filename_draw_volume_weighting,
-                                                                                     temporary_output_location,
-                                                                                     file_contents_draw_volume_weighting,
-                                                                                     compress_lpo_data_files);
-            }
-        }
-      else
+      /*unsigned int timestep_number = this->get_timestep_number();
+      std::ofstream myfile;
+
+      const std::string version_op = "12";
+
+
+      std::string filename = "lpo_particle_" + version_op + "_AM_T_" + std::to_string(timestep_number) + "." + std::to_string(dealii::Utilities::MPI::this_mpi_process (MPI_COMM_WORLD)) + ".txt";
+      myfile.open (filename);
+      AssertThrow(myfile.is_open(), ExcMessage("Could not open file"));
+
+      for (unsigned int i_grain = 0; i_grain < n_grains; i_grain++)
         {
-          writer(filename_master,temporary_output_location,file_contents_master, false);
-          if (write_raw_lpo.size() != 0)
-            writer(filename_raw,temporary_output_location,file_contents_raw, compress_lpo_data_files);
-          if (write_draw_volume_weighted_lpo.size() != 0)
-            writer(filename_draw_volume_weighting,temporary_output_location,file_contents_draw_volume_weighting, compress_lpo_data_files);
+          myfile << a_cosine_matrices_olivine[i_grain][0][0] << " " <<  a_cosine_matrices_olivine[i_grain][0][1] << " " <<  a_cosine_matrices_olivine[i_grain][0][2] << " "
+                 << a_cosine_matrices_olivine[i_grain][1][0] << " " <<  a_cosine_matrices_olivine[i_grain][1][1] << " " <<  a_cosine_matrices_olivine[i_grain][1][2] << " "
+                 << a_cosine_matrices_olivine[i_grain][2][0] << " " <<  a_cosine_matrices_olivine[i_grain][2][1] << " " <<  a_cosine_matrices_olivine[i_grain][2][2] << std::endl;
         }
+      myfile.close();
+
+      // Third build the actual patch data
+      patches.resize(particle_handler.n_locally_owned_particles());
+
+      typename dealii::Particles::ParticleHandler<dim>::particle_iterator particle = particle_handler.begin();
+
+      for (unsigned int i=0; particle != particle_handler.end(); ++particle, ++i)
+      */
+
+
+/*
+      const double time_in_years_or_seconds = (this->convert_output_to_years() ?
+                                               this->get_time() / year_in_seconds :
+                                               this->get_time());
+
+      for (std::vector<std::string>::iterator output_format = output_formats.begin();
+           output_format != output_formats.end();
+           ++output_format)
+        {
+          if (*output_format == "none")
+            {
+              // If we do not write output return early with the number of advected particles
+              return std::make_pair("Number of advected particles:",
+                                    Utilities::int_to_string(world.n_global_particles()));
+            }
+          else if (*output_format=="hdf5")
+            {
+              const std::string particle_file_name = "particles/" + particle_file_prefix + ".h5";
+              const std::string xdmf_filename = "particles.xdmf";
+
+              // Do not filter redundant values, there are no duplicate particles
+              DataOutBase::DataOutFilter data_filter(DataOutBase::DataOutFilterFlags(false, true));
+
+              data_out.write_filtered_data(data_filter);
+              data_out.write_hdf5_parallel(data_filter,
+                                           this->get_output_directory()+particle_file_name,
+                                           this->get_mpi_communicator());
+
+              const XDMFEntry new_xdmf_entry = data_out.create_xdmf_entry(data_filter,
+                                                                          particle_file_name,
+                                                                          time_in_years_or_seconds,
+                                                                          this->get_mpi_communicator());
+              xdmf_entries.push_back(new_xdmf_entry);
+              data_out.write_xdmf_file(xdmf_entries, this->get_output_directory() + xdmf_filename,
+                                       this->get_mpi_communicator());
+            }
+          else if (*output_format == "vtu")
+            {
+              // Write master files (.pvtu,.pvd,.visit) on the master process
+              const int my_id = Utilities::MPI::this_mpi_process(this->get_mpi_communicator());
+
+              if (my_id == 0)
+                {
+                  std::vector<std::string> filenames;
+                  const unsigned int n_processes = Utilities::MPI::n_mpi_processes(this->get_mpi_communicator());
+                  const unsigned int n_files = (group_files == 0) ? n_processes : std::min(group_files,n_processes);
+                  for (unsigned int i=0; i<n_files; ++i)
+                    filenames.push_back (particle_file_prefix
+                                         + "." + Utilities::int_to_string(i, 4)
+                                         + ".vtu");
+                  write_master_files (data_out, particle_file_prefix, filenames);
+                }
+
+              const unsigned int n_processes = Utilities::MPI::n_mpi_processes(this->get_mpi_communicator());
+
+              const unsigned int my_file_id = (group_files == 0
+                                               ?
+                                               my_id
+                                               :
+                                               my_id % group_files);
+              const std::string filename = this->get_output_directory()
+                                           + "particles/"
+                                           + particle_file_prefix
+                                           + "."
+                                           + Utilities::int_to_string (my_file_id, 4)
+                                           + ".vtu";
+
+              // pass time step number and time as metadata into the output file
+              DataOutBase::VtkFlags vtk_flags;
+              vtk_flags.cycle = this->get_timestep_number();
+              vtk_flags.time = time_in_years_or_seconds;
+
+              data_out.set_flags (vtk_flags);
+
+              // Write as many files as processes. For this case we support writing in a
+              // background thread and to a temporary location, so we first write everything
+              // into a string that is written to disk in a writer function
+              if ((group_files == 0) || (group_files >= n_processes))
+                {
+                  // Put the content we want to write into a string object that
+                  // we can then write in the background
+                  const std::string *file_contents;
+                  {
+                    std::ostringstream tmp;
+
+                    data_out.write (tmp, DataOutBase::parse_output_format(*output_format));
+                    file_contents = new std::string (tmp.str());
+                  }
+
+                  if (write_in_background_thread)
+                    {
+                      // Wait for all previous write operations to finish, should
+                      // any be still active,
+                      background_thread.join ();
+
+                      // then continue with writing our own data.
+                      background_thread = Threads::new_thread (&writer,
+                                                               filename,
+                                                               temporary_output_location,
+                                                               file_contents);
+                    }
+                  else
+                    writer(filename,temporary_output_location,file_contents);
+                }
+              // Just write one data file in parallel
+              else if (group_files == 1)
+                {
+                  data_out.write_vtu_in_parallel(filename.c_str(),
+                                                 this->get_mpi_communicator());
+                }
+              // Write as many output files as 'group_files' groups
+              else
+                {
+                  int color = my_id % group_files;
+
+                  MPI_Comm comm;
+                  MPI_Comm_split(this->get_mpi_communicator(), color, my_id, &comm);
+
+                  data_out.write_vtu_in_parallel(filename.c_str(), comm);
+                  MPI_Comm_free(&comm);
+                }
+            }
+          // Write in a different format than hdf5 or vtu. This case is supported, but is not
+          // optimized for parallel output in that every process will write one file directly
+          // into the output directory. This may or may not affect performance depending on
+          // the model setup and the network file system type.
+          else
+            {
+              const unsigned int myid = Utilities::MPI::this_mpi_process(this->get_mpi_communicator());
+
+              const std::string filename = this->get_output_directory()
+                                           + "particles/"
+                                           + particle_file_prefix
+                                           + "."
+                                           +  Utilities::int_to_string (myid, 4)
+                                           + DataOutBase::default_suffix
+                                           (DataOutBase::parse_output_format(*output_format));
+
+              std::ofstream out (filename.c_str());
+
+              AssertThrow(out,
+                          ExcMessage("Unable to open file for writing: " + filename +"."));
+
+              data_out.write (out, DataOutBase::parse_output_format(*output_format));
+            }
+        }*/
 
 
       // up the next time we need output
       set_last_output_time (this->get_time());
 
-      const std::string particle_lpo_output = particle_file_prefix_content_raw;
+      const std::string particle_output = this->get_output_directory() + "particle_LPO/" + particle_file_prefix;
 
       // record the file base file name in the output file
       statistics.add_value ("Particle LPO file name",
-                            particle_lpo_output);
-      return std::make_pair("Writing particle lpo output:", particle_lpo_output);
-    }
-
-    template<int dim>
-    std::vector<std::vector<double> >
-    LPO<dim>::random_draw_volume_weighting(std::vector<double> fv,
-                                           std::vector<std::vector<double>> angles) const
-    {
-      // Get volume weighted euler angles, using random draws to convert odf
-      // to a discrete number of orientations, weighted by volume
-      // 1a. Get index that would sort volume fractions AND
-      //ix = np.argsort(fv[q,:]);
-      // 1b. Get the sorted volume and angle arrays
-      std::vector<double> fv_to_sort = fv;
-      std::vector<double> fv_sorted = fv;
-      std::vector<std::vector<double>> angles_sorted = angles;
-
-      unsigned int n_grain = fv_to_sort.size();
-
-
-      /**
-       * ...
-       */
-      for (int i = n_grain-1; i >= 0; --i)
-        {
-          unsigned int index_max_fv = std::distance(fv_to_sort.begin(),max_element(fv_to_sort.begin(), fv_to_sort.end()));
-
-          fv_sorted[i] = fv_to_sort[index_max_fv];
-          angles_sorted[i] = angles[index_max_fv];
-          Assert(angles[index_max_fv].size() == 3, ExcMessage("angles vector (size = " + std::to_string(angles[index_max_fv].size()) +
-                                                              ") should have size 3."));
-          Assert(angles_sorted[i].size() == 3, ExcMessage("angles_sorted vector (size = " + std::to_string(angles_sorted[i].size()) +
-                                                          ") should have size 3."));
-          fv_to_sort[index_max_fv] = -1;
-        }
-
-
-      // 2. Get cumulative weight for volume fraction
-      std::vector<double> cum_weight(n_grains);
-      std::partial_sum(fv_sorted.begin(),fv_sorted.end(),cum_weight.begin());
-      // 3. Generate random indices
-      boost::random::uniform_real_distribution<> dist(0, 1);
-      std::vector<double> idxgrain(n_grains);
-      for (unsigned int grain_i = 0; grain_i < n_grains; ++grain_i)
-        idxgrain[grain_i] = dist(this->random_number_generator); //random.rand(ngrains,1);
-
-      // 4. Find the maximum cum_weight that is less than the random value.
-      // the euler angle index is +1. For example, if the idxGrain(g) < cumWeight(1),
-      // the index should be 1 not zero)
-      std::vector<std::vector<double>> angles_out(n_grains,std::vector<double>(3));
-      for (unsigned int grain_i = 0; grain_i < n_grains; ++grain_i)
-        {
-          unsigned int counter = 0;
-          for (unsigned int grain_j = 0; grain_j < n_grains; ++grain_j)
-            {
-              if (cum_weight[grain_j] < idxgrain[grain_i])
-                {
-                  counter++;
-                }
-              else
-                {
-                  break;
-                }
-            }
-          angles_out[grain_i] = angles_sorted[counter];
-        }
-      return angles_out;
-    }
-
-
-    template <int dim>
-    double
-    LPO<dim>::wrap_angle(const double angle) const
-    {
-      return angle - 360.0*std::floor(angle/360.0);
-    }
-
-    template <int dim>
-    std::vector<double>
-    LPO<dim>::euler_angles_from_rotation_matrix(const Tensor<2,3> &rotation_matrix) const
-    {
-      // ZXZ Euler angles
-      std::vector<double> euler_angles(3);
-      for (size_t i = 0; i < 3; i++)
-        for (size_t j = 0; j < 3; j++)
-          Assert(abs(rotation_matrix[i][j]) <= 1.0,
-                 ExcMessage("rotation_matrix[" + std::to_string(i) + "][" + std::to_string(j) +
-                            "] is larger than one: " + std::to_string(rotation_matrix[i][j]) + " (" + std::to_string(rotation_matrix[i][j]-1.0) + "). rotation_matrix = \n"
-                            + std::to_string(rotation_matrix[0][0]) + " " + std::to_string(rotation_matrix[0][1]) + " " + std::to_string(rotation_matrix[0][2]) + "\n"
-                            + std::to_string(rotation_matrix[1][0]) + " " + std::to_string(rotation_matrix[1][1]) + " " + std::to_string(rotation_matrix[1][2]) + "\n"
-                            + std::to_string(rotation_matrix[2][0]) + " " + std::to_string(rotation_matrix[2][1]) + " " + std::to_string(rotation_matrix[2][2])));
-
-
-      AssertThrow(rotation_matrix[2][2] <= 1.0, ExcMessage("rot_matrix[2][2] > 1.0"));
-      //std::cout<<"The rotation matrix is: "<<rotation_matrix << std::endl;
-      /*for (int i = 0; i < dim; i++)
-               {
-                for (int j = 0; j < dim; j++)
-                {
-                  std::cout << rotation_matrix[i][j] << ", ";
-                }
-                std::cout << std::endl;
-              }*/
-
-      const double theta = std::acos(rotation_matrix[2][2]);//Mod Agi 2022.06.22
-      double phi1 = 0.0;
-      double phi2 = 0.0;
-
-      if (theta != 0.0 && theta != dealii::numbers::PI)
-        {
-          //
-          phi1  = std::atan2(rotation_matrix[2][0]/sin(theta),rotation_matrix[2][1]/-sin(theta));//Mod Agi 2022.06.22
-          phi2  = std::atan2(rotation_matrix[0][2]/sin(theta),rotation_matrix[1][2]/sin(theta));//Mod Agi 2022.06.22
-        }
-      else
-        {
-          // note that in the case theta is 0 or phi a dimension is lost
-          // see: https://en.wikipedia.org/wiki/Gimbal_lock. We set phi1
-          // to 0 and compute the corresponding phi2. The resulting direction
-          // (cosine matrix) should be the same.
-          if (theta == 0.0)
-            {
-              phi2 = - phi1 - std::atan2(-rotation_matrix[0][1],rotation_matrix[0][0]);// Mod Yijun
-            }
-          else
-            {
-              phi2 = phi1 + std::atan2(rotation_matrix[0][1],rotation_matrix[0][0]);
-            }
-
-        }
-
-      
-
-      AssertThrow(!std::isnan(phi1), ExcMessage(" phi1 is nan. theta = " + std::to_string(theta) + ", rotation_matrix[2][2]= " + std::to_string(rotation_matrix[2][2])
-                                                + ", acos(rotation_matrix[2][2]) = " + std::to_string(std::acos(rotation_matrix[2][2])) + ", acos(1.0) = " + std::to_string(std::acos(1.0))));
-      AssertThrow(!std::isnan(theta), ExcMessage(" theta is nan."));
-      AssertThrow(!std::isnan(phi2), ExcMessage(" phi2 is nan."));
-
-      euler_angles[0] = wrap_angle(phi1 * rad_to_degree);
-      euler_angles[1] = wrap_angle(theta * rad_to_degree);
-      euler_angles[2] = wrap_angle(phi2 * rad_to_degree);
-      //std::cout<<"phi1 is: "<<euler_angles[0]<<std::endl;
-      //std::cout<<"theta is: "<<euler_angles[1]<<std::endl;
-      //std::cout<<"phi2 is: "<<euler_angles[2]<<std::endl;
-
-
-      AssertThrow(!std::isnan(euler_angles[0]), ExcMessage(" euler_angles[0] is nan."));
-      AssertThrow(!std::isnan(euler_angles[1]), ExcMessage(" euler_angles[1] is nan."));
-      AssertThrow(!std::isnan(euler_angles[2]), ExcMessage(" euler_angles[2] is nan."));
-
-      return euler_angles;
-    }
-
-    template <int dim>
-    Tensor<2,3>
-    LPO<dim>::euler_angles_to_rotation_matrix(double phi1_d, double theta_d, double phi2_d) const
-    {
-      // ZXZ Euler angles
-      const double phi1 = phi1_d *degree_to_rad;
-      const double theta = theta_d *degree_to_rad;
-      const double phi2 = phi2_d *degree_to_rad;
-      Tensor<2,3> rot_matrix;
-
-
-      rot_matrix[0][0] = cos(phi2)*cos(phi1) - cos(theta)*sin(phi1)*sin(phi2);
-      rot_matrix[0][1] = -cos(phi2)*sin(phi1) - cos(theta)*cos(phi1)*sin(phi2);
-      rot_matrix[0][2] = sin(phi2)*sin(theta); //Mod Agi 2022.06.23.
-
-      rot_matrix[1][0] = sin(phi2)*cos(phi1) + cos(theta)*sin(phi1)*cos(phi2);
-      rot_matrix[1][1] = -sin(phi2)*sin(phi1) + cos(theta)*cos(phi1)*cos(phi2);
-      rot_matrix[1][2] = -cos(phi2)*sin(theta);//Mod Agi 2022.06.23.
-
-      rot_matrix[2][0] = sin(theta)*sin(phi1);//Mod Agi 2022.06.23.
-      rot_matrix[2][1] = sin(theta)*cos(phi1);//Mod Agi 2022.06.23.
-      rot_matrix[2][2] = cos(theta);
-      AssertThrow(rot_matrix[2][2] <= 1.0, ExcMessage("rot_matrix[2][2] > 1.0"));
-      return rot_matrix;
+                            particle_output);
+      return std::make_pair("Writing particle output:", particle_output);
     }
 
 
@@ -737,20 +695,6 @@ namespace aspect
         }
     }
 
-    template <int dim>
-    typename LPO<dim>::Output
-    LPO<dim>::string_to_output_enum(std::string string)
-    {
-      //olivine volume fraction, olivine A matrix, olivine Euler angles, enstatite volume fraction, enstatite A matrix, enstatite Euler angles
-      if (string == "volume fraction")
-        return Output::VolumeFraction;
-      if (string == "rotation matrix")
-        return Output::RotationMatrix;
-      if (string == "Euler angles")
-        return Output::EulerAngles;
-      return Output::not_found;
-    }
-
 
     template <int dim>
     void
@@ -766,18 +710,6 @@ namespace aspect
                                Patterns::Integer (0),
                                "The number of grains of olivine and the number of grain of enstatite "
                                "each particle contains.");
-
-            prm.enter_subsection("D-Rex 2004");
-            {
-              prm.declare_entry ("Minerals", "Olivine: Karato 2008, Enstatite",
-                                 Patterns::List(Patterns::Anything()),
-                                 "This determines what minerals and fabrics or fabric selectors are used used for the LPO calculation. "
-                                 "The options are Olivine: A-fabric, Olivine: B-fabric, Olivine: C-fabric, Olivine: D-fabric, "
-                                 "Olivine: E-fabric, Olivine: Karato 2008 or Enstatite. The "
-                                 "Karato 2008 selector selects a fabric based on stress and water content as defined in "
-                                 "figure 4 of the Karato 2008 review paper (doi: 10.1146/annurev.earth.36.031207.124120).");
-            }
-            prm.leave_subsection ();
           }
           prm.leave_subsection ();
         }
@@ -793,18 +725,32 @@ namespace aspect
                              "'Use years in output instead of seconds' parameter is set; "
                              "seconds otherwise.");
 
-          prm.declare_entry ("Random number seed", "1",
-                             Patterns::Integer (0),
-                             "The seed used to generate random numbers. This will make sure that "
-                             "results are reproducable as long as the problem is run with the "
-                             "same amount of MPI processes. It is implemented as final seed = "
-                             "user seed + MPI Rank. ");
+          // now also see about the file format we're supposed to write in
+          // Note: "ascii" is a legacy format used by ASPECT before particle output
+          // in deal.II was implemented. It is nearly identical to the gnuplot format, thus
+          // we now simply replace "ascii" by "gnuplot" should it be selected.
+          prm.declare_entry ("Data output format", "vtu",
+                             Patterns::MultipleSelection (DataOutBase::get_output_format_names ()+"|ascii"),
+                             "A comma separated list of file formats to be used for graphical "
+                             "output. The list of possible output formats that can be given "
+                             "here is documented in the appendix of the manual where the current "
+                             "parameter is described.");
+
+          prm.declare_entry ("Number of grouped files", "16",
+                             Patterns::Integer(0),
+                             "VTU file output supports grouping files from several CPUs "
+                             "into a given number of files using MPI I/O when writing on a parallel "
+                             "filesystem. Select 0 for no grouping. This will disable "
+                             "parallel file output and instead write one file per processor. "
+                             "A value of 1 will generate one big file containing the whole "
+                             "solution, while a larger value will create that many files "
+                             "(at most as many as there are MPI ranks).");
 
           prm.declare_entry ("Write in background thread", "false",
                              Patterns::Bool(),
                              "File operations can potentially take a long time, blocking the "
                              "progress of the rest of the model run. Setting this variable to "
-                             "`true' moves this process into a background threads, while the "
+                             "`true' moves this process into a background thread, while the "
                              "rest of the model continues.");
 
           prm.declare_entry ("Temporary output location", "",
@@ -815,43 +761,11 @@ namespace aspect
                              "set to a non-empty string it will be interpreted as a "
                              "temporary storage location.");
 
-          prm.declare_entry ("Write out raw lpo data",
-                             "olivine volume fraction,olivine Euler angles,enstatite volume fraction,enstatite Euler angles",
-                             Patterns::List(Patterns::Anything()),
-                             "A list containing the what part of the particle lpo data needs "
-                             "to be written out after the particle id. This writes out the raw "
-                             "lpo data files for each MPI process. It can write out the following data: "
-                             "olivine volume fraction, olivine A matrix, olivine Euler angles, "
-                             "enstatite volume fraction, enstatite A matrix, enstatite Euler angles. \n"
-                             "Note that the A matrix and Euler angles both contain the same "
-                             "information, but in a different format. Euler angles are recommended "
-                             "over the A matrix since they only require to write 3 values instead "
-                             "of 9. If the list is empty, this file will not be written."
-                             "Furthermore, the entries will be written out in the order given, "
-                             "and if entries are entered muliple times, they will be written "
-                             "out multiple times.");
-
-          prm.declare_entry ("Write out draw volume weighted lpo data",
-                             "olivine Euler angles,enstatite Euler angles",
-                             Patterns::List(Patterns::Anything()),
-                             "A list containing the what part of the random draw volume "
-                             "weighted particle lpo data needs to be written out after "
-                             "the particle id. after using a random draw volume weighting. "
-                             "The random draw volume weigthing uses a uniform random distribution "
-                             "This writes out the raw lpo data files for "
-                             "each MPI process. It can write out the following data: "
-                             "olivine volume fraction, olivine A matrix, olivine Euler angles, "
-                             "enstatite volume fraction, enstatite A matrix, enstatite Euler angles. \n"
-                             "Note that the A matrix and Euler angles both contain the same "
-                             "information, but in a different format. Euler angles are recommended "
-                             "over the A matrix since they only require to write 3 values instead "
-                             "of 9. If the list is empty, this file will not be written. "
-                             "Furthermore, the entries will be written out in the order given, "
-                             "and if entries are entered muliple times, they will be written "
-                             "out multiple times.");
-          prm.declare_entry ("Compress lpo data files", "true",
-                             Patterns::Bool(),
-                             "Wether to compress the raw and weighted lpo data output files with zlib.");
+          prm.declare_entry ("Exclude output properties", "",
+                             Patterns::Anything(),
+                             "A comma seperated list of strings which exclude all particle"
+                             " property fields which contain these strings. "
+                             "Todo: do we need a way to generate all posibilites?");
         }
         prm.leave_subsection ();
       }
@@ -864,24 +778,13 @@ namespace aspect
     void
     LPO<dim>::parse_parameters (ParameterHandler &prm)
     {
-      end_time = prm.get_double ("End time");
-      if (this->convert_output_to_years())
-        end_time *= year_in_seconds;
-
       prm.enter_subsection("Postprocess");
       {
         prm.enter_subsection("Particles");
         {
           prm.enter_subsection("LPO");
           {
-            n_grains = prm.get_integer("Number of grains per praticle");
-            prm.enter_subsection("D-Rex 2004");
-            {
-              // Static variable of LPO has not been initialize yet, so we need to get it directly.
-              const std::vector<std::string> temp_deformation_type_selector = dealii::Utilities::split_string_list(prm.get("Minerals")); // todo trim?
-              n_minerals = temp_deformation_type_selector.size();
-            }
-            prm.leave_subsection();
+            n_grains = prm.get_integer("Number of grains per praticle"); //10000;
           }
           prm.leave_subsection ();
         }
@@ -892,16 +795,41 @@ namespace aspect
           if (this->convert_output_to_years())
             output_interval *= year_in_seconds;
 
-          random_number_seed = prm.get_integer ("Random number seed");
+          AssertThrow(this->get_parameters().run_postprocessors_on_nonlinear_iterations == false,
+                      ExcMessage("Postprocessing nonlinear iterations in models with "
+                                 "particles is currently not supported."));
 
-          //AssertThrow(this->get_parameters().run_postprocessors_on_nonlinear_iterations == false,
-          //            ExcMessage("Postprocessing nonlinear iterations in models with "
-          //                       "particles is currently not supported."));
+          output_formats   = Utilities::split_string_list(prm.get ("Data output format"));
+          AssertThrow(Utilities::has_unique_entries(output_formats),
+                      ExcMessage("The list of strings for the parameter "
+                                 "'Particles/Data output format' contains entries more than once. "
+                                 "This is not allowed. Please check your parameter file."));
 
-          aspect::Utilities::create_directory (this->get_output_directory() + "particle_LPO/",
-                                               this->get_mpi_communicator(),
-                                               true);
+          AssertThrow ((std::find (output_formats.begin(),
+                                   output_formats.end(),
+                                   "none") == output_formats.end())
+                       ||
+                       (output_formats.size() == 1),
+                       ExcMessage ("If you specify 'none' for the parameter \"Data output format\", "
+                                   "then this needs to be the only value given."));
 
+          if (std::find (output_formats.begin(),
+                         output_formats.end(),
+                         "none") == output_formats.end())
+            aspect::Utilities::create_directory (this->get_output_directory() + "particles/",
+                                                 this->get_mpi_communicator(),
+                                                 true);
+
+          // Note: "ascii" is a legacy format used by ASPECT before particle output
+          // in deal.II was implemented. It is nearly identical to the gnuplot format, thus
+          // we simply replace "ascii" by "gnuplot" should it be selected.
+          std::vector<std::string>::iterator output_format =  std::find (output_formats.begin(),
+                                                                         output_formats.end(),
+                                                                         "ascii");
+          if (output_format != output_formats.end())
+            *output_format = "gnuplot";
+
+          group_files     = prm.get_integer("Number of grouped files");
           write_in_background_thread = prm.get_bool("Write in background thread");
           temporary_output_location = prm.get("Temporary output location");
 
@@ -917,116 +845,7 @@ namespace aspect
                                      "after writing. The system() command did not succeed in finding such a terminal."));
             }
 
-          std::vector<std::string> write_raw_lpo_list = Utilities::split_string_list(prm.get("Write out raw lpo data"));
-          write_raw_lpo.resize(write_raw_lpo_list.size());
-          bool found_euler_angles = false;
-          for (unsigned int i = 0; i < write_raw_lpo_list.size(); ++i)
-            {
-              std::vector<std::string> split_raw_lpo_instructions = Utilities::split_string_list(write_raw_lpo_list[i],':');
-
-              AssertThrow(split_raw_lpo_instructions.size() == 2,
-                          ExcMessage("Value \""+ write_raw_lpo_list[i] +"\", set in \"Write out raw lpo data\", is not a correct option "
-                                     + "because it should contain a mineral identification and a output specifier seprated by a colon (:). This entry "
-                                     + "does not follow those rules."));
-
-              // get mineral number
-              std::vector<std::string> mineral_instructions = Utilities::split_string_list(split_raw_lpo_instructions[0],' ');
-              AssertThrow(mineral_instructions.size() == 2,
-                          ExcMessage("Value \""+ write_raw_lpo_list[i] +"\", set in \"Write out raw lpo data\", is not a correct option "
-                                     + "because the mineral identification part should contain two elements, the word mineral and a number."));
-
-              AssertThrow(mineral_instructions[0] == "mineral",
-                          ExcMessage("Value \""+ write_raw_lpo_list[i] +"\", set in \"Write out raw lpo data\", is not a correct option "
-                                     + "because the mineral identification part should start with the word mineral and it starts with \""
-                                     + mineral_instructions[0] + "\"."));
-
-              int mineral_number = Utilities::string_to_int(mineral_instructions[1]);
-
-              AssertThrow((unsigned int) mineral_number < n_minerals,
-                          ExcMessage("Value \""+ write_raw_lpo_list[i] +"\", set in \"Write out raw lpo data\", is not a correct option "
-                                     + "because the mineral number (" + std::to_string(mineral_number) + ") is larger than the number of minerals "
-                                     + "provided in the LPO subsection (" + std::to_string(n_minerals) + ")."));
-
-              // get mineral fabric/deformation type
-              Output lpo_fabric_instruction = string_to_output_enum(split_raw_lpo_instructions[1]);
-
-              AssertThrow(lpo_fabric_instruction != Output::not_found,
-                          ExcMessage("Value \""+ write_raw_lpo_list[i] +"\", set in \"Write out raw lpo data\", is not a correct option."))
-
-              if (lpo_fabric_instruction == Output::EulerAngles)
-                found_euler_angles = true;
-
-              write_raw_lpo[i] = std::make_pair(mineral_number,lpo_fabric_instruction);
-            }
-
-          std::vector<std::string> write_draw_volume_weighted_lpo_list = Utilities::split_string_list(prm.get("Write out draw volume weighted lpo data"));
-          write_draw_volume_weighted_lpo.resize(write_draw_volume_weighted_lpo_list.size());
-          bool found_A_matrix = false;
-          for (unsigned int i = 0; i < write_draw_volume_weighted_lpo_list.size(); ++i)
-            {
-              std::vector<std::string> split_draw_volume_weighted_lpo_instructions = Utilities::split_string_list(write_draw_volume_weighted_lpo_list[i],':');
-
-              AssertThrow(split_draw_volume_weighted_lpo_instructions.size() == 2,
-                          ExcMessage("Value \""+ write_draw_volume_weighted_lpo_list[i] +"\", set in \"Write out draw volume weighted lpo data\", is not a correct option "
-                                     + "because it should contain a mineral identification and a output specifier seprated by a colon (:). This entry "
-                                     + "does not follow those rules."));
-
-              // get mineral number
-              std::vector<std::string> mineral_instructions = Utilities::split_string_list(split_draw_volume_weighted_lpo_instructions[0],' ');
-              AssertThrow(mineral_instructions.size() == 2,
-                          ExcMessage("Value \""+ write_draw_volume_weighted_lpo_list[i] +"\", set in \"Write out draw volume weighted lpo data\", is not a correct option "
-                                     + "because the mineral identification part should contain two elements, the word mineral and a number."));
-
-              AssertThrow(mineral_instructions[0] == "mineral",
-                          ExcMessage("Value \""+ write_draw_volume_weighted_lpo_list[i] +"\", set in \"Write out draw volume weighted lpo data\", is not a correct option "
-                                     + "because the mineral identification part should start with the word mineral and it starts with \""
-                                     + mineral_instructions[0] + "\"."));
-
-              int mineral_number = Utilities::string_to_int(mineral_instructions[1]);
-              AssertThrow((unsigned int) mineral_number < n_minerals,
-                          ExcMessage("Value \""+ write_raw_lpo_list[i] +"\", set in \"Write out raw lpo data\", is not a correct option "
-                                     + "because the mineral number (" + std::to_string(mineral_number) + ") is larger than the number of minerals "
-                                     + "provided in the LPO subsection (" + std::to_string(n_minerals) + ")."));
-
-              // get mineral fabric/deformation type
-              Output lpo_fabric_instruction = string_to_output_enum(split_draw_volume_weighted_lpo_instructions[1]);
-
-              AssertThrow(lpo_fabric_instruction != Output::not_found,
-                          ExcMessage("Value \""+ write_draw_volume_weighted_lpo_list[i] +"\", set in \"Write out draw volume weighted lpo data\", is not a correct option."))
-
-              if (lpo_fabric_instruction == Output::RotationMatrix)
-                found_A_matrix = true;
-
-              write_draw_volume_weighted_lpo[i] = std::make_pair(mineral_number,lpo_fabric_instruction);
-            }
-
-          /*std::vector<std::string> write_draw_volume_weighted_lpo_tmp = Utilities::split_string_list(prm.get("Write out draw volume weighted lpo data"));
-          write_draw_volume_weighted_lpo.resize(write_draw_volume_weighted_lpo_tmp.size());
-          bool found_A_matrix = false;
-          for (unsigned int i = 0; i < write_draw_volume_weighted_lpo_tmp.size(); ++i)
-            {
-              write_draw_volume_weighted_lpo[i] = string_to_output_enum(write_draw_volume_weighted_lpo_tmp[i]);
-              AssertThrow(write_draw_volume_weighted_lpo[i] != Output::not_found,
-                          ExcMessage("Value \""+ write_draw_volume_weighted_lpo_tmp[i] +"\", set in \"Write out raw lpo data\", is not a correct option."));
-
-              if (write_draw_volume_weighted_lpo[i] == Output::olivine_A_matrix || write_draw_volume_weighted_lpo[i] == Output::enstatite_A_matrix)
-                found_A_matrix = true;
-            }*/
-
-
-
-
-          if (write_draw_volume_weighted_lpo_list.size() != 0 || found_euler_angles == true)
-            compute_raw_euler_angles = true;
-          else
-            compute_raw_euler_angles = false;
-
-          if (write_draw_volume_weighted_lpo_list.size() != 0 && found_A_matrix == true)
-            compute_weighted_A_matrix = true;
-          else
-            compute_weighted_A_matrix = false;
-
-          compress_lpo_data_files = prm.get_bool("Compress lpo data files");
+          exclude_output_properties = Utilities::split_string_list(prm.get("Exclude output properties"));
         }
         prm.leave_subsection ();
       }
@@ -1042,6 +861,14 @@ namespace aspect
 {
   namespace Postprocess
   {
+    namespace internal
+    {
+#define INSTANTIATE(dim) \
+  template class ParticleOutput<dim>;
+
+      ASPECT_INSTANTIATE(INSTANTIATE)
+    }
+
     ASPECT_REGISTER_POSTPROCESSOR(LPO,
                                   "lpo",
                                   "A Postprocessor that creates particles that follow the "

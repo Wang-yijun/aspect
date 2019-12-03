@@ -29,14 +29,93 @@
 #include <deal.II/particles/particle_handler.h>
 #include <deal.II/base/data_out_base.h>
 #include <tuple>
-DEAL_II_DISABLE_EXTRA_DIAGNOSTICS
-#include <boost/random.hpp>
-DEAL_II_ENABLE_EXTRA_DIAGNOSTICS
 
 namespace aspect
 {
   namespace Postprocess
   {
+    namespace internal
+    {
+      /**
+       * This class is responsible for writing the particle data into a format that can
+       * be written by deal.II, in particular a list of 'patches' that contain one
+       * particle per patch. The base class DataOutInterface is templated with a
+       * dimension of zero (the dimension of the particle / point), and a space dimension
+       * of dim (the dimension in which this zero-dimensional particle lives).
+       */
+      template<int dim>
+      class ParticleOutput : public dealii::DataOutInterface<0,dim>
+      {
+        public:
+          /**
+           * This function prepares the data for writing. It reads the data from @p particle_hander and their
+           * property information from @p property_information, and builds a list of patches that is stored
+           * internally until the destructor is called. This function needs to be called before one of the
+           * write function of the base class can be called to write the output data.
+           */
+          void build_patches(const Particles::ParticleHandler<dim> &particle_handler,
+                             const aspect::Particle::Property::ParticlePropertyInformation &property_information,
+                             std::vector<std::string> &exclude_output_properties,
+                             const bool only_group_3d_vectors);
+
+        private:
+          /**
+           * Implementation of the corresponding function of the base class.
+           */
+          virtual const std::vector<DataOutBase::Patch<0,dim> > &
+          get_patches () const;
+
+          /**
+           * Implementation of the corresponding function of the base class.
+           */
+          virtual std::vector< std::string >
+          get_dataset_names () const;
+
+          /**
+           * Implementation of the corresponding function of the base class.
+           */
+#if DEAL_II_VERSION_GTE(9,1,0)
+          virtual
+          std::vector<
+          std::tuple<unsigned int,
+              unsigned int,
+              std::string,
+              DataComponentInterpretation::DataComponentInterpretation> >
+              get_nonscalar_data_ranges () const;
+#else
+          virtual
+          std::vector<std::tuple<unsigned int, unsigned int, std::string> >
+          get_vector_data_ranges() const;
+#endif
+
+          /**
+           * Output information that is filled by build_patches() and
+           * written by the write function of the base class.
+           */
+          std::vector<DataOutBase::Patch<0,dim> > patches;
+
+          /**
+           * A list of field names for all data components stored in patches.
+           */
+          std::vector<std::string> dataset_names;
+
+          /**
+           * Store which of the data fields are vectors.
+           */
+#if DEAL_II_VERSION_GTE(9,1,0)
+          std::vector<
+          std::tuple<unsigned int,
+              unsigned int,
+              std::string,
+              DataComponentInterpretation::DataComponentInterpretation> >
+              vector_datasets;
+#else
+          std::vector<std::tuple<unsigned int, unsigned int, std::string> >
+          vector_datasets;
+#endif
+      };
+    }
+
     /**
      * A Postprocessor that creates particles, which follow the
      * velocity field of the simulation. The particles can be generated
@@ -62,11 +141,6 @@ namespace aspect
 
 
         /**
-         * Initialize function.
-         */
-        virtual void initialize ();
-
-        /**
          * Execute this postprocessor. Derived classes will implement this
          * function to do whatever they want to do to evaluate the solution at
          * the current time step.
@@ -87,37 +161,8 @@ namespace aspect
         std::pair<std::string,std::string> execute (TableHandler &statistics);
 
         /**
-         * This funcion ensures that the particle postprocessor is run before
-         * this postprocessor.
+         * Declare the parameters this class takes through input files.
          */
-        virtual
-        std::list<std::string>
-        required_other_postprocessors () const;
-
-        /**
-         * Todo
-         */
-        std::vector<std::vector<double>> random_draw_volume_weighting(std::vector<double> fv,
-                                                                      std::vector<std::vector<double>> angles) const;
-
-        /**
-        * Todo
-        */
-        double wrap_angle(const double angle) const;
-
-        /**
-         * Todo
-         */
-        std::vector<double> euler_angles_from_rotation_matrix(const Tensor<2,3> &rotation_matrix) const;
-
-        /**
-         * Todo
-         */
-        Tensor<2,3> euler_angles_to_rotation_matrix(double phi1, double theta, double phi2) const;
-
-        /**
-        * Declare the parameters this class takes through input files.
-        */
         static
         void
         declare_parameters (ParameterHandler &prm);
@@ -131,29 +176,9 @@ namespace aspect
 
       private:
 
-        double end_time;
         /**
          * todo
          */
-        enum class Output
-        {
-          VolumeFraction, RotationMatrix, EulerAngles,
-          not_found
-        };
-
-        Output string_to_output_enum(std::string string);
-
-        const double rad_to_degree = 180.0/M_PI;
-        const double degree_to_rad = M_PI/180.0;
-
-        mutable boost::lagged_fibonacci44497            random_number_generator;
-
-        unsigned int random_number_seed;
-
-        /**
-         * todo
-         */
-        unsigned int n_minerals;
         unsigned int n_grains;
 
 
@@ -247,47 +272,10 @@ namespace aspect
         bool write_in_background_thread;
 
         /**
-         * Handle to a thread that is used to write master file data in the
-         * background. The writer() function runs on this background thread.
+         * Handle to a thread that is used to write data in the background.
+         * The writer() function runs on this background thread.
          */
-        Threads::Thread<void> background_thread_master;
-
-        /**
-         * What raw lpo data to write out
-         */
-        std::vector<std::pair<unsigned int,Output> > write_raw_lpo;
-
-        /**
-         * Whether computing raw Euler angles is needed.
-         */
-        bool compute_raw_euler_angles;
-
-        /**
-         * Handle to a thread that is used to write content file data in the
-         * background. The writer() function runs on this background thread.
-         */
-        Threads::Thread<void> background_thread_content_raw;
-
-        /**
-         * What draw volume weighted lpo data to write out
-         */
-        std::vector<std::pair<unsigned int,Output> > write_draw_volume_weighted_lpo;
-
-        /**
-         * Whether computing weighted A matrix is needed.
-         */
-        bool compute_weighted_A_matrix;
-
-        /**
-         * Handle to a thread that is used to write content file data in the
-         * background. The writer() function runs on this background thread.
-         */
-        Threads::Thread<void> background_thread_content_draw_volume_weighting;
-
-        /**
-         * Whether to compress the raw and weighed lpo data output files with zlib.
-         */
-        bool compress_lpo_data_files;
+        Threads::Thread<void> background_thread;
 
         /**
          * Stores the particle property fields which are ouptut to the
@@ -305,8 +293,27 @@ namespace aspect
         static
         void writer (const std::string filename,
                      const std::string temporary_filename,
-                     const std::string *file_contents,
-                     const bool compress_contents);
+                     const std::string *file_contents);
+
+        /**
+         * Write the various master record files. The master files are used by
+         * visualization programs to identify which of the output files in a
+         * directory, possibly one file written by each processor, belong to a
+         * single time step and/or form the different time steps of a
+         * simulation. For Paraview, this is a <code>.pvtu</code> file per
+         * time step and a <code>.pvd</code> for all time steps. For Visit it
+         * is a <code>.visit</code> file per time step and one for all time
+         * steps.
+         *
+         * @param data_out The DataOut object that was used to write the
+         * solutions.
+         * @param solution_file_prefix The stem of the filename to be written.
+         * @param filenames List of filenames for the current output from all
+         * processors.
+         */
+        void write_master_files (const internal::ParticleOutput<dim> &data_out,
+                                 const std::string &solution_file_prefix,
+                                 const std::vector<std::string> &filenames);
     };
   }
 }
