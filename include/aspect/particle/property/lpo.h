@@ -18,8 +18,8 @@
  <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _aspect_particle_property_lpo_h
-#define _aspect_particle_property_lpo_h
+#ifndef _aspect_particle_property_integrated_strain_h
+#define _aspect_particle_property_integrated_strain_h
 
 #include <aspect/particle/property/interface.h>
 #include <aspect/simulator_access.h>
@@ -37,53 +37,14 @@ namespace aspect
     {
       enum class DeformationType
       {
-        Passive, OlivineAFabric, OlivineBFabric, OlivineCFabric, OlivineDFabric, OlivineEFabric, Enstatite
-      };
-      enum class DeformationTypeSelector
-      {
-        Passive, OlivineAFabric, OlivineBFabric, OlivineCFabric, OlivineDFabric, OlivineEFabric, Enstatite, OlivineKarato2008
-      };
-
-      enum class AdvectionMethod
-      {
-        ForwardEuler, BackwardEuler, CrankNicolson
-      };
-
-      enum class LpoDerivativeAlgorithm
-      {
-        Zero, SpinTensor, DRex2004
-      };
-
-      enum class NondimensionalizationMethod
-      {
-        None, StrainRateSecondInvariant
+        A_type, B_type, C_type, D_type, E_type, enstatite
       };
       /**
-       * Todo: write what this plugin does.
-       *
-       * The layout of the data vector per perticle is the following (note that for this plugin the following dim's are always 3):
-       * 1. water content -> 1 double, always at location data_position -> i = 0;
-       * 2. water content -> 2 double, always at location data_position -> i = 1;
-       * 3. N grains times:
-       *    3.1. volume fraction olivine -> 1 double, at location:
-       *                                    data_position + i_grain * 20 + 2, or
-       *                                    data_position + i_grain * (2 * Tensor<2,3>::n_independent_components+ 2) + 2
-       *    3.2. a_cosine_matrix olivine -> 9 (Tensor<2,dim>::n_independent_components) doubles, starts at:
-       *                                    data_position + i_grain * 20 + 3, or
-       *                                    data_position + i_grain * (2 * Tensor<2,3>::n_independent_components+ 2) + 3
-       *    3.3. volume fraction enstatite -> 1 double, at location:
-       *                                      data_position + i_grain * 20 + 12, or
-       *                                      data_position + i_grain * (Tensor<2,3>::n_independent_components + 2)  + 12
-       *    3.4. a_cosine_matrix enstatite -> 9 (Tensor<2,dim>::n_independent_components) doubles, starts at:
-       *                                      data_position + i_grain * 20 + 13, or
-       *                                      data_position + i_grain * (Tensor<2,3>::n_independent_components + 2) + 13
-       * We store it this way because this is also the order in which it is read, so this should
-       * theoretically minimize chache misses. Note: It has not been tested wheter this is faster then storing it in another way.
-       *
-       * An other note is that we store exactly the same amount of olivine and enstatite grain, although
-       * the volume may not be the same. This has to do with that we need a minimum amount of grains
-       * per tracer to perform reliable statistics on it. This miminum is the same for both olivine and
-       * enstatite.
+       * A class that integrates the finite strain that a particle has
+       * experienced.
+       * The implementation of this property is equivalent to the implementation
+       * for compositional fields that is described in the cookbook
+       * finite_strain <code>cookbooks/finite_strain/finite_strain.cc</code>.
        *
        * @ingroup ParticleProperties
        */
@@ -155,10 +116,6 @@ namespace aspect
           UpdateTimeFlags
           need_update () const;
 
-
-          InitializationModeForLateParticles
-          late_initialization_mode () const;
-
           /**
            * Return which data has to be provided to update the property.
            * The integrated strains needs the gradients of the velocity.
@@ -179,109 +136,17 @@ namespace aspect
           get_property_information() const;
 
           /**
-           * Loads particle data into variables
-           */
-          static
-          void
-          load_particle_data(unsigned int lpo_index,
-                             const ArrayView<double> &data,
-                             std::vector<unsigned int> &deformation_type,
-                             std::vector<double> &volume_fraction_mineral,
-                             std::vector<std::vector<double>> &volume_fractions_mineral,
-                             std::vector<std::vector<Tensor<2,3> > > &a_cosine_matrices_mineral);
-
-
-          /**
-           * Loads particle data into variables
-           */
-          void
-          load_particle_data_extended(unsigned int lpo_index,
-                                      const ArrayView<double> &data,
-                                      std::vector<unsigned int> &deformation_type,
-                                      std::vector<double> &volume_fraction_mineral,
-                                      std::vector<std::vector<double>> &volume_fractions_mineral,
-                                      std::vector<std::vector<Tensor<2,3> > > &a_cosine_matrices_mineral,
-                                      std::vector<std::vector<double> > &volume_fractions_mineral_derivatives,
-                                      std::vector<std::vector<Tensor<2,3> > > &a_cosine_matrices_mineral_derivatives) const;
-
-          /**
-           * Stores information in variables into the data array
-           */
-          static
-          void
-          store_particle_data(unsigned int lpo_data_position,
-                              const ArrayView<double> &data,
-                              std::vector<unsigned int> &deformation_type,
-                              std::vector<double> &volume_fraction_mineral,
-                              std::vector<std::vector<double>> &volume_fractions_mineral,
-                              std::vector<std::vector<Tensor<2,3> > > &a_cosine_matrices_mineral);
-          /**
-           * Stores information in variables into the data array
-           */
-          void
-          store_particle_data_extended(unsigned int lpo_data_position,
-                                       const ArrayView<double> &data,
-                                       std::vector<unsigned int> &deformation_type,
-                                       std::vector<double> &volume_fraction_mineral,
-                                       std::vector<std::vector<double>> &volume_fractions_mineral,
-                                       std::vector<std::vector<Tensor<2,3> > > &a_cosine_matrices_mineral,
-                                       std::vector<std::vector<double> > &volume_fractions_mineral_derivatives,
-                                       std::vector<std::vector<Tensor<2,3> > > &a_cosine_matrices_mineral_derivatives) const;
-
-          /**
-           * Find nearest orthogonal matrix using a SVD if the
-           * deteriminant is more than a tolerance away from one.
-           */
-
-          /**
-           * todo
-           */
-          DeformationType
-          determine_deformation_type(const double stress, const double water_content) const;
-
-
-          /**
-           * Return resolved shear stress based on deformation type.
-           * @param max_value is set by default to 1e60 instead of infinity or
-           * std::numeric_limits<double>::max() because it needs to be able to
-           * be squared without becomming infinite. The default is based on
-           * Fortran D-Rex uses 1e60
-           */
-          std::array<double,4>
-          reference_resolved_shear_stress_from_deformation_type(DeformationType deformation_type,
-                                                                double max_value = 1e60) const;
-
-          std::vector<Tensor<2,3> >
-          random_draw_volume_weighting(std::vector<double> fv,
-                                       std::vector<Tensor<2,3>> matrices,
-                                       unsigned int n_output_grains) const;
-
-
-          /**
            * derivatives: Todo
            */
           double
-          advect_forward_euler(std::vector<double> &volume_fractions,
-                               std::vector<Tensor<2,3> > &a_cosine_matrices,
-                               const std::pair<std::vector<double>, std::vector<Tensor<2,3> > > &derivatives,
-                               const double dt) const;
-          /**
-           * derivatives: Todo
-           */
-          double
-          advect_backward_euler(std::vector<double> &volume_fractions,
-                                std::vector<Tensor<2,3> > &a_cosine_matrices,
-                                const std::pair<std::vector<double>, std::vector<Tensor<2,3> > > &derivatives,
-                                const double dt) const;
-
-          double
-          advect_Crank_Nicolson(std::vector<double> &volume_fractions,
-                                std::vector<Tensor<2,3> > &a_cosine_matrices,
-                                const std::pair<std::vector<double>, std::vector<Tensor<2,3> > > &derivatives,
-                                std::vector<double> &previous_volume_fraction_derivatives,
-                                std::vector<Tensor<2,3> > &previous_a_cosine_matrices_derivatives,
-                                const double dt) const;
-
+          compute_runge_kutta(std::vector<double> &volume_fractions,
+                              std::vector<Tensor<2,3> > &a_cosine_matrices,
+                              const SymmetricTensor<2,dim> &strain_rate,
+                              const Tensor<2,dim> &velocity_gradient_tensor,
+                              const DeformationType deformation_type,
+                              const std::array<double,4> &ref_resolved_shear_stress,
+                              const double strain_rate_second_invariant,
+                              const double dt) const;
 
           /**
            * derivatives: Todo
@@ -289,53 +154,24 @@ namespace aspect
           std::pair<std::vector<double>, std::vector<Tensor<2,3> > >
           compute_derivatives(const std::vector<double> &volume_fractions,
                               const std::vector<Tensor<2,3> > &a_cosine_matrices,
-                              const SymmetricTensor<2,3> &strain_rate_nondimensional,
-                              const Tensor<2,3> &velocity_gradient_tensor_nondimensional,
-                              const double volume_fraction_mineral,
+                              const SymmetricTensor<2,dim> &strain_rate_nondimensional,
+                              const Tensor<2,dim> &velocity_gradient_tensor_nondimensional,
+                              const DeformationType deformation_type,
                               const std::array<double,4> &ref_resolved_shear_stress) const;
 
-          /**
-           * derivatives: Todo
-           */
-          std::pair<std::vector<double>, std::vector<Tensor<2,3> > >
-          compute_derivatives_spin_tensor(const std::vector<double> &volume_fractions,
-                                          const std::vector<Tensor<2,3> > &a_cosine_matrices,
-                                          const SymmetricTensor<2,3> &strain_rate_nondimensional,
-                                          const Tensor<2,3> &velocity_gradient_tensor_nondimensional,
-                                          const double volume_fraction_mineral,
-                                          const std::array<double,4> &ref_resolved_shear_stress) const;
+          std::vector<std::vector<double>>
+                                        volume_weighting(std::vector<double> fv, std::vector<std::vector<double>> angles) const;
 
-          /**
-           * derivatives: Todo
-           * @param prevent_nondimensionalization is only there for the unit test. In normal sitations it should always be set to false,
-           * because the nondimensionalization should always be done (in this exact way), unless you really know what
-           * you are doing.
-           */
-          std::pair<std::vector<double>, std::vector<Tensor<2,3> > >
-          compute_derivatives_drex2004(const std::vector<double> &volume_fractions,
-                                       const std::vector<Tensor<2,3> > &a_cosine_matrices,
-                                       const SymmetricTensor<2,3> &strain_rate_nondimensional,
-                                       const Tensor<2,3> &velocity_gradient_tensor_nondimensional,
-                                       const double volume_fraction_mineral,
-                                       const std::array<double,4> &ref_resolved_shear_stress,
-                                       const bool prevent_nondimensionalization = false) const;
+          double
+          wrap_angle(const double angle) const;
 
-          std::vector<std::vector<double> >
-          volume_weighting(std::vector<double> fv, std::vector<std::vector<double> > angles) const;
 
-          /**
-           * Return the number of grains per particle
-           */
-          static
-          unsigned int
-          get_number_of_grains();
+          std::vector<double>
+          extract_euler_angles_from_dcm(const Tensor<2,3> &rotation_matrix) const;
 
-          /**
-           * Return the number of minerals per particle
-           */
-          static
-          unsigned int
-          get_number_of_minerals();
+          Tensor<2,3>
+          dir_cos_matrix2(double phi1, double theta, double phi2) const;
+
 
           /**
            * Todo, rewrite.
@@ -368,8 +204,6 @@ namespace aspect
 
         private:
 
-          std::vector<DeformationTypeSelector> deformation_type_selector;
-
           double rad_to_degree = 180.0/M_PI;
           double degree_to_rad = M_PI/180.0;
           /**
@@ -381,24 +215,17 @@ namespace aspect
           //boost::variate_generator<boost::lagged_fibonacci44497&, boost::random::uniform_real_distribution<double> > get_random_number;
           unsigned int random_number_seed;
 
-          static
           unsigned int n_grains;
 
-          static
-          unsigned int n_minerals;
-
-          std::vector<double> volume_fractions_minerals;
+          double x_olivine;
 
           double stress_exponent;
 
-          double property_advection_tolerance;
-          unsigned int property_advection_max_iterations;
-
           /**
-           * efficientcy of nucleation parameter.
+           * efficientcy of nucliation parameter.
            * lamda_m in equation 8 of Kamisnki et al. (2004, Geophys. J. Int)
            */
-          double nucleation_efficientcy;
+          double nucliation_efficientcy;
 
           /**
            * An exponent described in equation 10 of Kaminsty and Ribe (2001, EPSL)
@@ -420,21 +247,6 @@ namespace aspect
            */
           double mobility;
 
-          /**
-           * Whether to use the world builder
-           */
-          bool use_world_builder;
-
-          /**
-           * Advection method for particle properties
-           */
-          AdvectionMethod advection_method;
-
-          /**
-           * What algorithm to use to compute the derivatives
-           */
-          LpoDerivativeAlgorithm lpo_derivative_algorithm;
-
 
 
       };
@@ -443,3 +255,4 @@ namespace aspect
 }
 
 #endif
+
