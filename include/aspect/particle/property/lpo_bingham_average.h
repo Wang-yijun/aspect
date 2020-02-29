@@ -79,6 +79,15 @@ namespace aspect
           initialize ();
 
           /**
+           * Initialization function. This function is called once directly
+           * after the initialize function when the property_information is
+           * set.
+           */
+          virtual
+          void
+          post_initialize ();
+
+          /**
            * Initialization function. This function is called once at the
            * creation of every particle for every property to initialize its
            * value.
@@ -207,15 +216,41 @@ namespace aspect
           unsigned int random_number_seed;
 
           unsigned int n_grains;
-          unsigned int n_minerals;
 
           // when doing the random draw volume weighting, this sets how many samples are taken.
           unsigned int n_samples;
+
+          double x_olivine;
+
+          double stress_exponent;
+
+          /**
+           * efficientcy of nucliation parameter.
+           * lamda_m in equation 8 of Kamisnki et al. (2004, Geophys. J. Int)
+           */
+          double nucliation_efficientcy;
+
+          /**
+           * An exponent described in equation 10 of Kaminsty and Ribe (2001, EPSL)
+           */
+          double exponent_p;
+
+          /**
+           * todo
+           */
+          double threshold_GBS;
 
           /**
            * todo
            */
           Tensor<3,3> permutation_operator_3d;
+
+          /**
+           * grain boundery mobility
+           */
+          double mobility;
+
+
 
       };
     }
@@ -223,3 +258,4 @@ namespace aspect
 }
 
 #endif
+
