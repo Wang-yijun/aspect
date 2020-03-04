@@ -72,11 +72,12 @@ namespace aspect
            * set.
            */
           virtual
-          SymmetricTensor<2,6>
-          compute_elastic_tensor (const std::vector<double> &volume_fraction_minerals,
-                                  const std::vector<std::vector<double> > &volume_fractions_grains,
-                                  const std::vector<std::vector<Tensor<2,3> > > &a_cosine_matrices_grains,
-                                  const std::vector<unsigned int> &deformation_type) const;
+          Tensor<2,6>
+          compute_elastic_tensor (double volume_fraction_olivine,
+                                  std::vector<double> &volume_fractions_olivine,
+                                  std::vector<Tensor<2,3> > &a_cosine_matrices_olivine,
+                                  std::vector<double> &volume_fractions_enstatite,
+                                  std::vector<Tensor<2,3> > &a_cosine_matrices_enstatite) const;
 
           /**
            * Initialization function. This function is called once at the
@@ -150,72 +151,9 @@ namespace aspect
           get_property_information() const;
 
           /**
-           * Loads particle data into variables
-           */
-          static
-          void
-          load_particle_data(unsigned int lpo_index,
-                             const ArrayView<double> &data,
-                             SymmetricTensor<2,6> &elastic_tensor);
-
-          /**
-           * Stores information in variables into the data array
-           */
-          static
-          void
-          store_particle_data(unsigned int lpo_data_position,
-                              const ArrayView<double> &data,
-                              SymmetricTensor<2,6> &elastic_tensor);
-
-          /**
-           * Rotate a 3D 4th order tensor with an other 3D 4th
-           */
-          static
-          Tensor<4,3> rotate_4th_order_tensor(const Tensor<4,3> &input_tensor, const Tensor<2,3> &rotation_tensor);
-
-
-          /**
-           * Rotate a 6x6 voigt matrix with an other 3D 4th
-           */
-          static
-          SymmetricTensor<2,6> rotate_6x6_matrix(const Tensor<2,6> &input_tensor, const Tensor<2,3> &rotation_tensor);
-
-          /**
-           * Transform a 4th order tensor into a 6x6 matrix
-           */
-          static
-          SymmetricTensor<2,6> transform_4th_order_tensor_to_6x6_matrix(const Tensor<4,3> &input_tensor);
-
-
-          /**
-           * Transform a 6x6 matrix into a 4th order tensor
-           */
-          static
-          Tensor<4,3> transform_6x6_matrix_to_4th_order_tensor(const SymmetricTensor<2,6> &input_tensor);
-
-
-          /**
-           * From a 21D vector from a 6xt matrix
-           */
-          static
-          Tensor<1,21> transform_6x6_matrix_to_21D_vector(const SymmetricTensor<2,6> &input_tensor);
-
-          /**
-           * From a 21D vector from a 6xt matrix
-           */
-          static
-          SymmetricTensor<2,6> transform_21D_vector_to_6x6_matrix(const Tensor<1,21> &input_tensor);
-
-          /**
-           * Tranform a 4th order tensor directly into a 21D vector.
-           */
-          static
-          Tensor<1,21> transform_4th_order_tensor_to_21D_vector(const Tensor<4,3> &input);
-
-          /**
            * todo
            */
-          std::array<std::array<double,3>,3> compute_s_wave_anisotropy(SymmetricTensor<2,6> &elastic_tensor) const;
+          std::array<std::array<double,3>,3> compute_s_wave_anisotropy(std::vector<Tensor<2,3> > matrices) const;
 
           /**
            * todo
@@ -261,8 +199,8 @@ namespace aspect
           Tensor<2,3,unsigned int> indices_tensor;
           std::vector<double> indices_vector_1;
           std::vector<double> indices_vector_2;
-          SymmetricTensor<2,6> stiffness_matrix_olivine;
-          SymmetricTensor<2,6> stiffness_matrix_enstatite;
+          Tensor<2,6> stiffness_matrix_olivine;
+          Tensor<2,6> stiffness_matrix_enstatite;
 
           double rad_to_degree = 180.0/M_PI;
           double degree_to_rad = M_PI/180.0;
@@ -276,15 +214,41 @@ namespace aspect
           unsigned int random_number_seed;
 
           unsigned int n_grains;
-          unsigned int n_minerals;
 
           // when doing the random draw volume weighting, this sets how many samples are taken.
           unsigned int n_samples;
+
+          double x_olivine;
+
+          double stress_exponent;
+
+          /**
+           * efficientcy of nucliation parameter.
+           * lamda_m in equation 8 of Kamisnki et al. (2004, Geophys. J. Int)
+           */
+          double nucliation_efficientcy;
+
+          /**
+           * An exponent described in equation 10 of Kaminsty and Ribe (2001, EPSL)
+           */
+          double exponent_p;
+
+          /**
+           * todo
+           */
+          double threshold_GBS;
 
           /**
            * todo
            */
           Tensor<3,3> permutation_operator_3d;
+
+          /**
+           * grain boundery mobility
+           */
+          double mobility;
+
+
 
       };
     }
@@ -292,3 +256,4 @@ namespace aspect
 }
 
 #endif
+
