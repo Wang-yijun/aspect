@@ -488,6 +488,8 @@ namespace aspect
               composition_mask.set(i,false);
           }
 
+        composition_mask = composition_mask & user_component_masks;
+
         return composition_mask;
       }
 
@@ -723,6 +725,13 @@ namespace aspect
                        ExcMessage("If adiabatic heating is enabled you should not add another adiabatic gradient"
                                   "to the temperature for computing the viscosity, because the ambient"
                                   "temperature profile already includes the adiabatic gradient."));
+
+        std::vector<std::string> component_masks_string = Utilities::split_string_list(prm.get("List of component masks"));
+        user_component_masks = ComponentMask(this->n_compositional_fields(),true);
+        for (auto &&mask : component_masks_string)
+          {
+            user_component_masks.set(this->introspection().compositional_index_for_name(mask), false);
+          }
 
       }
 
