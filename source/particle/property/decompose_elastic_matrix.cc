@@ -34,10 +34,10 @@ namespace aspect
     {
 
       template <int dim> SymmetricTensor<2,21> DecomposeElasticMatrix<dim>::projection_matrix_tric_to_mono;
-      template <int dim> SymmetricTensor<2,9> DecomposeElasticMatrix<dim>::projection_matrix_mono_to_ortho;
-      template <int dim> SymmetricTensor<2,9> DecomposeElasticMatrix<dim>::projection_matrix_ortho_to_tetra;
-      template <int dim> SymmetricTensor<2,9> DecomposeElasticMatrix<dim>::projection_matrix_tetra_to_hexa;
-      template <int dim> SymmetricTensor<2,9> DecomposeElasticMatrix<dim>::projection_matrix_hexa_to_iso;
+      template <int dim> SymmetricTensor<2,21> DecomposeElasticMatrix<dim>::projection_matrix_mono_to_ortho;
+      template <int dim> SymmetricTensor<2,21> DecomposeElasticMatrix<dim>::projection_matrix_ortho_to_tetra;
+      template <int dim> SymmetricTensor<2,21> DecomposeElasticMatrix<dim>::projection_matrix_tetra_to_hexa;
+      template <int dim> SymmetricTensor<2,21> DecomposeElasticMatrix<dim>::projection_matrix_hexa_to_iso;
       template <int dim> Tensor<3,3> DecomposeElasticMatrix<dim>::permutation_operator_3d;
 
 
@@ -172,6 +172,7 @@ namespace aspect
         // get_random_number function as well. But I will need to test this.
         const unsigned int my_rank = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
         this->random_number_generator.seed(random_number_seed+my_rank);
+        //std::cout << ">>> random_number_seed+my_rank = " << random_number_seed+my_rank << ", random_number_seed = " << random_number_seed << std::endl;
 
         const Particle::Property::Manager<dim> &manager = this->get_particle_world().get_property_manager();
         //AssertThrow(manager.plugin_name_exists("lpo"),
@@ -189,6 +190,7 @@ namespace aspect
 
         //lpo_data_position = manager.get_data_info().get_position_by_plugin_index(manager.get_plugin_index_by_name("lpo"));
         lpo_elastic_tensor_data_position = manager.get_data_info().get_position_by_plugin_index(manager.get_plugin_index_by_name("lpo elastic tensor"));
+//std::cout << "flag 1" << std::endl;
       }
 
 
@@ -272,6 +274,10 @@ namespace aspect
         const SymmetricTensor<2,3> voigt_stiffness_tensor_full = compute_voigt_stiffness_tensor(elastic_matrix);
         Tensor<2,3> SCC_full = compute_unpermutated_SCC(dilatation_stiffness_tensor_full, voigt_stiffness_tensor_full);
 
+        //double full_elastic_vector_norm_square = LpoElasticTensor<dim>::transform_6x6_matrix_to_21D_vector(elastic_matrix).norm_square();
+        //double full_elastic_vector_norm_square_rot = LpoElasticTensor<dim>::transform_6x6_matrix_to_21D_vector(LpoElasticTensor<dim>::rotate_6x6_matrix(elastic_matrix,SCC_full)).norm_square();
+        //std::cout << "full_elastic_vector_norm_square = " << full_elastic_vector_norm_square << ", rot = " << full_elastic_vector_norm_square_rot << std::endl;
+
         std::array<std::array<double,3>,7 > norms = compute_elastic_tensor_SCC_decompositions(SCC_full, elastic_matrix);
 
         // get max hexagonal element index, which is the same as the permutation index
@@ -283,6 +289,24 @@ namespace aspect
           {
             hexa_permutated_SCC[index] = SCC_full[perumation[index]];
           }
+
+
+
+        /*std::cout << " ------> %percentages (min-norm:perm;max-norm:perm): isotropic = " << (norms[5][0]/full_elastic_vector_norm_square)*100
+                  << ", hexag = (" << (norms[4][min_max_norm_elemtents[4][0]]/full_elastic_vector_norm_square)*100 << ":" << min_max_norm_elemtents[4][0] << ";" << (norms[4][min_max_norm_elemtents[4][1]]/full_elastic_vector_norm_square)*100 << ":" << min_max_norm_elemtents[4][1] <<  ")"
+                  << ", tetra = (" << (norms[3][min_max_norm_elemtents[3][0]]/full_elastic_vector_norm_square)*100 << ":" << min_max_norm_elemtents[3][0] << ";" << (norms[3][min_max_norm_elemtents[3][1]]/full_elastic_vector_norm_square)*100 << ":" << min_max_norm_elemtents[3][1] <<  ")"
+                  << ", ortho = (" << (norms[2][min_max_norm_elemtents[2][0]]/full_elastic_vector_norm_square)*100 << ":" << min_max_norm_elemtents[2][0] << ";" << (norms[2][min_max_norm_elemtents[2][1]]/full_elastic_vector_norm_square)*100 << ":" << min_max_norm_elemtents[2][1] <<  ")"
+                  << ", monoc = (" << (norms[1][min_max_norm_elemtents[1][0]]/full_elastic_vector_norm_square)*100 << ":" << min_max_norm_elemtents[1][0] << ";" << (norms[1][min_max_norm_elemtents[1][1]]/full_elastic_vector_norm_square)*100 << ":" << min_max_norm_elemtents[1][1] <<  ")"
+                  << ", tricl = (" << (norms[0][min_max_norm_elemtents[0][0]]/full_elastic_vector_norm_square)*100 << ":" << min_max_norm_elemtents[0][0] << ";" << (norms[0][min_max_norm_elemtents[0][1]]/full_elastic_vector_norm_square)*100 << ":" << min_max_norm_elemtents[0][1] <<  ")"
+                  << std::endl << std::endl;
+
+        std::cout << " ------> %anisotropy = " << (anistropic_norm/full_elastic_vector_norm_square)*100. << ", (min-norm:perm;max-norm:perm):"
+                  << ", hexag = (" << (norms[4][min_max_norm_elemtents[4][0]]/anistropic_norm)*100  << ";" << (norms[4][min_max_norm_elemtents[4][1]]/anistropic_norm)*100 <<  ")"
+                  << ", tetra = (" << (norms[3][min_max_norm_elemtents[3][0]]/anistropic_norm)*100  << ";" << (norms[4][min_max_norm_elemtents[4][1]]/anistropic_norm)*100 <<  ")"
+                  << ", ortho = (" << (norms[2][min_max_norm_elemtents[2][0]]/anistropic_norm)*100  << ";" << (norms[4][min_max_norm_elemtents[4][1]]/anistropic_norm)*100 <<  ")"
+                  << ", monoc = (" << (norms[1][min_max_norm_elemtents[1][0]]/anistropic_norm)*100  << ";" << (norms[4][min_max_norm_elemtents[4][1]]/anistropic_norm)*100 <<  ")"
+                  << ", tricl = (" << (norms[0][min_max_norm_elemtents[0][0]]/anistropic_norm)*100  << ";" << (norms[4][min_max_norm_elemtents[4][1]]/anistropic_norm)*100 <<  ")"
+                  << std::endl;*/
 
         data[data_position]    = SCC_full[0][0];
         data[data_position+1]  = SCC_full[0][1];
@@ -435,6 +459,28 @@ namespace aspect
         const std::array<std::pair<double,Tensor<1,3,double> >, 3> voigt_eigenvectors_a = eigenvectors(voigt_stiffness_tensor, SymmetricTensorEigenvectorMethod::jacobi);
         const std::array<std::pair<double,Tensor<1,3,double> >, 3> dilatation_eigenvectors_a = eigenvectors(dilatation_stiffness_tensor, SymmetricTensorEigenvectorMethod::jacobi);
 
+        //std::cout << "voigt_eigenvectors = " << std::endl;
+        //for (size_t iii = 0; iii < 3; iii++)
+        //{
+        //  for (size_t jjj = 0; jjj < 3; jjj++)
+        //  {
+        //    std::cout << voigt_eigenvectors_a[iii].second[jjj] << " ";
+        //  }
+        //  std::cout << std::endl;
+        //}
+        //std::cout << std::endl;
+
+        //std::cout << "dilatation_eigenvectors = " << std::endl;
+        //for (size_t iii = 0; iii < 3; iii++)
+        //{
+        //  for (size_t jjj = 0; jjj < 3; jjj++)
+        //  {
+        //    std::cout << dilatation_eigenvectors_a[iii].second[jjj] << " ";
+        //  }
+        //  std::cout << std::endl;
+        //}
+        //std::cout << std::endl;
+
 
         std::vector<Tensor<1,3,double> > unpermutated_SCC(3);
         // averaging eigenvectors
@@ -471,6 +517,7 @@ namespace aspect
             unpermutated_SCC[i1] = 0.5*(dilatation_eigenvectors_a[i1].second + (double)NDVC*voigt_eigenvectors_a[std::abs((int)NDVC)].second);
             unpermutated_SCC[i1] = unpermutated_SCC[i1]/unpermutated_SCC[i1].norm();
           }
+        //std::cout << "NDVC = " << NDVC << std::endl;
 
         return Tensor<2,3>(
         {
@@ -502,15 +549,27 @@ namespace aspect
         Tensor<2,3> permutated[3];
         SymmetricTensor<2,6> rotated_elastic_matrix[3];
         std::array<std::array<double,3>,7> norms;
-
+        // the norms of the full tensor are only the same in the SCC axes.
+        //std::cout << "-------------------------------------------------" << std::endl;
+        //std::cout << " ===> unro = " << std::endl;
+        //    for (size_t iii = 0; iii < 6; iii++)
+        //    {
+        //      for (size_t jjj = 0; jjj < 6; jjj++)
+        //      {
+        //        std::cout << std::setprecision(2) <<std::setw(8) << elastic_matrix[iii][jjj] << " ";
+        //      }
+        //      std::cout << std::endl;
+        //    }
         for (unsigned short int permutation_i = 0; permutation_i < 3; permutation_i++)
           {
+            //std::cout << "permutation_i = " << permutation_i << std::endl;
             std::array<unsigned short int, 3> perumation = indexed_even_permutation(permutation_i);
 
             for (size_t j = 0; j < 3; j++)
               {
                 permutated[permutation_i][j] = unpermutated_SCC[perumation[j]];
               }
+            //std::cout << "permutated scc: " << permutated[permutation_i] << std::endl;
 
             rotated_elastic_matrix[permutation_i] = LpoElasticTensor<dim>::rotate_6x6_matrix(elastic_matrix,(permutated[permutation_i]));
 
@@ -519,69 +578,58 @@ namespace aspect
 
             const double full_norm_square = full_elastic_vector_rotated.norm_square();
             norms[6][permutation_i] = full_norm_square;
-
-            // The following line would do the same as the lines below, but is is very slow. It has therefore been
-            // replaced by the lines below.
-            //auto mono_and_higher_vector = projection_matrix_tric_to_mono*full_elastic_vector_rotated;
-            dealii::Tensor<1,21> mono_and_higher_vector;
-            mono_and_higher_vector[0] = full_elastic_vector_rotated[0];
-            mono_and_higher_vector[1] = full_elastic_vector_rotated[1];
-            mono_and_higher_vector[2] = full_elastic_vector_rotated[2];
-            mono_and_higher_vector[3] = full_elastic_vector_rotated[3];
-            mono_and_higher_vector[4] = full_elastic_vector_rotated[4];
-            mono_and_higher_vector[5] = full_elastic_vector_rotated[5];
-            mono_and_higher_vector[6] = full_elastic_vector_rotated[6];
-            mono_and_higher_vector[7] = full_elastic_vector_rotated[7];
-            mono_and_higher_vector[8] = full_elastic_vector_rotated[8];
-            mono_and_higher_vector[11] = full_elastic_vector_rotated[11];
-            mono_and_higher_vector[14] = full_elastic_vector_rotated[14];
-            mono_and_higher_vector[17] = full_elastic_vector_rotated[17];
-            mono_and_higher_vector[20] = full_elastic_vector_rotated[20];
-
+            //std::cout << " ===> full = " << std::endl;
+            //for (size_t iii = 0; iii < 6; iii++)
+            //{
+            //  for (size_t jjj = 0; jjj < 6; jjj++)
+            //  {
+            //    std::cout << std::setprecision(2) <<std::setw(8) << rotated_elastic_matrix[permutation_i][iii][jjj] << " ";
+            //  }
+            //  std::cout << std::endl;
+            //}
+            //std::cout << std::endl;
+            //std::cout << " ===> full: full_square_norm = " << full_norm_square << std::endl;
+            auto mono_and_higher_vector = projection_matrix_tric_to_mono*full_elastic_vector_rotated;
             auto tric_vector = full_elastic_vector_rotated-mono_and_higher_vector;
             //auto tric = LpoElasticTensor<dim>::transform_21D_vector_to_6x6_matrix(tric_vector);
             norms[0][permutation_i] = tric_vector.norm_square();
+            //std::cout << " ===> tric: norm = " << tric_vector.norm_square() << ", perc = " << (tric_vector.norm_square()/full_norm_square)*100 << std::endl;
 
-            // The following line would do the same as the lines below, but is is slow. It has therefore been
-            // replaced by the lines below.
-            //auto ortho_and_higher_vector = projection_matrix_mono_to_ortho*mono_and_higher_vector;
-            dealii::Tensor<1,9>  mono_and_higher_vector_croped;
-            mono_and_higher_vector_croped[0] = mono_and_higher_vector[0];
-            mono_and_higher_vector_croped[1] = mono_and_higher_vector[1];
-            mono_and_higher_vector_croped[2] = mono_and_higher_vector[2];
-            mono_and_higher_vector_croped[3] = mono_and_higher_vector[3];
-            mono_and_higher_vector_croped[4] = mono_and_higher_vector[4];
-            mono_and_higher_vector_croped[5] = mono_and_higher_vector[5];
-            mono_and_higher_vector_croped[6] = mono_and_higher_vector[6];
-            mono_and_higher_vector_croped[7] = mono_and_higher_vector[7];
-            mono_and_higher_vector_croped[8] = mono_and_higher_vector[8];
-            dealii::Tensor<1,9> ortho_and_higher_vector;
-            ortho_and_higher_vector[0] = mono_and_higher_vector[0];
-            ortho_and_higher_vector[1] = mono_and_higher_vector[1];
-            ortho_and_higher_vector[2] = mono_and_higher_vector[2];
-            ortho_and_higher_vector[3] = mono_and_higher_vector[3];
-            ortho_and_higher_vector[4] = mono_and_higher_vector[4];
-            ortho_and_higher_vector[5] = mono_and_higher_vector[5];
-            ortho_and_higher_vector[6] = mono_and_higher_vector[6];
-            ortho_and_higher_vector[7] = mono_and_higher_vector[7];
-            ortho_and_higher_vector[8] = mono_and_higher_vector[8];
-            auto mono_vector = mono_and_higher_vector_croped-ortho_and_higher_vector;
+            auto ortho_and_higher_vector = projection_matrix_mono_to_ortho*mono_and_higher_vector;
+            auto mono_vector = mono_and_higher_vector-ortho_and_higher_vector;
             //auto mono = LpoElasticTensor<dim>::transform_21D_vector_to_6x6_matrix(mono_vector);
             norms[1][permutation_i] = mono_vector.norm_square();
+            //std::cout << " ===> mono: norm = " << mono_vector.norm_square() << ", perc = " << (mono_vector.norm_square()/full_norm_square)*100 << std::endl;
 
 
             auto tetra_and_higher_vector = projection_matrix_ortho_to_tetra*ortho_and_higher_vector;
             auto ortho_vector = ortho_and_higher_vector-tetra_and_higher_vector;
+            //auto ortho = LpoElasticTensor<dim>::transform_21D_vector_to_6x6_matrix(ortho_vector);
             norms[2][permutation_i] = ortho_vector.norm_square();
+            //std::cout << " ===> ortho: norm = " << ortho_vector.norm_square() << ", perc = " << (ortho_vector.norm_square()/full_norm_square)*100 << std::endl;
 
             auto hexa_and_higher_vector = projection_matrix_tetra_to_hexa*tetra_and_higher_vector;
             auto tetra_vector = tetra_and_higher_vector-hexa_and_higher_vector;
+            //auto tetra = LpoElasticTensor<dim>::transform_21D_vector_to_6x6_matrix(tetra_vector);
             norms[3][permutation_i] = tetra_vector.norm_square();
+            //std::cout << " hexa_and_higher_vector = " << hexa_and_higher_vector << ", tetra_vector = " << tetra_vector << ", tetra_and_higher_vector = " << tetra_and_higher_vector << std::endl;
+            //std::cout << " ===> tetra: norm = " << tetra_vector.norm_square() << ", perc = " << (tetra_vector.norm_square()/full_norm_square)*100 << std::endl;//LpoElasticTensor<dim>::transform_21D_vector_to_6x6_matrix(tetra_and_higher_vector-projection_matrix_tetra_to_hexa*tetra_and_higher_vector) << std::endl;
+
 
             auto iso_vector = projection_matrix_hexa_to_iso*hexa_and_higher_vector;
             auto hexa_vector = hexa_and_higher_vector-iso_vector;
+            //auto hexa = LpoElasticTensor<dim>::transform_21D_vector_to_6x6_matrix(hexa_vector);
+            //auto iso = LpoElasticTensor<dim>::transform_21D_vector_to_6x6_matrix(iso_vector);
             norms[4][permutation_i] = hexa_vector.norm_square();
             norms[5][permutation_i] = iso_vector.norm_square();
+            //std::cout << " ===> hexa: norm = " << hexa_vector.norm_square() << ", perc = " << (hexa_vector.norm_square()/full_norm_square)*100  << std::endl;
+            //std::cout << " ===> iso: norm = " << iso_vector.norm_square() << ", perc = " << (iso_vector.norm_square()/full_norm_square)*100 << std::endl;
+            //std::cout << "inv perc ani = " << ((full_elastic_vector_rotated - iso_vector).norm_square()/full_norm_square)*100. << std::endl;//<< ", sqrt prec = " <<  ((full_elastic_vector_rotated - iso_vector).norm()/full_norm)*100.<<std::endl;
+            //const double total_anisotropic = hexa_vector.norm_square() + tetra_vector.norm_square() + ortho_vector.norm_square() + mono_vector.norm_square() + tric_vector.norm_square();
+            //std::cout << "%anisotropy = "  <<  ((full_elastic_vector_rotated - iso_vector).norm_square()/full_norm_square)*100.
+            //          << ", %of anisotropic: hexa =  " << (hexa_vector.norm_square()/total_anisotropic)*100. << ", tetra = " << (tetra_vector.norm_square()/total_anisotropic)*100.
+            //          << ", ortho = " << (ortho_vector.norm_square()/total_anisotropic)*100 << ", mono = " << (mono_vector.norm_square()/total_anisotropic)*100 << ", tric = " << (tric_vector.norm_square()/total_anisotropic)*100 << ((tric_vector.norm_square()/total_anisotropic)*100 > 5. ? " <<<------------" : "") << std::endl;
+
 
           }
         return norms;
@@ -642,6 +690,8 @@ namespace aspect
                 lowest_norm_classic = current_norm;
                 lowest_norm_permutation_classic = permutation_i;
               }
+
+            //std::cout << "   => " << permutation_i << ": lowest_norm = " << lowest_norm_classic << ", current_norm = " << current_norm << ", lowest_norm_permutation = " << lowest_norm_permutation_classic << std::endl;
           }
 
         AssertThrow(lowest_norm_permutation_classic < 3,
@@ -836,3 +886,4 @@ namespace aspect
     }
   }
 }
+
