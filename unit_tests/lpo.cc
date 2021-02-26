@@ -1780,6 +1780,7 @@ TEST_CASE("LPO elastic tensor")
 
 TEST_CASE("LPO elastic tensor decomposition")
 {
+  using namespace dealii;
   using namespace aspect::Particle::Property;
   {
     auto elastic_composition_class = DecomposeElasticMatrix<3>();
