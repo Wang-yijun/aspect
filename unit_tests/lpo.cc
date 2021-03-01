@@ -1591,7 +1591,7 @@ TEST_CASE("LPO elastic tensor")
     {
       for (size_t j = 0; j < 6; j++)
         {
-          REQUIRE(computed_elastic_tensor[i][j] == Approx(reference_elastic_tensor[i][j]));
+          CHECK(computed_elastic_tensor[i][j] == Approx(reference_elastic_tensor[i][j]));
         }
     }
 
