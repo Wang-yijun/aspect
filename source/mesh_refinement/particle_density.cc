@@ -49,7 +49,7 @@ namespace aspect
             // of particles per cell, therefore creating fine cells in regions
             // of high particle density and coarse cells in low particle
             // density regions.
-            indicators(cell->active_cell_index()) = static_cast<float>(particle_handler.n_particles_in_cell(cell));
+            indicators(cell->active_cell_index()) = static_cast<float>(particle_handler.n_particles_in_cell(cell) >= 1);
           }
     }
   }
