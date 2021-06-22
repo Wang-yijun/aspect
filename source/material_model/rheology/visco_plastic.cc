@@ -423,6 +423,9 @@ namespace aspect
       {
         // Store which components to exclude during the volume fraction computation.
         ComponentMask composition_mask = strain_rheology.get_strain_composition_mask();
+        
+        //Providing a mask for a field to hold the sediment age. We don't want this to be included in any averages.
+        composition_mask.set(this->introspection().compositional_index_for_name("sediment_age"),false);
 
         if (use_elasticity)
           {
