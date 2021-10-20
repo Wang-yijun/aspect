@@ -10,9 +10,10 @@ set Dimension                              = 3
 # There are several global variables that have to do with what
 # time system we want to work in and what the end time is. We
 # also designate an output directory.
-set Use years in output instead of seconds = false
-set End time                               = 5 #100. #00.0 #0.0125 #5.0
+set Use years in output instead of seconds = true
+set End time                               = 1e6 #100. #00.0 #0.0125 #5.0
 set Nonlinear solver scheme = single Advection, no Stokes
+set Output directory                       = shearbox_test_LPOAV
 
 # Then there are variables that describe how the pressure should
 # be normalized. Here, we choose a zero average pressure
@@ -23,17 +24,17 @@ set Surface pressure                       = 0
 
 
 subsection Compositional fields
-  set Number of fields = 1
-  set Names of fields = water
- set Compositional field methods = static
+  set Number of fields = 3
+  set Names of fields = euler1, euler2, euler3
 end
 
 subsection Initial composition model
-  set Model name = function
+  set List of model names = function
 
   subsection Function
-    set Variable names      = x,y,z
-    set Function expression = 0 #if(z<-0.5*x+300000, 800, 25)
+    set Function expression = 25;\
+                              35;\
+                              45; #if(z<-0.5*x+300000, 800, 25)
   end
 end
 
@@ -49,12 +50,12 @@ subsection Geometry model
   set Model name = box
 
   subsection Box
-    set X extent = 22
-    set Y extent = 22
-    set Z extent = 22
-    set Box origin X coordinate = -12
-    set Box origin Y coordinate = -12
-    set Box origin Z coordinate = -12
+    set X extent = 22000
+    set Y extent = 22000
+    set Z extent = 22000
+    set Box origin X coordinate = -12000
+    set Box origin Y coordinate = -12000
+    set Box origin Z coordinate = -12000
   end
 end
 
@@ -73,7 +74,7 @@ subsection Initial temperature model
   set Model name = function
 
   subsection Function
-    set Function expression = 1 ## Annotation: Temperature function
+    set Function expression = 1600 ## Annotation: Temperature function
   end
 end
 
@@ -89,12 +90,12 @@ subsection Boundary temperature model
   set Fixed temperature boundary indicators   = bottom, top, left, right, front, back
 
   subsection Box
-    set Bottom temperature = 1
-    set Left temperature   = 1
-    set Right temperature  = 1
-    set Top temperature    = 1
-    set Front temperature  = 1
-    set Back temperature   = 1
+    set Bottom temperature = 1600
+    set Left temperature   = 1600
+    set Right temperature  = 1600
+    set Top temperature    = 1600
+    set Front temperature  = 1600
+    set Back temperature   = 1600
   end
 end
 
@@ -102,7 +103,7 @@ end
 subsection Boundary velocity model
   subsection Function
     set Variable names = x,y,z,t
-    set Function expression = if(t<2.5,z-1,0);if(t<2.5,0,x-1);0; ## Annotation: set velocity condition 
+    set Function expression = if(t<2.5,z/100,0);if(t<2.5,0,x/100);0; ## Annotation: set velocity condition 
   end
 end
 
@@ -124,21 +125,18 @@ subsection Gravity model
   set Model name = vertical
 
   subsection Vertical
-    set Magnitude = 1e16   # = Ra / Thermal expansion coefficient
+    set Magnitude = 10   # 
   end
 end
 
 
 subsection Material model
-  set Model name = simple # default:
+  set Model name = AnisotropicViscosity material
 
-  subsection Simple model
-    set Reference density             = 1
-    set Reference specific heat       = 1
-    set Reference temperature         = 1
-    set Thermal conductivity          = 1
-    set Thermal expansion coefficient = 1e-10
-    set Viscosity                     = 1
+  subsection AnisotropicViscosity
+    set Reference viscosity           = 1e20
+    set Minimum strain rate           = 1e-19 
+    set Grain size                    = 1000 #give it in microns
   end
 end
 
@@ -170,64 +168,64 @@ end
 # our start time (zero) and final time (0.5) this means that
 # we will obtain 50 output files.
 subsection Postprocess
-  set List of postprocessors = velocity statistics, temperature statistics, heat flux statistics, visualization, particles, lpo
+  set List of postprocessors = velocity statistics, temperature statistics, heat flux statistics, visualization
 
   subsection Visualization
-    set Time between graphical output = 0.1 #0.024999
-    set List of output variables = density, viscosity, strain rate, gravity
+    set Time between graphical output = 1e5 #0.024999
+    set List of output variables = compositional vector, density, viscosity, gravity, shear stress, stress, strain rate, strain rate tensor, named additional outputs
   end
-  subsection Particles
-    set Number of particles        = 27 #0
-    set Time between data output = 0.025 #0.02499999999999
-    set Data output format       = vtu
+  #subsection Particles
+   # set Number of particles        = 27 #0
+   # set Time between data output = 0.025 #0.02499999999999
+   # set Data output format       = vtu
     #set List of particle properties =  integrated strain invariant, lpo s wave anisotropy  #function, initial composition, initial position, pT path
     #set List of particle properties = lpo, lpo bingham average, integrated strain invariant #, lpo s wave anisotropy  #function, initial composition, initial position, pT path
     #set Exclude output properties = a_cosine_matrix, volume fraction #lpo average olivine a axis, lpo average olivine b axis, lpo average olivine c axis, lpo average enstatite a axis, lpo average enstatite b axis, lpo average enstatite c axis, integrated strain invariant  
-    set List of particle properties = lpo, lpo bingham average,lpo elastic tensor, decompose elastic matrix, integrated strain invariant 
-    set Exclude output properties = a_cosine_matrix, volume fraction 
-    set Particle generator name = ascii file 
-    subsection Generator
-      subsection Ascii file
-        set  Data directory =  /Volumes/GoogleDrive/My Drive/ASPECT/ASPECT_parameter_files/LPO_testing/
-        set Data file name = particle_3D_block_zero500.dat
-      end
-    end
-    subsection LPO
-      set Random number seed = 301
-      set Number of grains per praticle = 1000 #4394 #1000 #5000 #10000 #10000 ## Annotation: grain count
-      set Property advection method = Backward Euler #Forward Euler #Backward Euler #Crank-Nicolson #Backward Euler ## Annotation: Property advection method
-      set Property advection tolerance = 1e-15
-      subsection D-Rex 2004
-        set Minerals = Olivine: E-fabric, Enstatite ## Annotation: Minerals
-        set Mobility = 125 ## Annotation: LPO Mobility
-        set Volume fractions minerals = 0.7, 0.3 ## Annotation: Volume fractions minerals
-        set Stress exponents = 3.5
-        set Exponents p = 1.5
-        set Nucleation efficientcy = 5 ## Annotation: Nucleation efficientcy
-        set Threshold GBS = 0.3 ## Annotation: TGBS
-      end
-    end
-    subsection LpoBinghamAverage
-      set Random number seed = 200
-    end
-  end
-  subsection LPO
-    set Time between data output = 0.1 #0.025
-    set Write in background thread = true
-    set Compress lpo data files = true #true #false
-    set Write out raw lpo data = #mineral 0: volume fraction, mineral 0: rotation matrix, mineral 1: volume fraction, mineral 1: rotation matrix #olivine A matrix #, olivine Euler angles, enstatite Euler angles #, enstatite A matrix #olivine volume fraction, olivine Euler angles #, enstatite Euler angles
-    set Write out draw volume weighted lpo data = mineral 0: volume fraction, mineral 0: Euler angles, mineral 1: volume fraction, mineral 1: Euler angles
-  end
+   # set List of particle properties = lpo, lpo bingham average,lpo elastic tensor, decompose elastic matrix, integrated strain invariant 
+   # set Exclude output properties = a_cosine_matrix, volume fraction 
+   # set Particle generator name = ascii file 
+   # subsection Generator
+   #   subsection Ascii file
+   #     set  Data directory =  /Volumes/GoogleDrive/My Drive/ASPECT/ASPECT_parameter_files/LPO_testing/
+   #     set Data file name = particle_3D_block_zero500.dat
+   #   end
+   # end
+   # subsection LPO
+   #   set Random number seed = 301
+   #   set Number of grains per praticle = 1000 #4394 #1000 #5000 #10000 #10000 ## Annotation: grain count
+   #   set Property advection method = Backward Euler #Forward Euler #Backward Euler #Crank-Nicolson #Backward Euler ## Annotation: Property advection method
+   #   set Property advection tolerance = 1e-15
+   #   subsection D-Rex 2004
+   #     set Minerals = Olivine: E-fabric, Enstatite ## Annotation: Minerals
+   #     set Mobility = 125 ## Annotation: LPO Mobility
+   #     set Volume fractions minerals = 0.7, 0.3 ## Annotation: Volume fractions minerals
+   #     set Stress exponents = 3.5
+   #     set Exponents p = 1.5
+   #     set Nucleation efficientcy = 5 ## Annotation: Nucleation efficientcy
+   #     set Threshold GBS = 0.3 ## Annotation: TGBS
+   #   end
+   # end
+   # subsection LpoBinghamAverage
+   #   set Random number seed = 200
+   # end
+  #end
+  #subsection LPO
+  #  set Time between data output = 0.1 #0.025
+  #  set Write in background thread = true
+  #  set Compress lpo data files = true #true #false
+  #  set Write out raw lpo data = #mineral 0: volume fraction, mineral 0: rotation matrix, mineral 1: volume fraction, mineral 1: rotation matrix #olivine A matrix #, olivine Euler angles, enstatite Euler angles #, enstatite A matrix #olivine volume fraction, olivine Euler angles #, enstatite Euler angles
+  #  set Write out draw volume weighted lpo data = mineral 0: volume fraction, mineral 0: Euler angles, mineral 1: volume fraction, mineral 1: Euler angles
+ # end
 end
-set Output directory  = test_shearbox3d #v10_3Dshearbox_BE_FE_g1000_vfo7e-1_vz-1-0-0_M50_N5_GBS3e-1 #macdougall_2017_case_b_v08_0_0_y_l5_ng50_x3e-1_Atype_gc1000_og1000 ## Annotation: Output directory   
+#set Output directory  = test_shearbox3d #v10_3Dshearbox_BE_FE_g1000_vfo7e-1_vz-1-0-0_M50_N5_GBS3e-1 #macdougall_2017_case_b_v08_0_0_y_l5_ng50_x3e-1_Atype_gc1000_og1000 ## Annotation: Output directory   
 
 
-subsection Checkpointing
+#subsection Checkpointing
   # The number of timesteps between performing checkpoints. If 0 and time
   # between checkpoint is not specified, checkpointing will not be performed.
   # Units: None.
   #set Steps between checkpoint = 50
-end
+#end
 
 
 subsection Solver parameters
