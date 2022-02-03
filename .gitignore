@@ -17,7 +17,7 @@
 /benchmarks/**/*.prm.out
 /benchmarks/**/CMakeCache.txt
 /benchmarks/**/CMakeFiles/
-./prmfiles/
+/prmfiles*/
 /benchmarks/**/Makefile
 /benchmarks/**/cmake_install.cmake
 /benchmarks/**/lib*.so
