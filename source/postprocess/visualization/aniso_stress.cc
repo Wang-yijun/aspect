@@ -36,7 +36,7 @@ namespace aspect
         DataPostprocessorTensor<dim> ("aniso_stress",
                                       update_values | update_gradients | update_quadrature_points)
       {}
-
+    
 
 
       template <int dim>
@@ -92,7 +92,7 @@ namespace aspect
                 computed_quantities[q][Tensor<2,dim>::component_to_unrolled_index(TableIndices<2>(d,e))]
                   = aniso_stress[d][e];
           }
-
+      
         // average the values if requested
         const auto &viz = this->get_postprocess_manager().template get_matching_postprocessor<Postprocess::Visualization<dim> >();
         if (!viz.output_pointwise_stress_and_strain())
