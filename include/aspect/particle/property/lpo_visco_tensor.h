@@ -74,7 +74,7 @@ namespace aspect
            */
           virtual
           SymmetricTensor<2,dim>
-          Stress_strain_aggregate((const SymmetricTensor<2,dim,double> rate,const std::vector<std::vector<Tensor<2,dim, double> > > R_matrix, const double temperature, const std::vector<std::vector<double> > grain_size, const std::vector<unsigned int> deformation_type));
+          Stress_strain_aggregate(const SymmetricTensor<2,dim,double> rate,const std::vector<std::vector<Tensor<2,dim, double> > > R_matrix, const double temperature, const std::vector<std::vector<double> > grain_size, const std::vector<unsigned int> deformation_type);
 
           /**
            * Initialization function. This function is called once at the
