@@ -42,11 +42,13 @@ namespace aspect
       template <int dim>
       void
       Stress<dim>::update_particle_property(const unsigned int data_position,
-                                                      const Vector<double> &/*solution*/,
+                                                      const Vector<double> &solution,
                                                       const std::vector<Tensor<1,dim> > &gradients,
                                                       typename ParticleHandler<dim>::particle_iterator &particle) const
       {
+        // Get initial particle properties to be stored in &data
         auto &data = particle->get_properties();
+
         // Velocity gradients
         Tensor<2,dim> grad_u;
         for (unsigned int d=0; d<dim; ++d)
@@ -55,9 +57,24 @@ namespace aspect
         // Calculate strain rate from velocity gradients
         const SymmetricTensor<2,dim> strain_rate = symmetrize (grad_u);
         //std::cout<<"strainrate: "<<strain_rate<<std::endl;
+        const SymmetricTensor<2,dim> deviatoric_strain_rate
+            = (this->get_material_model().is_compressible()
+                ?
+                strain_rate - 1./3 * trace(strain_rate) * unit_symmetric_tensor<dim>()
+                :
+                strain_rate);
 
-        for (unsigned int i = 0; i < Tensor<2,dim>::n_independent_components ; ++i) 
-          data[data_position + i] = strain_rate[Tensor<2,dim>::unrolled_to_component_indices(i)];
+        // Get viscosity from solution
+        const double eta = solution[this->introspection().component_indices.viscosities[i]];
+
+        // Calculate stress from viscosity and strain rate
+        const SymmetricTensor<2,dim> stress = -2.*eta*deviatoric_strain_rate;
+        // Write particle properties (stress tensor)
+        for (unsigned int i = 0; i < Tensor<2,dim>::n_independent_components ; ++i) {
+            
+            data[data_position + i] = stress[Tensor<2,dim>::unrolled_to_component_indices(i)];
+        }
+          
         
        
       }
@@ -71,7 +88,7 @@ namespace aspect
 
       template <int dim>
       UpdateFlags
-      Stress<dim>::get_needed_update_flags () const
+      Stress<dim>::get_needed_update_flags() const
       {
         return update_gradients;
       }
