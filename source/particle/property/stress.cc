@@ -65,7 +65,7 @@ namespace aspect
                 strain_rate);
 
         // Get viscosity from solution
-        const double eta = solution[this->introspection().component_indices.viscosities[i]];
+        const double eta = solution[this->introspection().component_indices.viscosity[i]];
 
         // Calculate stress from viscosity and strain rate
         const SymmetricTensor<2,dim> stress = -2.*eta*deviatoric_strain_rate;
