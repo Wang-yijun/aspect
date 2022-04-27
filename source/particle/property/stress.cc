@@ -71,11 +71,14 @@ namespace aspect
                                                      this->n_compositional_fields());
         this->get_material_model().evaluate(in, out);
         // const double eta = solution[this->introspection().component_indices.viscosity[i]];
-        const double eta = out.viscosities;
-        std::cout<<"viscosities: "<<eta<<std::endl;
+        const double eta = out.viscosities[0];
+        const double pressure = out.pressure[0];
+        //std::cout<<"viscosities: "<<eta<<std::endl;
 
         // Calculate stress from viscosity and strain rate
-        const SymmetricTensor<2,dim> stress = -2.*eta*deviatoric_strain_rate;
+        const SymmetricTensor<2,dim> stress = 2 * eta * deviatoric_strain_rate + 
+                                              pressure * unit_symmetric_tensor<dim>();
+        
         // Write particle properties (stress tensor)
         for (unsigned int i = 0; i < Tensor<2,dim>::n_independent_components ; ++i) {
             
