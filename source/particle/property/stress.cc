@@ -42,7 +42,6 @@ namespace aspect
       template <int dim>
       void
       Stress<dim>::update_particle_property(const unsigned int data_position,
-                                            const Point<dim> &position,
                                             const Vector<double> &solution,
                                             const std::vector<Tensor<1,dim> > &gradients,
                                             typename ParticleHandler<dim>::particle_iterator &particle) const
@@ -77,7 +76,7 @@ namespace aspect
             }
 
         MaterialModel::MaterialModelInputs<dim> material_model_inputs(1,this->n_compositional_fields());
-        material_model_inputs.position[0] = position;
+        material_model_inputs.position[0] = particle->get_location();
         material_model_inputs.temperature[0] = temperature;
         material_model_inputs.pressure[0] = pressure;
         material_model_inputs.velocity[0] = velocity;
