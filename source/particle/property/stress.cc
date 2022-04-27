@@ -42,7 +42,6 @@ namespace aspect
         template <int dim>
         void
         Stress<dim>::update_particle_property(const unsigned int data_position,
-                                              //const Point<dim> &position,
                                               const Vector<double> &solution,
                                               const std::vector<Tensor<1,dim> > &gradients,
                                               typename ParticleHandler<dim>::particle_iterator &particle) const
@@ -66,7 +65,7 @@ namespace aspect
 
             // Get pressure and temperature from solution
             const double pressure = solution[this->introspection().component_indices.pressure];
-            const double temperature = solution[this->introspection().component_indices.temperature;
+            const double temperature = solution[this->introspection().component_indices.temperature];
             // Get velocity
             Tensor<1,dim> velocity;
             for (unsigned int i = 0; i < dim; ++i)
@@ -79,13 +78,16 @@ namespace aspect
                     compositions.push_back(solution[solution_component]);
                 }
 
-            MaterialModel::MaterialModelInputs<dim> in(1, this->n_compositional_fields());
+            // MaterialModel::MaterialModelInputs<dim> in(1, this->n_compositional_fields());
             //in.position[0] = position;
-            in.temperature[0] = temperature;
-            in.pressure[0] = pressure;
-            in.velocity[0] = velocity;
-            in.composition[0] = compositions;
-            in.strain_rate[0] = strain_rate;
+            // in.temperature[0] = temperature;
+            // in.pressure[0] = pressure;
+            // in.velocity[0] = velocity;
+            // in.composition[0] = compositions;
+            // in.strain_rate[0] = strain_rate;
+            //MaterialModel::MaterialModelInputs<dim> in(1, this->introspection());
+            std::cout<<"n compositional fields: "<<this->n_compositional_fields()<<std::endl;
+            MaterialModel::MaterialModelInputs<dim> in(1, this->n_compositional_fields());
             MaterialModel::MaterialModelOutputs<dim> out(1, this->n_compositional_fields());
             this->get_material_model().evaluate(in, out);
             
