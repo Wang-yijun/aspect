@@ -18,7 +18,7 @@
  <http://www.gnu.org/licenses/>.
  */
 
-#include <aspect/particle/property/Stress.h>
+#include <aspect/particle/property/stress.h>
 #include <aspect/particle/property/interface.h>
 #include <aspect/simulator_access.h>
 
@@ -56,7 +56,7 @@ namespace aspect
         const SymmetricTensor<2,dim> strain_rate = symmetrize (grad_u);
         //std::cout<<"Stress: "<<strain_rate<<std::endl;
 
-        
+
         for (unsigned int i = 0; i < Tensor<2,dim>::n_independent_components ; ++i) 
           data[data_position + i] = strain_rate[Tensor<2,dim>::unrolled_to_component_indices(i)];
         
@@ -82,7 +82,7 @@ namespace aspect
       Stress<dim>::get_property_information() const
       {
         const unsigned int n_components = Tensor<2,dim>::n_independent_components;
-        const std::vector<std::pair<std::string,unsigned int> > property_information (1,std::make_pair("Stress",n_components));
+        const std::vector<std::pair<std::string,unsigned int> > property_information (1,std::make_pair("stress",n_components));
         return property_information;
       }
     }
