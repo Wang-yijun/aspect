@@ -69,7 +69,7 @@ namespace aspect
         MaterialModel::MaterialModelOutputs<dim> out(1, this->n_compositional_fields());
         this->get_material_model().evaluate(in, out);
         const double eta = out.viscosities[0];
-        const double pressure = in.pressure[0];
+	const double pressure = in.pressure[0];
 
         // Calculate stress from viscosity and strain rate
         const SymmetricTensor<2,dim> stress = 2 * eta * deviatoric_strain_rate + 
