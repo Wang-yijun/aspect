@@ -99,24 +99,24 @@ namespace aspect
 
       template <int dim>
       UpdateTimeFlags
-      Strainrate<dim>::need_update() const
+      Stress<dim>::need_update() const
       {
         return update_time_step;
       }
 
       template <int dim>
       UpdateFlags
-      Strainrate<dim>::get_needed_update_flags () const
+      Stress<dim>::get_needed_update_flags () const
       {
         return update_gradients;
       }
 
       template <int dim>
       std::vector<std::pair<std::string, unsigned int> >
-      Strainrate<dim>::get_property_information() const
+      Stress<dim>::get_property_information() const
       {
         const unsigned int n_components = Tensor<2,dim>::n_independent_components;
-        const std::vector<std::pair<std::string,unsigned int> > property_information (1,std::make_pair("strainrate",n_components));
+        const std::vector<std::pair<std::string,unsigned int> > property_information (1,std::make_pair("stress",n_components));
         return property_information;
       }
     }
@@ -130,10 +130,10 @@ namespace aspect
   {
     namespace Property
     {
-      ASPECT_REGISTER_PARTICLE_PROPERTY(Strainrate,
-                                        "strainrate",
+      ASPECT_REGISTER_PARTICLE_PROPERTY(Stress,
+                                        "stress",
                                         "Implementation of a plugin in which the particle "
-                                        "property is defined as the recent strainrate at "
+                                        "property is defined as the recent stress at "
                                         "this position.")
     }
   }
