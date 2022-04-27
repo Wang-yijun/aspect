@@ -60,6 +60,7 @@ namespace aspect
           virtual
           void
           update_particle_property (const unsigned int data_position,
+                                    const Point<dim> &position,
                                     const Vector<double> &solution,
                                     const std::vector<Tensor<1,dim> > &gradients,
                                     typename ParticleHandler<dim>::particle_iterator &particle) const override;

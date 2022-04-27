@@ -30,8 +30,8 @@ namespace aspect
     {
       template <int dim>
       void
-      Stress<dim>::initialize_one_particle_property(const Point<dim> &,
-                                                      std::vector<double> &data) const
+      Stress<dim>::initialize_one_particle_property(const Point<dim> &position,
+                                                    std::vector<double> &data) const
       {
        const static Tensor<2,dim> identity = unit_symmetric_tensor<dim>();
        for (unsigned int i = 0; i < Tensor<2,dim>::n_independent_components ; ++i) 
@@ -42,9 +42,10 @@ namespace aspect
       template <int dim>
       void
       Stress<dim>::update_particle_property(const unsigned int data_position,
-                                                      const Vector<double> &solution,
-                                                      const std::vector<Tensor<1,dim> > &gradients,
-                                                      typename ParticleHandler<dim>::particle_iterator &particle) const
+                                            const Point<dim> &position,
+                                            const Vector<double> &solution,
+                                            const std::vector<Tensor<1,dim> > &gradients,
+                                            typename ParticleHandler<dim>::particle_iterator &particle) const
       {
         // Get initial particle properties to be stored in &data
         auto &data = particle->get_properties();
@@ -64,24 +65,31 @@ namespace aspect
                 strain_rate);
 	    //std::cout<<"strainrate: "<<strain_rate<<std::endl;	
 
-        // Get viscosity from solution
+        // Get pressure and temperature from solution
         const double pressure = solution[this->introspection().component_indices.pressure];
-        // const double position = solution[this->introspection().component_indices.pressure];
-        // const double pressure = solution[this->introspection().component_indices.pressure];
-        // const double pressure = solution[this->introspection().component_indices.pressure];
-        // const double pressure = solution[this->introspection().component_indices.pressure];
+        const double temperature = solution[this->introspection().component_indices.temperature;
+        // Get velocity
+        Tensor<1,dim> velocity;
+        for (unsigned int i = 0; i < dim; ++i)
+          velocity[i] = solution[this->introspection().component_indices.velocities[i]];
+        // Get the composition of the particle
+        std::vector<double> compositions;
+        for (unsigned int i = 0; i < this->n_compositional_fields(); i++)
+            {
+                const unsigned int solution_component = this->introspection().component_indices.compositional_fields[i];
+                compositions.push_back(solution[solution_component]);
+            }
 
-	    //MaterialModel::MaterialModelInputs<dim> in(1, this->n_compositional_fields());
-        MaterialModel::MaterialModelInputs<dim> in(1, this->introspection());
-
-        // in.position[0] = position;
-        // in.temperature[0] = temperature;
-        // in.pressure[0] = pressure;
-        // in.velocity[0] = velocity;
-        // in.composition[0] = compositions;
-        // in.strain_rate[0] = strain_rate;
+	    MaterialModel::MaterialModelInputs<dim> in(1, this->n_compositional_fields());
+        in.position[0] = position;
+        in.temperature[0] = temperature;
+        in.pressure[0] = pressure;
+        in.velocity[0] = velocity;
+        in.composition[0] = compositions;
+        in.strain_rate[0] = strain_rate;
         MaterialModel::MaterialModelOutputs<dim> out(1, this->n_compositional_fields());
 	    this->get_material_model().evaluate(in, out);
+        
         const double eta = out.viscosities[0];
         
 	    // Calculate stress from viscosity and strain rate
