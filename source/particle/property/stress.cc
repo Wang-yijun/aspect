@@ -56,21 +56,25 @@ namespace aspect
         //std::cout<<"grad_u: "<<grad_u<<std::endl;
         // Calculate strain rate from velocity gradients
         const SymmetricTensor<2,dim> strain_rate = symmetrize (grad_u);
-        //std::cout<<"strainrate: "<<strain_rate<<std::endl;
         const SymmetricTensor<2,dim> deviatoric_strain_rate
             = (this->get_material_model().is_compressible()
                 ?
                 strain_rate - 1./3 * trace(strain_rate) * unit_symmetric_tensor<dim>()
                 :
                 strain_rate);
+	//std::cout<<"strainrate: "<<strain_rate<<std::endl;	
 
         // Get viscosity from solution
-        MaterialModel::MaterialModelInputs<dim> in(1, this->n_compositional_fields());
-        MaterialModel::MaterialModelOutputs<dim> out(1, this->n_compositional_fields());
-        this->get_material_model().evaluate(in, out);
-        const double eta = out.viscosities[0];
         const double pressure = solution[this->introspection().component_indices.pressure];
-        // Calculate stress from viscosity and strain rate
+	std::cout<<"pressure: "<<pressure<<std::endl;
+	std::cout<<"n compositional fields"<<this->n_compositional_fields()<<std::endl;
+	MaterialModel::MaterialModelInputs<dim> in(1, this->n_compositional_fields());
+        MaterialModel::MaterialModelOutputs<dim> out(1, this->n_compositional_fields());
+	this->get_material_model().evaluate(in, out);
+	//std::cout<<"end evaluate"<<std::endl;
+        const double eta = out.viscosities[0];
+        
+	// Calculate stress from viscosity and strain rate
         const SymmetricTensor<2,dim> stress = 2 * eta * deviatoric_strain_rate + 
                                               pressure * unit_symmetric_tensor<dim>();
         
