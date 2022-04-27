@@ -67,7 +67,7 @@ namespace aspect
 
         // Get pressure and temperature from solution
         const double pressure = solution[this->introspection().component_indices.pressure];
-        const double temperature = solution[this->introspection().component_indices.temperature;
+        const double temperature = solution[this->introspection().component_indices.temperature];
         // Get velocity
         Tensor<1,dim> velocity;
         for (unsigned int i = 0; i < dim; ++i)
