@@ -42,7 +42,7 @@ namespace aspect
       template <int dim>
       void
       Stress<dim>::update_particle_property(const unsigned int data_position,
-                                                      const Vector<double> &solution,
+                                                      const Vector<double> &/*solution*/,
                                                       const std::vector<Tensor<1,dim> > &gradients,
                                                       typename ParticleHandler<dim>::particle_iterator &particle) const
       {
@@ -65,15 +65,11 @@ namespace aspect
                 strain_rate);
 
         // Get viscosity from solution
-        MaterialModel::MaterialModelInputs<dim> in(input_data,
-                                                   this->introspection());
-        MaterialModel::MaterialModelOutputs<dim> out(n_quadrature_points,
-                                                     this->n_compositional_fields());
+        MaterialModel::MaterialModelInputs<dim> in(1, this->n_compositional_fields());
+        MaterialModel::MaterialModelOutputs<dim> out(1, this->n_compositional_fields());
         this->get_material_model().evaluate(in, out);
-        // const double eta = solution[this->introspection().component_indices.viscosity[i]];
         const double eta = out.viscosities[0];
-        const double pressure = out.pressure[0];
-        //std::cout<<"viscosities: "<<eta<<std::endl;
+        const double pressure = in.pressure[0];
 
         // Calculate stress from viscosity and strain rate
         const SymmetricTensor<2,dim> stress = 2 * eta * deviatoric_strain_rate + 
