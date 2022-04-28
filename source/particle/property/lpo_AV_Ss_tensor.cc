@@ -297,6 +297,8 @@ namespace aspect
                                                          a_cosine_matrices_grains);
 
 
+        //Do I need to assign values to it at the initializing phase?
+        Tensor<2,6> Ss_tensor; //The Ss tensor is a compilation of the stresses needed for the calculation of the viscosity tensor
 
         Tensor<2,6> Ss_tensor; //The Ss tensor is a compilation of the stresses needed for the calculation of the viscosity tensor
 
