@@ -892,7 +892,7 @@ namespace aspect
   template class StokesIncompressibleTermsAV_Simple<dim>; \
   //template class StokesBoundaryTractionAV<dim>;
 
-    ASPECT_INSTANTIATE(INSTANTIATE)
+    ASPECT_INSTANTIATE(INSTANTIATE_AV)
   }
 
   namespace HeatingModel
