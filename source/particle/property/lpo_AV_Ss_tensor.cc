@@ -185,15 +185,15 @@ namespace aspect
                 //std::cout<<"strain rate: "<<strain_rate<<  std::endl;
                 //std::cout<<"A_ss: "<<A_ss<<  std::endl;
                 Tensor<2,3> R = a_cosine_matrices_grains[mineral_i][i];
-                //std::cout<<"Rotation matrix: "<<R<<  std::endl;
+                std::cout<<"Rotation matrix: "<<R<<  std::endl;
                 SymmetricTensor<2,3> Rate_grain=symmetrize(R*strain_rate*transpose(R));
-                //std::cout<<"Rate_grain "<<Rate_grain<<  std::endl;
+                std::cout<<"Rate_grain "<<Rate_grain<<  std::endl;
                 std::array<std::pair<double, Tensor<1, 3>>, 3> Rate_gr_eig = eigenvectors(Rate_grain,SymmetricTensorEigenvectorMethod::jacobi);
                 //std::cout<<"Rate_grain eigen values: "<<Rate_gr_eig[0].first<<"; "<<Rate_gr_eig[1].first<<"; "<<Rate_gr_eig[2].first<<std::endl;
                 double inv2=std::pow(Rate_gr_eig[0].first-Rate_gr_eig[1].first,2)
                           +std::pow(Rate_gr_eig[1].first-Rate_gr_eig[2].first,2)
                           +std::pow(Rate_gr_eig[2].first-Rate_gr_eig[0].first,2);
-                //std::cout<<"inv2: "<<inv2<<  std::endl;
+                std::cout<<"inv2: "<<inv2<<  std::endl;
 
                 FullMatrix<double> Rate_grain_voigt(6,1);
                 Rate_grain_voigt[0][0]=Rate_grain[0][0];
@@ -208,7 +208,7 @@ namespace aspect
                 FullMatrix<double> r_ss(3,1); //Optimazition to find shear strain rate on slip system
                 FullMatrix<double> r_gc_v(6,1); //strain rate tensor for grain in Voigt notation and crystal reference frame
                 pinvschm.mmult(r_ss, Rate_grain_voigt);
-                //std::cout<<"r_ss"<<r_ss[0][0]<<"; "<<r_ss[1][0]<<"; "<<r_ss[2][0]<<std::endl;
+                std::cout<<"r_ss"<<r_ss[0][0]<<"; "<<r_ss[1][0]<<"; "<<r_ss[2][0]<<std::endl;
                 Schm.mmult(r_gc_v,r_ss);
 
                 SymmetricTensor<2,3> r_gc; 
@@ -218,7 +218,7 @@ namespace aspect
                 r_gc[1][2]=0.5*r_gc_v[3][0];
                 r_gc[0][2]=0.5*r_gc_v[4][0];
                 r_gc[0][1]=0.5*r_gc_v[5][0];
-                //std::cout<<"r_gc:  "<<r_gc<<  std::endl;
+                std::cout<<"r_gc:  "<<r_gc<<  std::endl;
                 std::array<std::pair<double, Tensor<1, dim>>, dim> r_gc_eig = eigenvectors(r_gc, SymmetricTensorEigenvectorMethod::jacobi);
 		      
                 double inv2best =std::pow(r_gc_eig[0].first-r_gc_eig[1].first,2)
@@ -241,9 +241,9 @@ namespace aspect
 		            tau_ss[0][0]= std::copysignf(1.0,r_ss[0][0])*std::pow(1.0/A_ss[0]*1.0/A0*std::pow(grain_size,0.73)*std::fabs(r_ss[0][0]/2),1.0/nFo);
 		            tau_ss[1][0]= std::copysignf(1.0,r_ss[1][0])*std::pow(1.0/A_ss[1]*1.0/A0*std::pow(grain_size,0.73)*std::fabs(r_ss[1][0]/2),1.0/nFo);
 		            tau_ss[2][0]= std::copysignf(1.0,r_ss[2][0])*std::pow(1.0/A_ss[2]*1.0/A0*std::pow(grain_size,0.73)*std::fabs(r_ss[2][0]/2),1.0/nFo);
-                //std::cout<<"Tau_ss(0,0): "<<tau_ss[0][0]<<  std::endl;
-                //std::cout<<"Tau_ss(1,0): "<<tau_ss[1][0]<<  std::endl;
-                //std::cout<<"Tau_ss(2,0): "<<tau_ss[2][0]<<  std::endl;
+                std::cout<<"Tau_ss(0,0): "<<tau_ss[0][0]<<  std::endl;
+                std::cout<<"Tau_ss(1,0): "<<tau_ss[1][0]<<  std::endl;
+                std::cout<<"Tau_ss(2,0): "<<tau_ss[2][0]<<  std::endl;
 
                 FullMatrix<double>  S_gc_v(6,1);
                 Schm.mmult(S_gc_v,tau_ss); //Voigt notation of the resolved stress on the grain
@@ -257,7 +257,7 @@ namespace aspect
 
                 SymmetricTensor<2,3> S_g= symmetrize(transpose(R)*S_gc*R); //Here instead of making a multidimensional array what I sum at the end, I create S_g and add it to S_sum
                 //SymmetricTensor<2,3> S_sum;
-                //std::cout<<"Stress on grain: "<<S_g<<  std::endl;
+                std::cout<<"Stress on grain: "<<S_g<<  std::endl;
                 S_sum += S_g;
                 //std::cout<<"S_sum: "<<S_sum<<  std::endl;
 
@@ -267,7 +267,7 @@ namespace aspect
           }
         S_sum=S_sum/n_minerals_local; //stress for particle
         S_sum *= 1e6;
-        //std::cout<<"S_sum final: "<<S_sum<<  std::endl;
+        std::cout<<"S_sum final: "<<S_sum<<  std::endl;
 
         return S_sum;
       }
@@ -331,16 +331,17 @@ namespace aspect
         const double grain_size=1000.0; //micron --> should be an input?
         Tensor<2,6> Ss_tensor; //Initial value 0, because at initial timestep we don't have strain rate
 
-        if  (this->get_timestep_number() > 0)
+        double temperature = solution[this->introspection().component_indices.temperature];
+
+        if  (this->get_timestep_number() > 0 && temperature > 1000)
         {
           Tensor<2,dim> velocity_gradient;
           for (unsigned int d=0; d<dim; ++d)
           {
             velocity_gradient[d] = gradients[d]; 
           }
-          double temperature = solution[this->introspection().component_indices.temperature];
           const SymmetricTensor<2,dim> strain_rate = symmetrize (velocity_gradient);
-          //std::cout<<"strain rate: "<< strain_rate<< std::endl;
+          std::cout<<"strain rate: "<< strain_rate<< std::endl;
           double E_eq;
           SymmetricTensor<2,dim> e1, e2, e3, e4, e5, E;
           E=strain_rate;
@@ -378,7 +379,7 @@ namespace aspect
           stress5=compute_S_tensor(e5, grain_size, a_cosine_matrices_grains, deformation_type, temperature);
           Stress =compute_S_tensor(E, grain_size, a_cosine_matrices_grains, deformation_type, temperature);
 
-        
+          std::cout<<"Stress: "<< Stress<< std::endl;
           for (unsigned int i = 0; i < SymmetricTensor<2,dim>::n_independent_components ; ++i)
           {
             Ss_tensor[0][i] = Stress[SymmetricTensor<2,dim>::unrolled_to_component_indices(i)];
@@ -394,7 +395,7 @@ namespace aspect
         Particle::Property::LpoSsTensor<dim>::store_particle_data(data_position,
                                                                        data,
                                                                        Ss_tensor);
-
+        std::cout<<"Stress again: "<< Ss_tensor[0]<< std::endl;
 
       }
 
