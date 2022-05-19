@@ -516,7 +516,7 @@ namespace aspect
                   ExcMessage("Olivine has 3 independent slip systems, allowing for deformation in 3 independent directions, hence these models only work in 3D"));
 
       //move c_idx_S part here (right?)
-      
+
       c_idx_S.push_back (this->introspection().compositional_index_for_name("S1"));
       c_idx_S.push_back (this->introspection().compositional_index_for_name("S2"));
       c_idx_S.push_back (this->introspection().compositional_index_for_name("S3"));

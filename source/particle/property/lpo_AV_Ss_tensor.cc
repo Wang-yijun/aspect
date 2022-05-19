@@ -49,12 +49,12 @@ namespace aspect
         permutation_operator_3d[1][0][2]  = -1;
         permutation_operator_3d[2][1][0]  = -1;
 
-        c_idx_E.push_back (this->introspection().compositional_index_for_name("S1"));
-        c_idx_E.push_back (this->introspection().compositional_index_for_name("S2"));
-        c_idx_E.push_back (this->introspection().compositional_index_for_name("S3"));
-        c_idx_E.push_back (this->introspection().compositional_index_for_name("S4"));
-        c_idx_E.push_back (this->introspection().compositional_index_for_name("S5"));
-        c_idx_E.push_back (this->introspection().compositional_index_for_name("S6"));
+        c_idx_E.push_back (this->introspection().compositional_index_for_name("E0"));
+        c_idx_E.push_back (this->introspection().compositional_index_for_name("E1"));
+        c_idx_E.push_back (this->introspection().compositional_index_for_name("E2"));
+        c_idx_E.push_back (this->introspection().compositional_index_for_name("E2"));
+        c_idx_E.push_back (this->introspection().compositional_index_for_name("E4"));
+        c_idx_E.push_back (this->introspection().compositional_index_for_name("E5"));
 
         // tensors of indices
         indices_tensor[0][0] = 0;
@@ -342,13 +342,36 @@ namespace aspect
 
         if  (this->get_timestep_number() > 0 && temperature > 1000)
           {
+
+
+
+
+            Tensor<1,2*dim> Ev;
+            for (unsigned int i=0; i<2*dim; ++i)
+              {
+                Ev[i] = solution[this->introspection().component_indices.compositional_fields[c_idx_E[i]]];
+              }
+
             Tensor<2,dim> velocity_gradient;
             for (unsigned int d=0; d<dim; ++d)
               {
                 velocity_gradient[d] = gradients[d];
               }
 
-            const SymmetricTensor<2,dim> strain_rate = symmetrize (velocity_gradient);
+            const SymmetricTensor<2,dim> strain_rate_gradv = symmetrize (velocity_gradient);
+
+            SymmetricTensor<2,dim> strain_rate;
+            for (int k = 0; k < dim; k++)
+              {
+                for (int l = 0; l < dim; l++)
+                  {
+                    strain_rate[k][l]=Ev[SymmetricTensor<2,dim>::component_to_unrolled_index(TableIndices<2>(k,l))];
+                    AssertThrow(strain_rate[k][l]==strain_rate_gradv[k][l]),
+                                ExcMessage("Strain rate from prescribed field is not the same as the strain rate from the velocity gradient"));
+                  }
+              }
+
+
             //std::cout<<"strain rate: "<< strain_rate<< std::endl;
             double E_eq;
             SymmetricTensor<2,dim> e1, e2, e3, e4, e5, E;
