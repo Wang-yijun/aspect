@@ -49,7 +49,12 @@ namespace aspect
         permutation_operator_3d[1][0][2]  = -1;
         permutation_operator_3d[2][1][0]  = -1;
 
-
+        c_idx_E.push_back (this->introspection().compositional_index_for_name("S1"));
+        c_idx_E.push_back (this->introspection().compositional_index_for_name("S2"));
+        c_idx_E.push_back (this->introspection().compositional_index_for_name("S3"));
+        c_idx_E.push_back (this->introspection().compositional_index_for_name("S4"));
+        c_idx_E.push_back (this->introspection().compositional_index_for_name("S5"));
+        c_idx_E.push_back (this->introspection().compositional_index_for_name("S6"));
 
         // tensors of indices
         indices_tensor[0][0] = 0;
