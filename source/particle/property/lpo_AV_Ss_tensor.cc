@@ -371,7 +371,6 @@ namespace aspect
                   }
               }
 
-
             //std::cout<<"strain rate: "<< strain_rate<< std::endl;
             double E_eq;
             SymmetricTensor<2,dim> e1, e2, e3, e4, e5, E;
