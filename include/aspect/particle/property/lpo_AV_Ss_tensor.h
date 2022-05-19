@@ -58,6 +58,7 @@ namespace aspect
            */
           LpoSsTensor();
 
+
           /**
            * Initialization function. This function is called once at the
            * beginning of the program after parse_parameters is run.
@@ -258,6 +259,8 @@ namespace aspect
 
         private:
           unsigned int lpo_data_position;
+
+          std::vector<unsigned int> c_idx_E;
 
           Tensor<2,3,unsigned int> indices_tensor;
           std::vector<double> indices_vector_1;
