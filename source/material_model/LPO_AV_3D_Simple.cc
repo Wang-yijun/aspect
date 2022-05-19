@@ -600,15 +600,34 @@ namespace aspect
           c_idx_s5.push_back (this->introspection().compositional_index_for_name("s56"));
 
 
+          // Create prescribed field for the strain rate
+          // Interpolate prescribed field outputs (strain rate) onto compositional fields
+           MaterialModel::AV<dim> *anisotropic_viscosity;
+          anisotropic_viscosity = out.template get_additional_output<MaterialModel::AV<dim> >();
+
+          
+          MaterialModel::Strain_Rate<dim> *strain_rate;
+          strain_rate = out.template get_additional_output<MaterialModel::Strain_Rate<dim> >();
+          if (strain_rate != NULL)
+            {
+              for (unsigned int i=0; i < 6; ++i)
+                {
+                  strain_rate->prescribed_field_outputs[q][i] = in.strain_rate[q].unrolled_to_component_indices(i);
+                  std::cout<<"strain rate component is: "<<i<<s.unrolled_to_component_indices(i)<<std::endl;
+                }
+              std::cout<<"strain rate tensor is: "<<in.strain_rate<<std::endl;
+            }
+
+
           Tensor<1,2*dim> Sv, s1v, s2v, s3v, s4v, s5v;
           for (unsigned int i=0; i<2*dim; ++i)
             {
               Sv[i] = in.composition[q][c_idx_S[i]];
               s1v[i] = in.composition[q][c_idx_s1[i]];
-              s2v[i] = in.composition[q][c_idx_s1[i]];
-              s3v[i] = in.composition[q][c_idx_s1[i]];
-              s4v[i] = in.composition[q][c_idx_s1[i]];
-              s5v[i] = in.composition[q][c_idx_s1[i]];
+              s2v[i] = in.composition[q][c_idx_s2[i]];
+              s3v[i] = in.composition[q][c_idx_s3[i]];
+              s4v[i] = in.composition[q][c_idx_s4[i]];
+              s5v[i] = in.composition[q][c_idx_s5[i]];
 
             }
 
@@ -802,11 +821,17 @@ namespace aspect
     void
     LPO_AV_3D_Simple<dim>::create_additional_named_outputs(MaterialModel::MaterialModelOutputs<dim> &out) const
     {
+      if (out.template get_additional_output<Strain_Rate<dim> >() == NULL)
+        {
+          const unsigned int n_points = out.n_evaluation_points();
+          out.additional_outputs.push_back(
+            std_cxx14::make_unique<MaterialModel::Strain_Rate<dim>> (n_points, this->n_compositional_fields()));
+        }
       if (out.template get_additional_output<AV<dim> >() == nullptr)
         {
           const unsigned int n_points = out.n_evaluation_points();
           out.additional_outputs.push_back(
-            std_cxx14::make_unique<MaterialModel::AV<dim>> (n_points));
+            std_cxx14::make_unique<MaterialModel::AV<dim>> (n_points, this->n_compositional_fields()));
         }
     }
   }
