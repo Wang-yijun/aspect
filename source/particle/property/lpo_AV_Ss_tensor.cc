@@ -18,6 +18,7 @@
 #include <aspect/particle/property/lpo_AV_Ss_tensor.h>
 #include <aspect/particle/property/lpo.h>
 #include <aspect/particle/world.h>
+#include <aspect/material_model/LPO_AV_3D_Simple.h>
 
 #include <aspect/utilities.h>
 
@@ -87,13 +88,6 @@ namespace aspect
         const unsigned int my_rank = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
         this->random_number_generator.seed(random_number_seed+my_rank);
 
-        c_idx_E.push_back (this->introspection().compositional_index_for_name("E0"));
-        c_idx_E.push_back (this->introspection().compositional_index_for_name("E1"));
-        c_idx_E.push_back (this->introspection().compositional_index_for_name("E2"));
-        c_idx_E.push_back (this->introspection().compositional_index_for_name("E2"));
-        c_idx_E.push_back (this->introspection().compositional_index_for_name("E4"));
-        c_idx_E.push_back (this->introspection().compositional_index_for_name("E5"));
-
         const auto &manager = this->get_particle_world().get_property_manager();
         AssertThrow(manager.plugin_name_exists("lpo"),
                     ExcMessage("No lpo property plugin found."));
@@ -116,7 +110,7 @@ namespace aspect
         material_outputs = MaterialModel::MaterialModelOutputs<dim>(1, this->n_compositional_fields());
 
         //get_plugin_as_type
-        AssertThrow((Plugins::plugin_type_matches<const MaterialModel::AV<dim>>(this->get_material_model())),
+        AssertThrow((Plugins::plugin_type_matches<const MaterialModel::LPO_AV_3D_Simple<dim>>(this->get_material_model())),
                     ExcMessage("This particle property only makes sense in combination with the anisotropic viscosity material model."));  
         // // AssertThrow(this->get_parameters().enable_elasticity == true,
         //             ExcMessage ("This particle property should only be used if 'Enable elasticity' is set to true"));
@@ -376,8 +370,7 @@ namespace aspect
 
         if  (this->get_timestep_number() > 0 && temperature > 1000)
           {
-            const MaterialModel::AV<dim> &av;
-            &av = Plugins::get_plugin_as_type<const MaterialModel::AV<dim>>(this->get_material_model());
+            const MaterialModel::LPO_AV_3D_Simple<dim> &av = Plugins::get_plugin_as_type<const MaterialModel::LPO_AV_3D_Simple<dim>>(this->get_material_model());
 
             material_inputs.position[0] = particle->get_location();
             material_inputs.temperature[0] = temperature;
@@ -386,14 +379,9 @@ namespace aspect
             material_inputs.composition[0] = compositions;
             material_inputs.strain_rate[0] = strain_rate;
 
-            SymmetricTensor<2,dim> strain_rate_stored = this->get_material_model().get_strainrate(material_inputs);
+            SymmetricTensor<2,dim> strain_rate_stored = av.get_strainrate(material_inputs);
 
 
-            // Tensor<1,2*dim> Ev;
-            // for (unsigned int i=0; i<2*dim; ++i)
-            //   {
-            //     Ev[i] = solution[this->introspection().component_indices.compositional_fields[c_idx_E[i]]];
-            //   }
 
             Tensor<2,dim> velocity_gradient;
             for (unsigned int d=0; d<dim; ++d)
