@@ -37,6 +37,9 @@ namespace aspect
 
       template <int dim>
       LpoSsTensor<dim>::LpoSsTensor ()
+        :
+        material_inputs(1,0),
+        material_outputs(1,0)
       {
         permutation_operator_3d[0][1][2]  = 1;
         permutation_operator_3d[1][2][0]  = 1;
@@ -108,6 +111,15 @@ namespace aspect
 
           }
 
+        material_inputs = MaterialModel::MaterialModelInputs<dim>(1, this->n_compositional_fields());
+
+        material_outputs = MaterialModel::MaterialModelOutputs<dim>(1, this->n_compositional_fields());
+
+        //get_plugin_as_type
+        AssertThrow((Plugins::plugin_type_matches<const MaterialModel::AV<dim>>(this->get_material_model())),
+                    ExcMessage("This particle property only makes sense in combination with the anisotropic viscosity material model."));  
+        // // AssertThrow(this->get_parameters().enable_elasticity == true,
+        //             ExcMessage ("This particle property should only be used if 'Enable elasticity' is set to true"));
 
       }
 
@@ -314,7 +326,8 @@ namespace aspect
                                                      const Point<dim> &,
                                                      const Vector<double> &solution,
                                                      const std::vector<Tensor<1,dim> > &gradients,
-                                                     const ArrayView<double> &data) const
+                                                     const ArrayView<double> &data,
+                                                     typename ParticleHandler<dim>::particle_iterator &particle) const
       {
         std::vector<unsigned int> deformation_type;
         std::vector<double> volume_fraction_mineral;
@@ -333,19 +346,54 @@ namespace aspect
 
         const double grain_size=1000.0; //micron --> should be an input?
         Tensor<2,6> Ss_tensor; //Initial value 0, because at initial timestep we don't have strain rate
+
+        // Velocity gradients
+        Tensor<2,dim> grad_u;
+        for (unsigned int d=0; d<dim; ++d)
+          grad_u[d] = gradients[d];
+        // Calculate strain rate from velocity gradients
+        const SymmetricTensor<2,dim> strain_rate = symmetrize (grad_u);
+        //std::cout<<"strainrate: "<<strain_rate<<std::endl;
+        const SymmetricTensor<2,dim> deviatoric_strain_rate
+              = (this->get_material_model().is_compressible()
+                 ?
+                 strain_rate - 1./3 * trace(strain_rate) * unit_symmetric_tensor<dim>()
+                 :
+                 strain_rate);
+
+        double pressure = solution[this->introspection().component_indices.pressure];
         double temperature = solution[this->introspection().component_indices.temperature];
+        
+        Tensor<1,dim> velocity;
+        for (unsigned int i = 0; i < dim; ++i)
+            velocity[i] = solution[this->introspection().component_indices.velocities[i]];
+        std::vector<double> compositions;
+        for (unsigned int i = 0; i < this->n_compositional_fields(); i++)
+            {
+                const unsigned int solution_component = this->introspection().component_indices.compositional_fields[i];
+                compositions.push_back(solution[solution_component]);
+            }
 
         if  (this->get_timestep_number() > 0 && temperature > 1000)
           {
+            const MaterialModel::AV<dim> &av;
+            &av = Plugins::get_plugin_as_type<const MaterialModel::AV<dim>>(this->get_material_model());
+
+            material_inputs.position[0] = particle->get_location();
+            material_inputs.temperature[0] = temperature;
+            material_inputs.pressure[0] = pressure;
+            material_inputs.velocity[0] = velocity;
+            material_inputs.composition[0] = compositions;
+            material_inputs.strain_rate[0] = strain_rate;
+
+            SymmetricTensor<2,dim> strain_rate_stored = this->get_material_model().get_strainrate(material_inputs);
 
 
-
-
-            Tensor<1,2*dim> Ev;
-            for (unsigned int i=0; i<2*dim; ++i)
-              {
-                Ev[i] = solution[this->introspection().component_indices.compositional_fields[c_idx_E[i]]];
-              }
+            // Tensor<1,2*dim> Ev;
+            // for (unsigned int i=0; i<2*dim; ++i)
+            //   {
+            //     Ev[i] = solution[this->introspection().component_indices.compositional_fields[c_idx_E[i]]];
+            //   }
 
             Tensor<2,dim> velocity_gradient;
             for (unsigned int d=0; d<dim; ++d)
@@ -354,21 +402,20 @@ namespace aspect
               }
 
             const SymmetricTensor<2,dim> strain_rate = symmetrize (velocity_gradient);
-
-            std::cout<<"Prescribed sr is: "<<Ev<<std::endl;
+            std::cout<<"Prescribed strain rate is: "<<strain_rate_stored<<std::endl;
             std::cout<<"Strain rate from velo grad is: "<<strain_rate<<std::endl;
-            SymmetricTensor<2,dim> strain_rate_pf;
-            for (int k = 0; k < dim; k++)
-              {
-                for (int l = 0; l < dim; l++)
-                  {
-                    strain_rate_pf[k][l]=Ev[SymmetricTensor<2,dim>::component_to_unrolled_index(TableIndices<2>(k,l))];
-                    // AssertThrow(strain_rate[k][l]==strain_rate_gradv[k][l],
-                    //             ExcMessage("Strain rate from prescribed field is not the same as the strain rate from the velocity gradient"));
-                  }
-              }
 
-            std::cout<<"prescribed strain rate is: "<< strain_rate_pf<< std::endl;
+            // SymmetricTensor<2,dim> strain_rate_pf;
+            // for (int k = 0; k < dim; k++)
+            //   {
+            //     for (int l = 0; l < dim; l++)
+            //       {
+            //         strain_rate_pf[k][l]=Ev[SymmetricTensor<2,dim>::component_to_unrolled_index(TableIndices<2>(k,l))];
+            //         // AssertThrow(strain_rate[k][l]==strain_rate_gradv[k][l],
+            //         //             ExcMessage("Strain rate from prescribed field is not the same as the strain rate from the velocity gradient"));
+            //       }
+            //   }
+
             double E_eq;
             SymmetricTensor<2,dim> e1, e2, e3, e4, e5, E;
             E=strain_rate;

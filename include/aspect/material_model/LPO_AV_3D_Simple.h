@@ -75,6 +75,7 @@ namespace aspect
         virtual void initialize();
         virtual void evaluate (const MaterialModel::MaterialModelInputs<dim> &in,
                                MaterialModel::MaterialModelOutputs<dim> &out) const;
+        virtual SymmetricTensor<2,dim> get_strainrate (const MaterialModel::MaterialModelInputs<dim> &in) const;
         static void declare_parameters (ParameterHandler &prm);
         virtual void parse_parameters (ParameterHandler &prm);
         virtual bool is_compressible () const;

@@ -123,7 +123,8 @@ namespace aspect
                                         const Point<dim> &position,
                                         const Vector<double> &solution,
                                         const std::vector<Tensor<1,dim> > &gradients,
-                                        const ArrayView<double> &particle_properties) const;
+                                        const ArrayView<double> &particle_properties,
+                                        typename ParticleHandler<dim>::particle_iterator &particle) const;
 
           /**
            * This implementation tells the particle manager that
@@ -290,6 +291,17 @@ namespace aspect
            */
           Tensor<3,3> permutation_operator_3d;
 
+          /**
+           * Objects that are used to compute the particle property. Since the
+           * object is expensive to create and is needed often it is kept as a
+           * member variable. Because it is changed inside a const member function
+           * (update_particle_property) it has to be mutable, but since it is
+           * only used inside that function and always set before being used
+           * that is not a problem. This implementation is not thread safe,
+           * but it is currently not used in a threaded context.
+           */
+          mutable MaterialModel::MaterialModelInputs<dim> material_inputs;
+          mutable MaterialModel::MaterialModelOutputs<dim> material_outputs;
       };
     }
   }

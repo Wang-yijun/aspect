@@ -736,6 +736,22 @@ namespace aspect
 
 
 
+    template <int dim>
+    SymmetricTensor<2,dim> 
+    LPO_AV_3D_Simple<dim>::get_strainrate (const MaterialModel::MaterialModelInputs<dim> &in) const
+    {
+      // input of only one particle in the future?
+      // Initialize prescribed field for the strain rate
+      SymmetricTensor<2,dim> strain_rate_store;
+      std::cout<<"number of particles should always be 1: "<<in.n_evaluation_points()<<std::endl;
+      for (unsigned int q=0; q<in.n_evaluation_points(); ++q)
+        {
+          std::cout<<"strain rate stored by MM is: "<<in.strain_rate[q]<<std::endl;
+          strain_rate_store = in.strain_rate[q];
+        }
+    }
+
+
 
     template <int dim>
     bool
