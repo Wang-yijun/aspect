@@ -580,7 +580,8 @@ namespace aspect
     {
       MaterialModel::AV<dim> *anisotropic_viscosity;
       anisotropic_viscosity = out.template get_additional_output<MaterialModel::AV<dim> >();
-
+      // Initialize prescribed field for the strain rate
+      PrescribedFieldOutputs<dim> *strain_rate_p = out.template get_additional_output<PrescribedFieldOutputs<dim> >();
 
 
       EquationOfStateOutputs<dim> eos_outputs (1);
@@ -599,24 +600,15 @@ namespace aspect
           // calculate effective viscosity
           const std::vector<double> &composition = in.composition[q];
 
-
-
-          // Create prescribed field for the strain rate
           // Interpolate prescribed field outputs (strain rate) onto compositional fields
-           MaterialModel::AV<dim> *anisotropic_viscosity;
-          anisotropic_viscosity = out.template get_additional_output<MaterialModel::AV<dim> >();
-
-          
-          MaterialModel::Strain_Rate<dim> *strain_rate;
-          strain_rate = out.template get_additional_output<MaterialModel::Strain_Rate<dim> >();
-          if (strain_rate != NULL)
+          std::cout<<"strain rate tensor is: "<<in.strain_rate[q]<<std::endl;
+          if (strain_rate_p != NULL)
             {
               for (unsigned int i=0; i < 6; ++i)
                 {
-                  strain_rate->prescribed_field_outputs[q][i] = in.strain_rate[q].unrolled_to_component_indices(i);
-                  std::cout<<"strain rate component is: "<<i<<s.unrolled_to_component_indices(i)<<std::endl;
+                  strain_rate_p->prescribed_field_outputs[q][i] = in.strain_rate[q][Tensor<2,dim>::unrolled_to_component_indices(i)];
+                  std::cout<<"strain rate component (i) is: "<<i<<in.strain_rate[q][Tensor<2,dim>::unrolled_to_component_indices(i)]<<std::endl;
                 }
-              std::cout<<"strain rate tensor is: "<<in.strain_rate<<std::endl;
             }
 
 
@@ -639,7 +631,7 @@ namespace aspect
               double E_eq;
               SymmetricTensor<2,dim> E;
               E_eq= std::sqrt((4./3.)*AV<dim>::J2_second_invariant(in.strain_rate[q], min_strain_rate));// Second invariant of strain-rate
-              std::cout<<"E_eq is:"<<E_eq<<std::endl;
+              //std::cout<<"E_eq is:"<<E_eq<<std::endl;
               E=in.strain_rate[q];
 
               AssertThrow(isfinite(1/E.norm()),
@@ -670,8 +662,8 @@ namespace aspect
               }*/
 
               const double Stress_eq= std::sqrt(3.0*AV<dim>::J2_second_invariant(Stress, min_strain_rate));
-              std::cout<<"Stress eq is: "<<Stress_eq<<std::endl;
-              /*std::cout<<"Stress coeff is: "<<std::pow(AV<dim>::J2_second_invariant(Stress, min_strain_rate),1.25)<<std::endl; */
+              /* std::cout<<"Stress eq is: "<<Stress_eq<<std::endl;
+              std::cout<<"Stress coeff is: "<<std::pow(AV<dim>::J2_second_invariant(Stress, min_strain_rate),1.25)<<std::endl; */
               AssertThrow(Stress_eq != 0,
                           ExcMessage("Equivalent stress should not be 0"));
               AssertThrow(isfinite(Stress_eq),
@@ -821,18 +813,18 @@ namespace aspect
     template <int dim>
     void
     LPO_AV_3D_Simple<dim>::create_additional_named_outputs(MaterialModel::MaterialModelOutputs<dim> &out) const
-    {
-      if (out.template get_additional_output<Strain_Rate<dim> >() == NULL)
+    { 
+      if (out.template get_additional_output<PrescribedFieldOutputs<dim>>() == NULL)
         {
           const unsigned int n_points = out.n_evaluation_points();
           out.additional_outputs.push_back(
-            std_cxx14::make_unique<MaterialModel::Strain_Rate<dim>> (n_points, this->n_compositional_fields()));
+            std_cxx14::make_unique<MaterialModel::PrescribedFieldOutputs<dim>> (n_points, this->n_compositional_fields()));
         }
       if (out.template get_additional_output<AV<dim> >() == nullptr)
         {
           const unsigned int n_points = out.n_evaluation_points();
           out.additional_outputs.push_back(
-            std_cxx14::make_unique<MaterialModel::AV<dim>> (n_points, this->n_compositional_fields()));
+            std_cxx14::make_unique<MaterialModel::AV<dim>> (n_points));
         }
     }
   }

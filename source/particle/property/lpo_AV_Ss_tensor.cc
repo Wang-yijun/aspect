@@ -45,13 +45,6 @@ namespace aspect
         permutation_operator_3d[1][0][2]  = -1;
         permutation_operator_3d[2][1][0]  = -1;
 
-        c_idx_E.push_back (this->introspection().compositional_index_for_name("E0"));
-        c_idx_E.push_back (this->introspection().compositional_index_for_name("E1"));
-        c_idx_E.push_back (this->introspection().compositional_index_for_name("E2"));
-        c_idx_E.push_back (this->introspection().compositional_index_for_name("E2"));
-        c_idx_E.push_back (this->introspection().compositional_index_for_name("E4"));
-        c_idx_E.push_back (this->introspection().compositional_index_for_name("E5"));
-
         // tensors of indices
         indices_tensor[0][0] = 0;
         indices_tensor[0][1] = 5;
@@ -90,6 +83,13 @@ namespace aspect
         // get_random_number function as well. But I will need to test this.
         const unsigned int my_rank = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
         this->random_number_generator.seed(random_number_seed+my_rank);
+
+        c_idx_E.push_back (this->introspection().compositional_index_for_name("E0"));
+        c_idx_E.push_back (this->introspection().compositional_index_for_name("E1"));
+        c_idx_E.push_back (this->introspection().compositional_index_for_name("E2"));
+        c_idx_E.push_back (this->introspection().compositional_index_for_name("E2"));
+        c_idx_E.push_back (this->introspection().compositional_index_for_name("E4"));
+        c_idx_E.push_back (this->introspection().compositional_index_for_name("E5"));
 
         const auto &manager = this->get_particle_world().get_property_manager();
         AssertThrow(manager.plugin_name_exists("lpo"),
@@ -353,20 +353,22 @@ namespace aspect
                 velocity_gradient[d] = gradients[d];
               }
 
-            const SymmetricTensor<2,dim> strain_rate_gradv = symmetrize (velocity_gradient);
+            const SymmetricTensor<2,dim> strain_rate = symmetrize (velocity_gradient);
 
-            SymmetricTensor<2,dim> strain_rate;
+            std::cout<<"Prescribed sr is: "<<Ev<<std::endl;
+            std::cout<<"Strain rate from velo grad is: "<<strain_rate<<std::endl;
+            SymmetricTensor<2,dim> strain_rate_pf;
             for (int k = 0; k < dim; k++)
               {
                 for (int l = 0; l < dim; l++)
                   {
-                    strain_rate[k][l]=Ev[SymmetricTensor<2,dim>::component_to_unrolled_index(TableIndices<2>(k,l))];
-                    AssertThrow(strain_rate[k][l]==strain_rate_gradv[k][l],
-                                ExcMessage("Strain rate from prescribed field is not the same as the strain rate from the velocity gradient"));
+                    strain_rate_pf[k][l]=Ev[SymmetricTensor<2,dim>::component_to_unrolled_index(TableIndices<2>(k,l))];
+                    // AssertThrow(strain_rate[k][l]==strain_rate_gradv[k][l],
+                    //             ExcMessage("Strain rate from prescribed field is not the same as the strain rate from the velocity gradient"));
                   }
               }
 
-            //std::cout<<"strain rate: "<< strain_rate<< std::endl;
+            std::cout<<"prescribed strain rate is: "<< strain_rate_pf<< std::endl;
             double E_eq;
             SymmetricTensor<2,dim> e1, e2, e3, e4, e5, E;
             E=strain_rate;
