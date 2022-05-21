@@ -300,6 +300,9 @@ namespace aspect
            */
           mutable MaterialModel::MaterialModelInputs<dim> material_inputs;
           mutable MaterialModel::MaterialModelOutputs<dim> material_outputs;
+
+          std::vector<double> prefactors_dislocation;
+          std::vector<double> prefactors_diffusion;
       };
     }
   }

@@ -48,7 +48,7 @@ namespace aspect
         DiffusionCreepParameters creep_parameters;
         if (phase_function_values == std::vector<double>())
           {
-            std::cout<<"prefactor in compute (diffusion) creep parameter: "<<prefactors_diffusion.size()<<std::endl;
+            std::cout<<"prefactor size in compute (diffusion) creep parameter: "<<prefactors_diffusion.size()<<std::endl;
             // no phases
             creep_parameters.prefactor = prefactors_diffusion[composition];
             creep_parameters.activation_energy = activation_energies_diffusion[composition];
