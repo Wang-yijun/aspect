@@ -377,7 +377,7 @@ namespace aspect
             material_inputs.composition[0] = compositions;
             material_inputs.strain_rate[0] = strain_rate;
 
-            SymmetricTensor<2,dim> strain_rate_stored = av.get_strainrate(material_inputs);
+            SymmetricTensor<2,dim> dislocation_strain_rate = av.get_dislocation_strainrate(material_inputs);
 
 
 
@@ -388,17 +388,17 @@ namespace aspect
               }
 
             const SymmetricTensor<2,dim> strain_rate = symmetrize (velocity_gradient);
-            // std::cout<<"Prescribed strain rate is: "<<strain_rate_stored<<std::endl;
-            // std::cout<<"Strain rate from velo grad is: "<<strain_rate<<std::endl;
+            std::cout<<"Dislocation strain rate is: "<<dislocation_strain_rate<<std::endl;
+            std::cout<<"Strain rate from velo grad is: "<<strain_rate<<std::endl;
 
-            for (int k = 0; k < dim; k++)
-              {
-                for (int l = 0; l < dim; l++)
-                  {
-                    AssertThrow(strain_rate_stored[k][l]==strain_rate[k][l],
-                                ExcMessage("Strain rate from prescribed field is not the same as the strain rate from the velocity gradient"));
-                  }
-              }
+            // for (int k = 0; k < dim; k++)
+            //   {
+            //     for (int l = 0; l < dim; l++)
+            //       {
+            //         AssertThrow(strain_rate_stored[k][l]==strain_rate[k][l],
+            //                     ExcMessage("Strain rate from prescribed field is not the same as the strain rate from the velocity gradient"));
+            //       }
+            //   }
 
             double E_eq;
             SymmetricTensor<2,dim> e1, e2, e3, e4, e5, E;
