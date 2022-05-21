@@ -601,13 +601,13 @@ namespace aspect
           const std::vector<double> &composition = in.composition[q];
 
           // Interpolate prescribed field outputs (strain rate) onto compositional fields
-          std::cout<<"strain rate tensor is: "<<in.strain_rate[q]<<std::endl;
+          // std::cout<<"strain rate tensor is: "<<in.strain_rate[q]<<std::endl;
           if (strain_rate_p != NULL)
             {
               for (unsigned int i=0; i < 6; ++i)
                 {
                   strain_rate_p->prescribed_field_outputs[q][i] = in.strain_rate[q][Tensor<2,dim>::unrolled_to_component_indices(i)];
-                  std::cout<<"strain rate component (i) is: "<<i<<in.strain_rate[q][Tensor<2,dim>::unrolled_to_component_indices(i)]<<std::endl;
+                  // std::cout<<"strain rate component (i) is: "<<i<<in.strain_rate[q][Tensor<2,dim>::unrolled_to_component_indices(i)]<<std::endl;
                 }
             }
 
@@ -743,12 +743,13 @@ namespace aspect
       // input of only one particle in the future?
       // Initialize prescribed field for the strain rate
       SymmetricTensor<2,dim> strain_rate_store;
-      std::cout<<"number of particles should always be 1: "<<in.n_evaluation_points()<<std::endl;
+      //std::cout<<"number of particles should always be 1: "<<in.n_evaluation_points()<<std::endl;
       for (unsigned int q=0; q<in.n_evaluation_points(); ++q)
         {
-          std::cout<<"strain rate stored by MM is: "<<in.strain_rate[q]<<std::endl;
+          // std::cout<<"strain rate stored by MM is: "<<in.strain_rate[q]<<std::endl;
           strain_rate_store = in.strain_rate[q];
         }
+      return strain_rate_store;
     }
 
 

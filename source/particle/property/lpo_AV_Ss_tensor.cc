@@ -317,11 +317,10 @@ namespace aspect
       template <int dim>
       void
       LpoSsTensor<dim>::update_one_particle_property(const unsigned int data_position,
-                                                     const Point<dim> &,
+                                                     const Point<dim> &particle_location,
                                                      const Vector<double> &solution,
                                                      const std::vector<Tensor<1,dim> > &gradients,
-                                                     const ArrayView<double> &data,
-                                                     typename ParticleHandler<dim>::particle_iterator &particle) const
+                                                     const ArrayView<double> &particle_properties) const
       {
         std::vector<unsigned int> deformation_type;
         std::vector<double> volume_fraction_mineral;
@@ -329,7 +328,7 @@ namespace aspect
         std::vector<std::vector<Tensor<2,3> > > a_cosine_matrices_grains;
 
         Particle::Property::LPO<dim>::load_particle_data(lpo_data_position,
-                                                         data,
+                                                         particle_properties,
                                                          deformation_type,
                                                          volume_fraction_mineral,
                                                          volume_fractions_grains,
@@ -367,12 +366,11 @@ namespace aspect
                 const unsigned int solution_component = this->introspection().component_indices.compositional_fields[i];
                 compositions.push_back(solution[solution_component]);
             }
-
         if  (this->get_timestep_number() > 0 && temperature > 1000)
           {
             const MaterialModel::LPO_AV_3D_Simple<dim> &av = Plugins::get_plugin_as_type<const MaterialModel::LPO_AV_3D_Simple<dim>>(this->get_material_model());
 
-            material_inputs.position[0] = particle->get_location();
+            material_inputs.position[0] = particle_location;
             material_inputs.temperature[0] = temperature;
             material_inputs.pressure[0] = pressure;
             material_inputs.velocity[0] = velocity;
@@ -390,19 +388,17 @@ namespace aspect
               }
 
             const SymmetricTensor<2,dim> strain_rate = symmetrize (velocity_gradient);
-            std::cout<<"Prescribed strain rate is: "<<strain_rate_stored<<std::endl;
-            std::cout<<"Strain rate from velo grad is: "<<strain_rate<<std::endl;
+            // std::cout<<"Prescribed strain rate is: "<<strain_rate_stored<<std::endl;
+            // std::cout<<"Strain rate from velo grad is: "<<strain_rate<<std::endl;
 
-            // SymmetricTensor<2,dim> strain_rate_pf;
-            // for (int k = 0; k < dim; k++)
-            //   {
-            //     for (int l = 0; l < dim; l++)
-            //       {
-            //         strain_rate_pf[k][l]=Ev[SymmetricTensor<2,dim>::component_to_unrolled_index(TableIndices<2>(k,l))];
-            //         // AssertThrow(strain_rate[k][l]==strain_rate_gradv[k][l],
-            //         //             ExcMessage("Strain rate from prescribed field is not the same as the strain rate from the velocity gradient"));
-            //       }
-            //   }
+            for (int k = 0; k < dim; k++)
+              {
+                for (int l = 0; l < dim; l++)
+                  {
+                    AssertThrow(strain_rate_stored[k][l]==strain_rate[k][l],
+                                ExcMessage("Strain rate from prescribed field is not the same as the strain rate from the velocity gradient"));
+                  }
+              }
 
             double E_eq;
             SymmetricTensor<2,dim> e1, e2, e3, e4, e5, E;
@@ -455,7 +451,7 @@ namespace aspect
           }
         //std::cout << "Ss tensor " << Ss_tensor << std::endl;
         Particle::Property::LpoSsTensor<dim>::store_particle_data(data_position,
-                                                                  data,
+                                                                  particle_properties,
                                                                   Ss_tensor);
 
 
@@ -468,7 +464,7 @@ namespace aspect
                                            const ArrayView<double> &data,
                                            Tensor<2,6> &Ss_tensor)
       {
-
+        std::cout<<"Loading "<<std::endl;
         // There is a bug up to dealii 9.3.0, so we have to work around it.
         for (unsigned int i = 0; i < Tensor<2,6>::n_independent_components ; ++i)
           {
@@ -500,7 +496,7 @@ namespace aspect
       UpdateTimeFlags
       LpoSsTensor<dim>::need_update() const
       {
-        return update_output_step;
+        return update_time_step;
       }
 
       template <int dim>

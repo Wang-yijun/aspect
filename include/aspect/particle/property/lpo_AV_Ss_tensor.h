@@ -117,15 +117,13 @@ namespace aspect
            * @param [in,out] particle_properties The properties of the particle
            * that is updated within the call of this function.
            */
-          virtual
+          
           void
           update_one_particle_property (const unsigned int data_position,
-                                        const Point<dim> &position,
+                                        const Point<dim> &particle_location,
                                         const Vector<double> &solution,
                                         const std::vector<Tensor<1,dim> > &gradients,
-                                        const ArrayView<double> &particle_properties,
-                                        typename ParticleHandler<dim>::particle_iterator &particle) const;
-
+                                        const ArrayView<double> &particle_properties) const override;
           /**
            * This implementation tells the particle manager that
            * we need to update particle properties every time step.
