@@ -20,6 +20,7 @@
  */
 
 #include <aspect/material_model/LPO_AV_3D_Simple.h>
+#include <aspect/material_model/diffusion_dislocation.h>
 #include <aspect/material_model/equation_of_state/interface.h>
 #include <aspect/introspection.h>
 #include <aspect/material_model/interface.h>
@@ -46,6 +47,7 @@
 #include <aspect/simulator_access.h>
 #include <aspect/simulator.h>
 #include <aspect/global.h>
+#include <aspect/utilities.h>
 
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/fe/fe_values.h>
@@ -761,7 +763,7 @@ namespace aspect
       // input of only one particle in the future?
       // Initialize prescribed field for the strain rate
       SymmetricTensor<2,dim> dislocation_strainrate;
-      std::cout<<"number of particles should always be 1: "<<in.n_evaluation_points()<<std::endl;      
+      //std::cout<<"number of particles should always be 1: "<<in.n_evaluation_points()<<std::endl;      
       const std::vector<double> composition = in.composition[0];
       const std::vector<double> volume_fractions = MaterialUtilities::compute_composition_fractions(composition);
       const double temperature = in.temperature[0];
@@ -944,13 +946,18 @@ namespace aspect
     void
     LPO_AV_3D_Simple<dim>::parse_parameters (ParameterHandler &prm)
     {
+      // increment by one for background:
+      const unsigned int n_fields = this->n_compositional_fields() + 1;
       prm.enter_subsection("Material model");
       {
         prm.enter_subsection("AV");
         {
-
+          // Retrieve the list of composition names
+          const std::vector<std::string> list_of_composition_names = this->introspection().get_composition_names();
+          // Establish that a background field is required here
+          const bool has_background_field = true;
           equation_of_state.parse_parameters (prm);
-          eta = prm.get_double("Reference viscosity");
+          eta = prm.get_double("Reference viscosity"); //is this a duplicate with the reference viscosity function?
           min_strain_rate = prm.get_double("Minimum strain rate");
           grain_size = prm.get_double("Grain size");//
           max_visc = prm.get_double ("Maximum viscosity");//
@@ -958,7 +965,17 @@ namespace aspect
           // Iteration parameters
           strain_rate_residual_threshold = prm.get_double ("Strain rate residual tolerance");
           stress_max_iteration_number = prm.get_integer ("Maximum strain rate ratio iterations");
-        }
+          
+          // Rheological parameters
+          // Diffusion creep parameters
+          diffusion_creep.initialize_simulator (this->get_simulator());
+          diffusion_creep.parse_parameters(prm, std::make_shared<std::vector<unsigned int>>(n_fields));
+
+          // Dislocation creep parameters
+          dislocation_creep.initialize_simulator (this->get_simulator());
+          dislocation_creep.parse_parameters(prm, std::make_shared<std::vector<unsigned int>>(n_fields));
+
+          }
         prm.leave_subsection();
       }
       prm.leave_subsection();

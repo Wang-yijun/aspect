@@ -566,7 +566,6 @@ namespace aspect
           {
             prm.enter_subsection("LpoSsTensor");
             {
-
               random_number_seed = prm.get_integer ("Random number seed"); // 2
               n_grains = LPO<dim>::get_number_of_grains();
               n_minerals = LPO<dim>::get_number_of_minerals();
