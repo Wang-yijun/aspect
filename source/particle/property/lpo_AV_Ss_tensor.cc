@@ -375,34 +375,21 @@ namespace aspect
             material_inputs.pressure[0] = pressure;
             material_inputs.velocity[0] = velocity;
             material_inputs.composition[0] = compositions;
-            material_inputs.strain_rate[0] = strain_rate;
-
-            SymmetricTensor<2,dim> dislocation_strain_rate = av.get_dislocation_strainrate(material_inputs);
-
-
-
             Tensor<2,dim> velocity_gradient;
             for (unsigned int d=0; d<dim; ++d)
               {
                 velocity_gradient[d] = gradients[d];
               }
-
             const SymmetricTensor<2,dim> strain_rate = symmetrize (velocity_gradient);
+            material_inputs.strain_rate[0] = strain_rate;
+
+            SymmetricTensor<2,dim> dislocation_strain_rate = av.get_dislocation_strainrate(material_inputs);
             std::cout<<"Dislocation strain rate is: "<<dislocation_strain_rate<<std::endl;
             std::cout<<"Strain rate from velo grad is: "<<strain_rate<<std::endl;
 
-            // for (int k = 0; k < dim; k++)
-            //   {
-            //     for (int l = 0; l < dim; l++)
-            //       {
-            //         AssertThrow(strain_rate_stored[k][l]==strain_rate[k][l],
-            //                     ExcMessage("Strain rate from prescribed field is not the same as the strain rate from the velocity gradient"));
-            //       }
-            //   }
-
             double E_eq;
             SymmetricTensor<2,dim> e1, e2, e3, e4, e5, E;
-            E=strain_rate;
+            E=dislocation_strain_rate;
             E_eq=(1.0/6.0*(std::pow(double (E[0][0] - E[1][1]),2) + std::pow(double (E[1][1] - E[2][2]),2)+std::pow(double (E[2][2] - E[0][0]),2)))+(std::pow(E[0][1],2)+std::pow(E[1][2],2)+std::pow(E[2][0],2));//J2
             E_eq= std::sqrt((4./3.)*E_eq);// Second invariant of strain-rate
 

@@ -601,6 +601,7 @@ namespace aspect
           out.entropy_derivative_temperature[q] = 0.0;
           // calculate effective viscosity
           const std::vector<double> &composition = in.composition[q];
+          SymmetricTensor<2,dim> dislocation_strainrate = get_dislocation_strainrate(in);
 
           // Interpolate prescribed field outputs (strain rate) onto compositional fields
           // std::cout<<"strain rate tensor is: "<<in.strain_rate[q]<<std::endl;
@@ -608,7 +609,7 @@ namespace aspect
             {
               for (unsigned int i=0; i < 6; ++i)
                 {
-                  strain_rate_p->prescribed_field_outputs[q][i] = in.strain_rate[q][Tensor<2,dim>::unrolled_to_component_indices(i)];
+                  strain_rate_p->prescribed_field_outputs[q][i] = dislocation_strainrate[Tensor<2,dim>::unrolled_to_component_indices(i)];
                   // std::cout<<"strain rate component (i) is: "<<i<<in.strain_rate[q][Tensor<2,dim>::unrolled_to_component_indices(i)]<<std::endl;
                 }
             }
@@ -632,9 +633,9 @@ namespace aspect
             {
               double E_eq;
               SymmetricTensor<2,dim> E;
-              E_eq= std::sqrt((4./3.)*AV<dim>::J2_second_invariant(in.strain_rate[q], min_strain_rate));// Second invariant of strain-rate
+              E_eq= std::sqrt((4./3.)*AV<dim>::J2_second_invariant(dislocation_strainrate, min_strain_rate));// Second invariant of strain-rate, use dislocation strain rate
               //std::cout<<"E_eq is:"<<E_eq<<std::endl;
-              E=in.strain_rate[q];
+              E=dislocation_strainrate;
 
               AssertThrow(isfinite(1/E.norm()),
                           ExcMessage("Strain rate should be finite"));
@@ -769,7 +770,7 @@ namespace aspect
       const double temperature = in.temperature[0];
       const double pressure = in.pressure[0];
       const SymmetricTensor<2,dim> strain_rate = in.strain_rate[0];
-      
+      double dislocation_strain_rate_f = 0;
       // This function calculates viscosities assuming that all the compositional fields
       // experience the same strain rate (isostrain).
 
@@ -816,7 +817,7 @@ namespace aspect
           double strain_rate_residual = 2*strain_rate_residual_threshold;
           double strain_rate_deriv = 0;
           unsigned int stress_iteration = 0;
-          double dislocation_strain_rate_f = 1;
+          dislocation_strain_rate_f = 0;
           while (std::abs(strain_rate_residual) > strain_rate_residual_threshold
                  && stress_iteration < stress_max_iteration_number)
             {
@@ -878,8 +879,7 @@ namespace aspect
 
                       diffusion_strain_rate = dislocation_viscosity / (diffusion_viscosity + dislocation_viscosity) * edot_ii;
                       dislocation_strain_rate = diffusion_viscosity / (diffusion_viscosity + dislocation_viscosity) * edot_ii;
-                      double dislocation_strain_rate_f = diffusion_viscosity / (diffusion_viscosity + dislocation_viscosity);
-                      SymmetricTensor<2,dim> dislocation_strainrate;
+                      dislocation_strain_rate_f = diffusion_viscosity / (diffusion_viscosity + dislocation_viscosity);
                       for (int k = 0; k < dim; k++)
                         {
                           for (int l = 0; l < dim; l++)
@@ -887,7 +887,9 @@ namespace aspect
                               dislocation_strainrate[k][l] = dislocation_strain_rate_f * strain_rate[k][l];
                             }
                         }
-                      
+
+                      // std::cout<<"Diffusion strain rate fraction: "<<diffusion_strain_rate_f<<std::endl;
+                      // std::cout<<"Strain rate input in AV MM: "<<strain_rate<<std::endl;
                       stress_iteration++;
                       AssertThrow(stress_iteration < stress_max_iteration_number,
                                   ExcMessage("No convergence has been reached in the loop that determines "
@@ -901,15 +903,15 @@ namespace aspect
                       stress_ii = 2.0 * edot_ii * 1./(1./diffusion_viscosity + 1./dislocation_viscosity);
                     }
                   while (strain_rate_residual > strain_rate_residual_threshold);
-
                   break;
                 }
+                
             }
 
           // The effective viscosity, with minimum and maximum bounds
           composition_viscosities[j] = std::min(std::max(stress_ii/edot_ii/2, min_visc), max_visc);
-        }      
-
+        }
+      // std::cout<<"Returned dislocation_strainrate: "<<dislocation_strainrate<<std::endl;
       return dislocation_strainrate;
     }
 
