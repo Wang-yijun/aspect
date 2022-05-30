@@ -185,10 +185,10 @@ namespace aspect
             //std::cout<<"A_ss: "<<A_ss<<std::endl;
             for (size_t i = 0; i < n_grains_local; i++)
               {
-                //std::cout<<"strain rate: "<<strain_rate<<  std::endl;
-                //std::cout<<"A_ss: "<<A_ss<<  std::endl;
+                //std::cout<<"strain rate: "<<strain_rate<<std::endl;
+                //std::cout<<"A_ss: "<<A_ss<<std::endl;
                 Tensor<2,3> R = a_cosine_matrices_grains[mineral_i][i];
-                //std::cout<<"Rotation matrix: "<<R<<  std::endl;
+                std::cout<<"Rotation matrix: "<<R<<std::endl;
                 SymmetricTensor<2,3> Rate_grain=symmetrize(R*strain_rate*transpose(R));
                 //std::cout<<"Rate_grain "<<Rate_grain<<  std::endl;
                 std::array<std::pair<double, Tensor<1, 3>>, 3> Rate_gr_eig = eigenvectors(Rate_grain,SymmetricTensorEigenvectorMethod::jacobi);
@@ -381,7 +381,9 @@ namespace aspect
           stress4=compute_S_tensor(e4, grain_size, a_cosine_matrices_grains, deformation_type, temperature);
           stress5=compute_S_tensor(e5, grain_size, a_cosine_matrices_grains, deformation_type, temperature);
           Stress =compute_S_tensor(E, grain_size, a_cosine_matrices_grains, deformation_type, temperature);
-
+          std::cout<<"Stress SS tensor: "<<Stress<<std::endl;
+          std::cout<<"strain rate: "<<E<<std::endl;
+          std::cout<<"Rotation matrix: "<<a_cosine_matrices_grains[0][0]<<std::endl;
           //std::cout<<"Stress: "<< Stress<< std::endl;
           for (unsigned int i = 0; i < SymmetricTensor<2,dim>::n_independent_components ; ++i)
           {
