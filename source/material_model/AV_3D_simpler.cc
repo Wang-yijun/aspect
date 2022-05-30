@@ -986,27 +986,27 @@ namespace aspect
 // explicit instantiations
 namespace aspect
 {
-  namespace Assemblers
-  {
-#define INSTANTIATE(dim) \
-  template class StokesPreconditioner<dim>; \
-  template class StokesIncompressibleTerms<dim>; \
-  template class StokesBoundaryTraction<dim>;
+//   namespace Assemblers
+//   {
+// #define INSTANTIATE(dim) \
+//   template class StokesPreconditioner<dim>; \
+//   template class StokesIncompressibleTerms<dim>; \
+//   template class StokesBoundaryTraction<dim>;
 
-    ASPECT_INSTANTIATE(INSTANTIATE)
-  }
+//     ASPECT_INSTANTIATE(INSTANTIATE)
+//   }
 
-  namespace HeatingModel
-  {
-    ASPECT_REGISTER_HEATING_MODEL(ShearHeatingAnisotropicViscosity,
-                                  "anisotropic shear heating",
-                                  "Implementation of a standard model for shear heating. "
-                                  "Adds the term: "
-                                  "$  2 \\eta \\left( \\varepsilon - \\frac{1}{3} \\text{tr} "
-                                  "\\varepsilon \\mathbf 1 \\right) : \\left( \\varepsilon - \\frac{1}{3} "
-                                  "\\text{tr} \\varepsilon \\mathbf 1 \\right)$ to the "
-                                  "right-hand side of the temperature equation.")
-  }
+//   namespace HeatingModel
+//   {
+//     ASPECT_REGISTER_HEATING_MODEL(ShearHeatingAnisotropicViscosity,
+//                                   "anisotropic shear heating",
+//                                   "Implementation of a standard model for shear heating. "
+//                                   "Adds the term: "
+//                                   "$  2 \\eta \\left( \\varepsilon - \\frac{1}{3} \\text{tr} "
+//                                   "\\varepsilon \\mathbf 1 \\right) : \\left( \\varepsilon - \\frac{1}{3} "
+//                                   "\\text{tr} \\varepsilon \\mathbf 1 \\right)$ to the "
+//                                   "right-hand side of the temperature equation.")
+//   }
 
 
 
