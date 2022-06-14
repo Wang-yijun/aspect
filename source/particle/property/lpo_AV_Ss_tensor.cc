@@ -451,7 +451,6 @@ namespace aspect
                                            const ArrayView<double> &data,
                                            Tensor<2,6> &Ss_tensor)
       {
-        std::cout<<"Loading "<<std::endl;
         // There is a bug up to dealii 9.3.0, so we have to work around it.
         for (unsigned int i = 0; i < Tensor<2,6>::n_independent_components ; ++i)
           {

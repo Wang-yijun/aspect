@@ -888,7 +888,6 @@ namespace aspect
                             }
                         }
 
-                      // std::cout<<"Diffusion strain rate fraction: "<<diffusion_strain_rate_f<<std::endl;
                       // std::cout<<"Strain rate input in AV MM: "<<strain_rate<<std::endl;
                       stress_iteration++;
                       AssertThrow(stress_iteration < stress_max_iteration_number,
@@ -911,7 +910,7 @@ namespace aspect
           // The effective viscosity, with minimum and maximum bounds
           composition_viscosities[j] = std::min(std::max(stress_ii/edot_ii/2, min_visc), max_visc);
         }
-      // std::cout<<"Returned dislocation_strainrate: "<<dislocation_strainrate<<std::endl;
+      //std::cout<<"Dislocation_strainrate fraction: "<<dislocation_strain_rate_f<<std::endl;
       return dislocation_strainrate;
     }
 
