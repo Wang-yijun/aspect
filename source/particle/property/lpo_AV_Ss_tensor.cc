@@ -249,7 +249,6 @@ namespace aspect
 
                 FullMatrix<double>  S_gc_v(6,1);
                 Schm.mmult(S_gc_v,tau_ss); //Voigt notation of the resolved stress on the grain
-		std::cout<<"S_gc_v: "<<S_gc_v<<std::endl;
 		SymmetricTensor<2,3> S_gc;
                 S_gc[0][0] = S_gc_v[0][0];
                 S_gc[1][1] = S_gc_v[1][0];
