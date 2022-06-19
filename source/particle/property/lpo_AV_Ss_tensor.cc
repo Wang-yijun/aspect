@@ -250,7 +250,7 @@ namespace aspect
                 FullMatrix<double>  S_gc_v(6,1);
                 Schm.mmult(S_gc_v,tau_ss); //Voigt notation of the resolved stress on the grain
 		std::cout<<"S_gc_v: "<<S_gc_v<<std::endl;
-		            SymmetricTensor<2,3> S_gc;
+		SymmetricTensor<2,3> S_gc;
                 S_gc[0][0] = S_gc_v[0][0];
                 S_gc[1][1] = S_gc_v[1][0];
                 S_gc[2][2] = S_gc_v[2][0];
@@ -260,9 +260,9 @@ namespace aspect
 		std::cout<<"S_gc: "<<S_gc<<std::endl;
                 SymmetricTensor<2,3> S_g= symmetrize(transpose(R)*S_gc*R); //Here instead of making a multidimensional array what I sum at the end, I create S_g and add it to S_sum
                 //SymmetricTensor<2,3> S_sum;
-                std::cout<<"S_g: "<<S_g<<  std::endl;
+                std::cout<<"S_g: "<<S_g<<std::endl;
                 S_sum += S_g;
-                std::cout<<"S_sum: "<<S_sum<<  std::endl;
+                std::cout<<"S_sum: "<<S_sum<<std::endl;
 
               }
             S_sum=S_sum/n_grains_local; //Stress for mineralphase
