@@ -627,7 +627,7 @@ namespace aspect
               double E_eq;
               SymmetricTensor<2,dim> E;
               E_eq= std::sqrt((4./3.)*AV<dim>::J2_second_invariant(in.strain_rate[q], min_strain_rate));// Second invariant of strain-rate
-              std::cout<<"E_eq is:"<<E_eq<<std::endl;
+              //std::cout<<"E_eq is:"<<E_eq<<std::endl;
               E=in.strain_rate[q];
               //std::cout<<"The strain rate is:"<< E << std::endl;
               
