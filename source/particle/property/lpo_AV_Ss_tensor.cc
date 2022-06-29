@@ -210,7 +210,7 @@ namespace aspect
                 FullMatrix<double> r_ss(3,1); //Optimazition to find shear strain rate on slip system
                 FullMatrix<double> r_gc_v(6,1); //strain rate tensor for grain in Voigt notation and crystal reference frame
                 pinvschm.mmult(r_ss, Rate_grain_voigt);
-                std::cout<<"r_ss"<<r_ss[0][0]<<"; "<<r_ss[1][0]<<"; "<<r_ss[2][0]<<std::endl;
+                std::cout<<"r_ss: "<<r_ss[0][0]<<"; "<<r_ss[1][0]<<"; "<<r_ss[2][0]<<std::endl;
                 Schm.mmult(r_gc_v,r_ss);
 
                 SymmetricTensor<2,3> r_gc; 
@@ -232,14 +232,14 @@ namespace aspect
                     r_ss[i][0]=r_ss[i][0]*std::pow(inv2/inv2best,0);
                   }
                 FullMatrix<double> tau_ss(3,1);
-                std::cout<<"std::copysignf(1.0,r_ss[0][0]): "<<std::copysignf(1.0,r_ss[0][0])<<  std::endl;
-                std::cout<<"1.0/A_ss[0]: "<<1.0/A_ss[0]<<  std::endl;
-                std::cout<<"1.0/A0: "<<1.0/A0<<std::endl;
+                //std::cout<<"std::copysignf(1.0,r_ss[0][0]): "<<std::copysignf(1.0,r_ss[0][0])<<  std::endl;
+                //std::cout<<"1.0/A_ss[0]: "<<1.0/A_ss[0]<<  std::endl;
+                //std::cout<<"1.0/A0: "<<1.0/A0<<std::endl;
                 AssertThrow(isfinite(1./A0),
                     ExcMessage("1/A0 is infinite"))
-                std::cout<<"std::pow(grain_size,0.73): "<<std::pow(grain_size,0.73)<<std::endl;
-                std::cout<<"std::fabs(r_ss[0][0]/2) "<<std::fabs(r_ss[0][0]/2)<<std::endl;
-                std::cout<<"tau_ss(1) "<<std::copysignf(1.0,r_ss[0][0])*std::pow(1.0/A_ss[0]*1.0/A0*std::pow(grain_size,0.73)*std::fabs(r_ss[0][0]/2),1.0/nFo)<<std::endl;
+                //std::cout<<"std::pow(grain_size,0.73): "<<std::pow(grain_size,0.73)<<std::endl;
+                //std::cout<<"std::fabs(r_ss[0][0]/2) "<<std::fabs(r_ss[0][0]/2)<<std::endl;
+                //std::cout<<"tau_ss(1) "<<std::copysignf(1.0,r_ss[0][0])*std::pow(1.0/A_ss[0]*1.0/A0*std::pow(grain_size,0.73)*std::fabs(r_ss[0][0]/2),1.0/nFo)<<std::endl;
 		            tau_ss[0][0]= std::copysignf(1.0,r_ss[0][0])*std::pow(1.0/A_ss[0]*1.0/A0*std::pow(grain_size,0.73)*std::fabs(r_ss[0][0]/2),1.0/nFo);
 		            tau_ss[1][0]= std::copysignf(1.0,r_ss[1][0])*std::pow(1.0/A_ss[1]*1.0/A0*std::pow(grain_size,0.73)*std::fabs(r_ss[1][0]/2),1.0/nFo);
 		            tau_ss[2][0]= std::copysignf(1.0,r_ss[2][0])*std::pow(1.0/A_ss[2]*1.0/A0*std::pow(grain_size,0.73)*std::fabs(r_ss[2][0]/2),1.0/nFo);
@@ -249,19 +249,19 @@ namespace aspect
 
                 FullMatrix<double>  S_gc_v(6,1);
                 Schm.mmult(S_gc_v,tau_ss); //Voigt notation of the resolved stress on the grain
-		            SymmetricTensor<2,3> S_gc;
+		SymmetricTensor<2,3> S_gc;
                 S_gc[0][0] = S_gc_v[0][0];
                 S_gc[1][1] = S_gc_v[1][0];
                 S_gc[2][2] = S_gc_v[2][0];
                 S_gc[1][2] = S_gc_v[3][0];
                 S_gc[0][2] = S_gc_v[4][0];
                 S_gc[0][1] = S_gc_v[5][0];
-
+		std::cout<<"S_gc: "<<S_gc<<std::endl;
                 SymmetricTensor<2,3> S_g= symmetrize(transpose(R)*S_gc*R); //Here instead of making a multidimensional array what I sum at the end, I create S_g and add it to S_sum
                 //SymmetricTensor<2,3> S_sum;
-                std::cout<<"Stress on grain: "<<S_g<<  std::endl;
+                std::cout<<"S_g: "<<S_g<<std::endl;
                 S_sum += S_g;
-                std::cout<<"S_sum: "<<S_sum<<  std::endl;
+                std::cout<<"S_sum: "<<S_sum<<std::endl;
 
               }
             S_sum=S_sum/n_grains_local; //Stress for mineralphase

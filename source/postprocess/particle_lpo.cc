@@ -636,11 +636,11 @@ namespace aspect
       double phi1 = 0.0;
       double phi2 = 0.0;
 
-      if (theta != 0.0 && theta != dealii::numbers::PI)
+      if (sin(theta) != 0.0 && theta != dealii::numbers::PI)
         {
           //
-          phi1  = std::atan2(rotation_matrix[2][0]/-sin(theta),rotation_matrix[2][1]/-sin(theta));
-          phi2  = std::atan2(rotation_matrix[0][2]/-sin(theta),rotation_matrix[1][2]/sin(theta));
+          phi1  = std::atan2(rotation_matrix[2][0]/sin(theta),rotation_matrix[2][1]/-sin(theta));
+          phi2  = std::atan2(rotation_matrix[0][2]/sin(theta),rotation_matrix[1][2]/sin(theta));
         }
       else
         {
@@ -650,7 +650,7 @@ namespace aspect
           // (cosine matrix) should be the same.
           if (theta == 0.0)
             {
-              phi2 = - phi1 - std::atan2(rotation_matrix[0][1],rotation_matrix[0][0]);
+              phi2 = - phi1 - std::atan2(-rotation_matrix[0][1],rotation_matrix[0][0]);
             }
           else
             {
@@ -688,14 +688,14 @@ namespace aspect
 
 
       rot_matrix[0][0] = cos(phi2)*cos(phi1) - cos(theta)*sin(phi1)*sin(phi2);
-      rot_matrix[0][1] = -cos(phi2)*sin(phi1) - cos(theta)*cos(phi1)*sin(phi2);
-      rot_matrix[0][2] = -sin(phi2)*sin(theta);
+      rot_matrix[0][1] = cos(phi2)*sin(phi1) + cos(theta)*cos(phi1)*sin(phi2);
+      rot_matrix[0][2] = sin(phi2)*sin(theta);
 
-      rot_matrix[1][0] = sin(phi2)*cos(phi1) + cos(theta)*sin(phi1)*cos(phi2);
+      rot_matrix[1][0] = -sin(phi2)*cos(phi1) - cos(theta)*sin(phi1)*cos(phi2);
       rot_matrix[1][1] = -sin(phi2)*sin(phi1) + cos(theta)*cos(phi1)*cos(phi2);
       rot_matrix[1][2] = cos(phi2)*sin(theta);
 
-      rot_matrix[2][0] = -sin(theta)*sin(phi1);
+      rot_matrix[2][0] = sin(theta)*sin(phi1);
       rot_matrix[2][1] = -sin(theta)*cos(phi1);
       rot_matrix[2][2] = cos(theta);
       AssertThrow(rot_matrix[2][2] <= 1.0, ExcMessage("rot_matrix[2][2] > 1.0"));
