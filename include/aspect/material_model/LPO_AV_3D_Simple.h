@@ -28,6 +28,7 @@
 #include <aspect/simulator/assemblers/interface.h>
 #include <aspect/material_model/rheology/diffusion_creep.h>
 #include <aspect/material_model/rheology/dislocation_creep.h>
+#include <aspect/material_model/rheology/visco_plastic.h>
 
 namespace aspect
 {
@@ -77,8 +78,8 @@ namespace aspect
         virtual void initialize();
         virtual void evaluate (const MaterialModel::MaterialModelInputs<dim> &in,
                                MaterialModel::MaterialModelOutputs<dim> &out) const;
-        virtual SymmetricTensor<2,dim> get_strainrate (const MaterialModel::MaterialModelInputs<dim> &in) const;
-        virtual SymmetricTensor<2,dim> get_dislocation_strainrate (const MaterialModel::MaterialModelInputs<dim> &in) const;
+        // virtual SymmetricTensor<2,dim> get_strainrate (const MaterialModel::MaterialModelInputs<dim> &in) const;
+        virtual SymmetricTensor<2,dim> get_dislocation_strainrate (const MaterialModel::MaterialModelInputs<dim> &in, double &diffusion_viscosity, double &diffusion_strain_rate_f) const;
         static void declare_parameters (ParameterHandler &prm);
         virtual void parse_parameters (ParameterHandler &prm);
         virtual bool is_compressible () const;
@@ -96,12 +97,17 @@ namespace aspect
         double min_strain_rate;
         double min_visc;
         double max_visc;
+        double thermal_diffusivity;
+        double heat_capacity;
+        double reference_T;
         double grain_size;
         std::vector<unsigned int> c_idx_S, c_idx_s1, c_idx_s2, c_idx_s3, c_idx_s4, c_idx_s5;
-        //double grain_size;
 
         double strain_rate_residual_threshold;
         unsigned int stress_max_iteration_number;
+
+        std::vector<double> densities;
+        std::vector<double> thermal_expansivities;
 
         EquationOfState::LinearizedIncompressible<dim> equation_of_state;
         void set_assemblers(const SimulatorAccess<dim> &,

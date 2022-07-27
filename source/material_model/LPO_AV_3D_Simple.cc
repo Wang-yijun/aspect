@@ -308,7 +308,7 @@ namespace aspect
                               numbers::signaling_nan<double>());
 
           const SymmetricTensor<4, dim> &stress_strain_director = anisotropic_viscosity->stress_strain_directors[q];
-          //std::cout << "director: " << stress_strain_director << std::endl;
+          std::cout << "director in StokesIncompressibleTermsAV: " << stress_strain_director << std::endl;
 
           const Tensor<1,dim>
           gravity = this->get_gravity_model().gravity_vector (scratch.finite_element_values.quadrature_point(q));
@@ -583,36 +583,71 @@ namespace aspect
       MaterialModel::AV<dim> *anisotropic_viscosity;
       anisotropic_viscosity = out.template get_additional_output<MaterialModel::AV<dim> >();
       // Initialize prescribed field for the strain rate
-      PrescribedFieldOutputs<dim> *strain_rate_p = out.template get_additional_output<PrescribedFieldOutputs<dim> >();
-
+      // PrescribedFieldOutputs<dim> *strain_rate_p = out.template get_additional_output<PrescribedFieldOutputs<dim> >();
 
       EquationOfStateOutputs<dim> eos_outputs (1);
       for (unsigned int q=0; q<in.n_evaluation_points(); ++q)
         {
           //change these according to diffusion dislocation material model I guess
           equation_of_state.evaluate(in, q, eos_outputs);
-          out.densities[q] = eos_outputs.densities[0];//Change this to 0 for the simple shear box test
+          const std::vector<double> composition = in.composition[q];
+          const std::vector<double> volume_fractions = MaterialUtilities::compute_composition_fractions(composition);
+
+          // out.densities[q] = eos_outputs.densities[0];//Change this to 0 for the simple shear box test
           out.viscosities[q] = eta; //Later it is going to be overwritten by the effective viscosity
-          out.thermal_expansion_coefficients[q] = 1e-10;
-          out.specific_heat[q] = 1;
-          out.thermal_conductivities[q] = 1;
+          // out.thermal_expansion_coefficients[q] = 1e-10;
+          // out.specific_heat[q] = 1;
+          // out.thermal_conductivities[q] = 1;         
+          // out.densities[q] = MaterialUtilities::average_value(volume_fractions, eos_outputs.densities, MaterialUtilities::arithmetic);
+          // out.thermal_expansion_coefficients[q] = MaterialUtilities::average_value(volume_fractions, eos_outputs.thermal_expansion_coefficients, MaterialUtilities::arithmetic);
+          
+          // Averaging composition-field dependent properties
+          // densities
+          double density = 0.0;
+          const double temperature = in.temperature[q];
+          for (unsigned int j=0; j < volume_fractions.size(); ++j)
+            {
+              // not strictly correct if thermal expansivities are different, since we are interpreting
+              // these compositions as volume fractions, but the error introduced should not be too bad.
+              const double temperature_factor= (1.0 - thermal_expansivities[j] * (temperature - reference_T));
+              density += volume_fractions[j] * densities[j] * temperature_factor;
+            }
+          // thermal expansivities
+          double thermal_expansivity = 0.0;
+          for (unsigned int j=0; j < volume_fractions.size(); ++j)
+            thermal_expansivity += volume_fractions[j] * thermal_expansivities[j];          
+          out.densities[q] = density;
+          out.thermal_expansion_coefficients[q] = thermal_expansivity;
+          out.specific_heat[q] = heat_capacity;
+          // Thermal conductivity at the given positions. If the temperature equation uses
+          // the reference density profile formulation, use the reference density to
+          // calculate thermal conductivity. Otherwise, use the real density. If the adiabatic
+          // conditions are not yet initialized, the real density will still be used.
+          if (this->get_parameters().formulation_temperature_equation ==
+              Parameters<dim>::Formulation::TemperatureEquation::reference_density_profile &&
+              this->get_adiabatic_conditions().is_initialized())
+            out.thermal_conductivities[q] = thermal_diffusivity * heat_capacity *
+                                            this->get_adiabatic_conditions().density(in.position[q]);
+          else
+            out.thermal_conductivities[q] = thermal_diffusivity * heat_capacity * density;
           out.compressibilities[q] = 0.0;
           out.entropy_derivative_pressure[q] = 0.0;
           out.entropy_derivative_temperature[q] = 0.0;
-          // calculate effective viscosity
-          const std::vector<double> &composition = in.composition[q];
-          SymmetricTensor<2,dim> dislocation_strainrate = get_dislocation_strainrate(in);
 
+          // calculate effective viscosity
+          double diffusion_viscosity, diffusion_strain_rate_f;
+          SymmetricTensor<2,dim> dislocation_strainrate = get_dislocation_strainrate(in, diffusion_viscosity, diffusion_strain_rate_f);
+          
           // Interpolate prescribed field outputs (strain rate) onto compositional fields
           // std::cout<<"strain rate tensor is: "<<in.strain_rate[q]<<std::endl;
-          if (strain_rate_p != NULL)
-            {
-              for (unsigned int i=0; i < 6; ++i)
-                {
-                  strain_rate_p->prescribed_field_outputs[q][i] = dislocation_strainrate[Tensor<2,dim>::unrolled_to_component_indices(i)];
-                  // std::cout<<"strain rate component (i) is: "<<i<<in.strain_rate[q][Tensor<2,dim>::unrolled_to_component_indices(i)]<<std::endl;
-                }
-            }
+          // if (strain_rate_p != NULL)
+          //   {
+          //     for (unsigned int i=0; i < 6; ++i)
+          //       {
+          //         strain_rate_p->prescribed_field_outputs[q][i] = dislocation_strainrate[Tensor<2,dim>::unrolled_to_component_indices(i)];
+          //         // std::cout<<"strain rate component (i) is: "<<i<<in.strain_rate[q][Tensor<2,dim>::unrolled_to_component_indices(i)]<<std::endl;
+          //       }
+          //   }
 
 
           Tensor<1,2*dim> Sv, s1v, s2v, s3v, s4v, s5v;
@@ -626,15 +661,16 @@ namespace aspect
               s5v[i] = in.composition[q][c_idx_s5[i]];
 
             }
-
           // The computation of the viscosity tensor is only
           // necessary after the simulator has been initialized
+          std::cout<<"Outside if "<<std::endl;
           if  ((this->simulator_is_past_initialization()) && (this->get_timestep_number() > 0) && (in.temperature[q]>1000))
             {
+              std::cout<<"Inside if "<<std::endl;
               double E_eq;
               SymmetricTensor<2,dim> E;
               E_eq= std::sqrt((4./3.)*AV<dim>::J2_second_invariant(dislocation_strainrate, min_strain_rate));// Second invariant of strain-rate, use dislocation strain rate
-              //std::cout<<"E_eq is:"<<E_eq<<std::endl;
+              std::cout<<"E_eq is:"<<E_eq<<std::endl;
               E=dislocation_strainrate;
 
               AssertThrow(isfinite(1/E.norm()),
@@ -654,7 +690,7 @@ namespace aspect
                       Stress[k][l]=Sv[SymmetricTensor<2,dim>::component_to_unrolled_index(TableIndices<2>(k,l))];
                     }
                 }
-              /*std::cout<<"The stress is:"<<std::endl;
+              std::cout<<"The stress is:"<<std::endl;
               for (int i = 0; i < dim; i++)
                {
                 for (int j = 0; j < dim; j++)
@@ -662,7 +698,7 @@ namespace aspect
                   std::cout << Stress[i][j] << ", ";
                 }
                 std::cout << std::endl;
-              }*/
+              }
 
               const double Stress_eq= std::sqrt(3.0*AV<dim>::J2_second_invariant(Stress, min_strain_rate));
               /* std::cout<<"Stress eq is: "<<Stress_eq<<std::endl;
@@ -685,7 +721,7 @@ namespace aspect
                       S[i][j]= Stress[i][j]*std::pow(AV<dim>::J2_second_invariant(Stress, min_strain_rate),1.25);
                     }
                 }
-              /* std::cout<<"Stress * second invariant on the factor of.. is:"<<std::endl;
+              std::cout<<"Stress * second invariant on the factor of.. is:"<<std::endl;
               for (int i = 0; i < dim; i++)
                {
                 for (int j = 0; j < dim; j++)
@@ -693,7 +729,7 @@ namespace aspect
                   std::cout << S[i][j] << ", ";
                 }
                 std::cout << std::endl;
-              } */
+              }
 
               //Build the stress independent V tensor
               SymmetricTensor<4,dim> V, ViscoTensor_r4;
@@ -714,12 +750,18 @@ namespace aspect
                         {
                           for (int l = 0; l<dim; l++)
                             {
-                              //std::cout<<"V"<<i+1<<j+1<<k+1<<l+1<<"is: "<<V[i][j][k][l]<<std::endl;
+                              std::cout<<"V"<<i+1<<j+1<<k+1<<l+1<<"is: "<<V[i][j][k][l]<<std::endl;
                               ViscoTensor_r4[i][j][k][l]= V[i][j][k][l]/std::pow(AV<dim>::J2_second_invariant(Stress, min_strain_rate),1.25);
                             }
                         }
                     }
                 }
+              std::cout<<"diffusion viscosity: "<<diffusion_viscosity<<std::endl;
+              std::cout<<"diffusion fraction: "<<diffusion_strain_rate_f<<std::endl;
+              std::cout<<"Dislocation ViscoTensor_r4: "<<ViscoTensor_r4<<std::endl;
+              SymmetricTensor<4,dim> identity_r4 = dealii::identity_tensor<dim> ();
+              SymmetricTensor<4,dim> ViscoTensor_r4_full = ViscoTensor_r4*(1-diffusion_strain_rate_f) + identity_r4*diffusion_viscosity*diffusion_strain_rate_f;
+              std::cout<<"Full viscosity tensor: "<<ViscoTensor_r4_full<<std::endl;
 
               // Overwrite the scalar viscosity with an effective viscosity
               out.viscosities[q] = std::abs(Stress_eq/E_eq);
@@ -729,8 +771,9 @@ namespace aspect
                           ExcMessage("Viscosity should not be finite"));
               if (anisotropic_viscosity != nullptr)
                 {
-                  anisotropic_viscosity->stress_strain_directors[q] = ViscoTensor_r4/(2.0*Stress_eq/E_eq);
-
+                  anisotropic_viscosity->stress_strain_directors[q] = ViscoTensor_r4_full/(2.0*Stress_eq/E_eq);
+                  // std::cout<<"2.0*Stress_eq/E_eq: "<<2.0*Stress_eq/E_eq<<std::endl;
+                  // std::cout<<"stress strain directors[q] in evaluate: "<<anisotropic_viscosity->stress_strain_directors[q]<<std::endl;
                 }
             }
 
@@ -739,27 +782,27 @@ namespace aspect
 
 
 
-    template <int dim>
-    SymmetricTensor<2,dim> 
-    LPO_AV_3D_Simple<dim>::get_strainrate (const MaterialModel::MaterialModelInputs<dim> &in) const
-    {
-      // input of only one particle in the future?
-      // Initialize prescribed field for the strain rate
-      SymmetricTensor<2,dim> strain_rate_store;
-      //std::cout<<"number of particles should always be 1: "<<in.n_evaluation_points()<<std::endl;
-      for (unsigned int q=0; q<in.n_evaluation_points(); ++q)
-        {
-          // std::cout<<"strain rate stored by MM is: "<<in.strain_rate[q]<<std::endl;
-          strain_rate_store = in.strain_rate[q];
-        }
-      return strain_rate_store;
-    }
+    // template <int dim>
+    // SymmetricTensor<2,dim> 
+    // LPO_AV_3D_Simple<dim>::get_strainrate (const MaterialModel::MaterialModelInputs<dim> &in) const
+    // {
+    //   // input of only one particle in the future?
+    //   // Initialize prescribed field for the strain rate
+    //   SymmetricTensor<2,dim> strain_rate_store;
+    //   //std::cout<<"number of particles should always be 1: "<<in.n_evaluation_points()<<std::endl;
+    //   for (unsigned int q=0; q<in.n_evaluation_points(); ++q)
+    //     {
+    //       // std::cout<<"strain rate stored by MM is: "<<in.strain_rate[q]<<std::endl;
+    //       strain_rate_store = in.strain_rate[q];
+    //     }
+    //   return strain_rate_store;
+    // }
 
     // A copy of function calculate_isostrain_viscosities from diffusion_dislocation.cc to get the
     // dislocation strain rate
     template <int dim>
     SymmetricTensor<2,dim> 
-    LPO_AV_3D_Simple<dim>::get_dislocation_strainrate (const MaterialModel::MaterialModelInputs<dim> &in) const
+    LPO_AV_3D_Simple<dim>::get_dislocation_strainrate (const MaterialModel::MaterialModelInputs<dim> &in, double &diffusion_viscosity, double &diffusion_strain_rate_f) const
     {
       // input of only one particle in the future?
       // Initialize prescribed field for the strain rate
@@ -876,10 +919,11 @@ namespace aspect
                       const double dislocation_viscosity = std::min(std::max(dislocation_prefactor * dislocation_strain_rate_dependence
                                                                              * dislocation_T_and_P_dependence,
                                                                              min_visc), max_visc);
-
-                      diffusion_strain_rate = dislocation_viscosity / (diffusion_viscosity + dislocation_viscosity) * edot_ii;
-                      dislocation_strain_rate = diffusion_viscosity / (diffusion_viscosity + dislocation_viscosity) * edot_ii;
+                      
+                      diffusion_strain_rate_f = dislocation_viscosity / (diffusion_viscosity + dislocation_viscosity);
+                      diffusion_strain_rate = diffusion_strain_rate_f * edot_ii;
                       dislocation_strain_rate_f = diffusion_viscosity / (diffusion_viscosity + dislocation_viscosity);
+                      dislocation_strain_rate = dislocation_strain_rate_f * edot_ii;
                       for (int k = 0; k < dim; k++)
                         {
                           for (int l = 0; l < dim; l++)
@@ -958,15 +1002,29 @@ namespace aspect
           // Establish that a background field is required here
           const bool has_background_field = true;
           equation_of_state.parse_parameters (prm);
+          reference_T = prm.get_double("Reference temperature");
           eta = prm.get_double("Reference viscosity"); //is this a duplicate with the reference viscosity function?
           min_strain_rate = prm.get_double("Minimum strain rate");
-          grain_size = prm.get_double("Grain size");//
           max_visc = prm.get_double ("Maximum viscosity");//
           min_visc = prm.get_double ("Minimum viscosity");//
+
           // Iteration parameters
           strain_rate_residual_threshold = prm.get_double ("Strain rate residual tolerance");
           stress_max_iteration_number = prm.get_integer ("Maximum strain rate ratio iterations");
           
+          // Equation of state parameters
+          thermal_diffusivity = prm.get_double("Thermal diffusivity");
+          heat_capacity = prm.get_double("Heat capacity");
+
+          // ---- Compositional parameters
+          grain_size = prm.get_double("Grain size");
+          densities = Utilities::possibly_extend_from_1_to_N (Utilities::string_to_double(Utilities::split_string_list(prm.get("Densities"))),
+                                                              n_fields,
+                                                              "Densities");
+          thermal_expansivities = Utilities::possibly_extend_from_1_to_N (Utilities::string_to_double(Utilities::split_string_list(prm.get("Thermal expansivities"))),
+                                                                          n_fields,
+                                                                          "Thermal expansivities");
+
           // Rheological parameters
           // Diffusion creep parameters
           diffusion_creep.initialize_simulator (this->get_simulator());
@@ -993,9 +1051,12 @@ namespace aspect
         prm.enter_subsection("AV");
         {
           EquationOfState::LinearizedIncompressible<dim>::declare_parameters (prm);
+          // Reference and minimum/maximum values
           prm.declare_entry ("Reference viscosity", "1e20",
                              Patterns::Double(),
                              "Magnitude of reference viscosity.");
+          prm.declare_entry ("Reference temperature", "293.", Patterns::Double(0.),
+                             "For calculating density by thermal expansivity. Units: \\si{\\kelvin}.");
           prm.declare_entry ("Minimum strain rate", "1.4e-20", Patterns::Double(),
                              "Stabilizes strain dependent viscosity. Units: \\si{\\per\\second}");
           prm.declare_entry ("Grain size", "1000",
@@ -1005,12 +1066,34 @@ namespace aspect
                              "Lower cutoff for effective viscosity. Units: \\si{\\pascal\\second}.");
           prm.declare_entry ("Maximum viscosity", "1e28", Patterns::Double(0.),
                              "Upper cutoff for effective viscosity. Units: \\si{\\pascal\\second}.");
+          
+          // Equation of state parameters
+          prm.declare_entry ("Thermal diffusivity", "0.8e-6", Patterns::Double(0.),
+                             "Units: \\si{\\meter\\squared\\per\\second}.");
+          prm.declare_entry ("Heat capacity", "1.25e3",
+                             Patterns::Double(0.),
+                             "The value of the specific heat $C_p$. "
+                             "Units: \\si{\\joule\\per\\kelvin\\per\\kilogram}.");
+          prm.declare_entry ("Densities", "3300.",
+                             Patterns::List(Patterns::Double(0.)),
+                             "List of densities, $\\rho$, for background mantle and compositional fields, "
+                             "for a total of N+1 values, where N is the number of compositional fields. "
+                             "If only one value is given, then all use the same value. "
+                             "Units: \\si{\\kilogram\\per\\meter\\cubed}.");
+          prm.declare_entry ("Thermal expansivities", "3.5e-5",
+                             Patterns::List(Patterns::Double(0.)),
+                             "List of thermal expansivities for background mantle and compositional fields, "
+                             "for a total of N+1 values, where N is the number of compositional fields. "
+                             "If only one value is given, then all use the same value.  Units: \\si{\\per\\kelvin}.");
+
           // Viscosity iteration parameters
           prm.declare_entry ("Strain rate residual tolerance", "1e-22", Patterns::Double(0.),
                              "Tolerance for correct diffusion/dislocation strain rate ratio.");
           prm.declare_entry ("Maximum strain rate ratio iterations", "40", Patterns::Integer(0),
                              "Maximum number of iterations to find the correct "
                              "diffusion/dislocation strain rate ratio.");
+
+          // Diffusion creep and dislocation creep parameters                   
           prm.declare_entry ("Prefactors for diffusion creep", "1.5e-15",
                              Patterns::List(Patterns::Double(0.)),
                              "List of viscosity prefactors, $A$, for background mantle and compositional fields, "
@@ -1029,6 +1112,9 @@ namespace aspect
 
           // Dislocation creep parameters
           Rheology::DislocationCreep<dim>::declare_parameters(prm);
+
+          // Viscoplastic parameters
+          Rheology::ViscoPlastic<dim>::declare_parameters(prm);
         }
         prm.leave_subsection();
       }
@@ -1041,12 +1127,12 @@ namespace aspect
     void
     LPO_AV_3D_Simple<dim>::create_additional_named_outputs(MaterialModel::MaterialModelOutputs<dim> &out) const
     { 
-      if (out.template get_additional_output<PrescribedFieldOutputs<dim>>() == NULL)
-        {
-          const unsigned int n_points = out.n_evaluation_points();
-          out.additional_outputs.push_back(
-            std_cxx14::make_unique<MaterialModel::PrescribedFieldOutputs<dim>> (n_points, this->n_compositional_fields()));
-        }
+      // if (out.template get_additional_output<PrescribedFieldOutputs<dim>>() == NULL)
+      //   {
+      //     const unsigned int n_points = out.n_evaluation_points();
+      //     out.additional_outputs.push_back(
+      //       std_cxx14::make_unique<MaterialModel::PrescribedFieldOutputs<dim>> (n_points, this->n_compositional_fields()));
+      //   }
       if (out.template get_additional_output<AV<dim> >() == nullptr)
         {
           const unsigned int n_points = out.n_evaluation_points();
