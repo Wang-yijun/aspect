@@ -383,7 +383,8 @@ namespace aspect
             const SymmetricTensor<2,dim> strain_rate = symmetrize (velocity_gradient);
             material_inputs.strain_rate[0] = strain_rate;
 
-            SymmetricTensor<2,dim> dislocation_strain_rate = av.get_dislocation_strainrate(material_inputs);
+            double diffusion_viscosity, diffusion_sr_f;
+            SymmetricTensor<2,dim> dislocation_strain_rate = av.get_dislocation_strainrate(material_inputs, diffusion_viscosity, diffusion_sr_f);
             std::cout<<"Dislocation strain rate is: "<<dislocation_strain_rate<<std::endl;
             std::cout<<"Strain rate from velo grad is: "<<strain_rate<<std::endl;
 
