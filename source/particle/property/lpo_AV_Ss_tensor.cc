@@ -146,15 +146,15 @@ namespace aspect
 
       {
         const size_t n_minerals_local = a_cosine_matrices_grains.size();
-        //std::cout<<"n_minerals_local: "<< n_minerals_local<<  std::endl;
+        std::cout<<"n_minerals_local: "<< n_minerals_local<<  std::endl;
         const size_t n_grains_local = a_cosine_matrices_grains[0].size();
-        //std::cout<<"n_grains_local: "<< n_grains_local<<  std::endl;
+        std::cout<<"n_grains_local: "<< n_grains_local<<  std::endl;
         SymmetricTensor<2,3, double> S_sum;
         const int dim=3;
         double nFo = 1.;
         double A0 = 1.1e5*std::exp(-530000/8.314/temperature);
-        //std::cout<<"T: "<<temperature<<std::endl;
-        //std::cout<<"A0: "<<A0<<std::endl;
+        std::cout<<"T: "<<temperature<<std::endl;
+        std::cout<<"A0: "<<A0<<std::endl;
         FullMatrix<double> Schm(6,3); //Schmid tensor, 6x3 matrix
         FullMatrix<double> pinvschm(3,6); //pseudoinverse of Schmid tensor, 3x6 matrix
 
@@ -193,7 +193,7 @@ namespace aspect
                 //std::cout<<"A_ss: "<<A_ss<<  std::endl;
                 //std::cout<<"Volume fraction grains: "<< volume_fractions_grains[mineral_i][i]<<  std::endl; 
                 Tensor<2,3> R = a_cosine_matrices_grains[mineral_i][i];
-                //std::cout<<"Rotation matrix: "<<R<<  std::endl;
+                std::cout<<"Rotation matrix: "<<R<<  std::endl;
                 SymmetricTensor<2,3> Rate_grain=symmetrize(R*strain_rate*transpose(R));
                 //std::cout<<"Rate_grain "<<Rate_grain<<  std::endl;
                 std::array<std::pair<double, Tensor<1, 3>>, 3> Rate_gr_eig = eigenvectors(Rate_grain,SymmetricTensorEigenvectorMethod::jacobi);
