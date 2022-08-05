@@ -66,7 +66,12 @@ namespace aspect
                                                     std::pow(grain_size, -diffusion_creep_parameters.grain_size_exponent) *
                                                     std::exp(-(std::max(diffusion_creep_parameters.activation_energy + pressure*diffusion_creep_parameters.activation_volume,0.0))/
                                                              (constants::gas_constant*temperature));
-
+          std::cout<<"\n"<<std::endl;
+          std::cout<<"prefactor: "<<diffusion_creep_parameters.prefactor<<std::endl;
+          std::cout<<"std::pow(grain_size, -diffusion_creep_parameters.grain_size_exponent): "<<std::pow(grain_size, -diffusion_creep_parameters.grain_size_exponent)<<std::endl;
+          std::cout<<"diffusion_creep_parameters.activation_energy + pressure*diffusion_creep_parameters.activation_volume: "<<diffusion_creep_parameters.activation_energy + pressure*diffusion_creep_parameters.activation_volume<<std::endl;
+          std::cout<<"temperature"<<temperature<<std::endl;
+          std::cout<<"\n"<<std::endl;
           // Because the ratios of the diffusion and dislocation strain rates are not known, stress is also unknown
           // We use Newton's method to find the second invariant of the stress tensor.
           // Start with the assumption that all strain is accommodated by diffusion creep:
@@ -77,6 +82,11 @@ namespace aspect
                               edot_ii/prefactor_stress_diffusion
                               :
                               0.5 / max_visc);
+          // std::cout<<"\n"<<std::endl;
+          // std::cout<<"edot_ii: "<<edot_ii<<std::endl;
+          // std::cout<<"prefactor_stress_diffusion: "<<prefactor_stress_diffusion<<std::endl;
+          // std::cout<<"max_visc: "<<max_visc<<std::endl;
+          // std::cout<<"\n"<<std::endl;
           double strain_rate_residual = 2*strain_rate_residual_threshold;
           double strain_rate_deriv = 0;
           unsigned int stress_iteration = 0;
@@ -86,8 +96,15 @@ namespace aspect
 
               const std::pair<double, double> diff_edot_and_deriv = diffusion_creep.compute_strain_rate_and_derivative(stress_ii, pressure, temperature, diffusion_creep_parameters);
               const std::pair<double, double> disl_edot_and_deriv = dislocation_creep.compute_strain_rate_and_derivative(stress_ii, pressure, temperature, dislocation_creep_parameters);
+              // std::cout<<"stress_ii while: "<<stress_ii<<std::endl;
+              // std::cout<<"pressure: "<<pressure<<std::endl;
+              // std::cout<<"temperature: "<<temperature<<std::endl;
+              // std::cout<<"\n"<<std::endl;
 
               strain_rate_residual = diff_edot_and_deriv.first + disl_edot_and_deriv.first - edot_ii;
+              // std::cout<<"diff_edot_and_deriv.first: "<<diff_edot_and_deriv.first<<std::endl;
+              // std::cout<<"disl_edot_and_deriv.first: "<<disl_edot_and_deriv.first<<std::endl;
+              // std::cout<<"\n"<<std::endl;
               strain_rate_deriv = diff_edot_and_deriv.second + disl_edot_and_deriv.second ;
 
               // If the strain rate derivative is zero, we catch it below.
@@ -103,6 +120,12 @@ namespace aspect
               // If anything that would be used in the next iteration is not finite, the
               // Newton iteration would trigger an exception and we want to do the fixpoint
               // iteration instead.
+              // std::cout<<"stress_ii: "<<stress_ii<<std::endl;
+              // std::cout<<"stress_iteration: "<<stress_iteration<<std::endl;
+              // std::cout<<"\n"<<std::endl;
+              std::cout<<"stress_ii: "<<stress_ii<<std::endl;
+              std::cout<<"stress_iteration: "<<stress_iteration<<std::endl;
+              std::cout<<"\n"<<std::endl;
               const bool abort_newton_iteration = !numbers::is_finite(stress_ii)
                                                   || !numbers::is_finite(strain_rate_residual)
                                                   || !numbers::is_finite(strain_rate_deriv)
@@ -141,7 +164,7 @@ namespace aspect
 
                       diffusion_strain_rate = dislocation_viscosity / (diffusion_viscosity + dislocation_viscosity) * edot_ii;
                       dislocation_strain_rate = diffusion_viscosity / (diffusion_viscosity + dislocation_viscosity) * edot_ii;
-
+                      std::cout<<"Dislocation_strain_rate: "<<dislocation_strain_rate<<std::endl;
                       stress_iteration++;
                       AssertThrow(stress_iteration < stress_max_iteration_number,
                                   ExcMessage("No convergence has been reached in the loop that determines "
@@ -176,6 +199,7 @@ namespace aspect
         {
           // const Point<dim> position = in.position[i];
           const double temperature = in.temperature[i];
+          std::cout<<"temperature 1: "<<temperature<<std::endl;
           const double pressure= in.pressure[i];
           const std::vector<double> composition = in.composition[i];
           const std::vector<double> volume_fractions = MaterialUtilities::compute_composition_fractions(composition);
@@ -204,9 +228,10 @@ namespace aspect
               // isostrain amongst all compositions, allowing calculation of the viscosity ratio.
               // TODO: This is only consistent with viscosity averaging if the arithmetic averaging
               // scheme is chosen. It would be useful to have a function to calculate isostress viscosities.
+              std::cout<<"temperature 3: "<<temperature<<std::endl;
               const std::vector<double> composition_viscosities =
                 calculate_isostrain_viscosities(volume_fractions, pressure, temperature, in.strain_rate[i]);
-
+                           
               // The isostrain condition implies that the viscosity averaging should be arithmetic (see above).
               // We have given the user freedom to apply alternative bounds, because in diffusion-dominated
               // creep (where n_diff=1) viscosities are stress and strain-rate independent, so the calculation

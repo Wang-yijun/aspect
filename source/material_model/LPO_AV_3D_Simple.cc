@@ -582,8 +582,6 @@ namespace aspect
     {
       MaterialModel::AV<dim> *anisotropic_viscosity;
       anisotropic_viscosity = out.template get_additional_output<MaterialModel::AV<dim> >();
-      // Initialize prescribed field for the strain rate
-      // PrescribedFieldOutputs<dim> *strain_rate_p = out.template get_additional_output<PrescribedFieldOutputs<dim> >();
 
       EquationOfStateOutputs<dim> eos_outputs (1);
       for (unsigned int q=0; q<in.n_evaluation_points(); ++q)
@@ -605,6 +603,7 @@ namespace aspect
           // densities
           double density = 0.0;
           const double temperature = in.temperature[q];
+          std::cout<<"temperature 1: "<<temperature<<std::endl;
           for (unsigned int j=0; j < volume_fractions.size(); ++j)
             {
               // not strictly correct if thermal expansivities are different, since we are interpreting
@@ -637,18 +636,6 @@ namespace aspect
           // calculate effective viscosity
           double diffusion_viscosity, diffusion_strain_rate_f;
           SymmetricTensor<2,dim> dislocation_strainrate = get_dislocation_strainrate(in, diffusion_viscosity, diffusion_strain_rate_f);
-          
-          // Interpolate prescribed field outputs (strain rate) onto compositional fields
-          // std::cout<<"strain rate tensor is: "<<in.strain_rate[q]<<std::endl;
-          // if (strain_rate_p != NULL)
-          //   {
-          //     for (unsigned int i=0; i < 6; ++i)
-          //       {
-          //         strain_rate_p->prescribed_field_outputs[q][i] = dislocation_strainrate[Tensor<2,dim>::unrolled_to_component_indices(i)];
-          //         // std::cout<<"strain rate component (i) is: "<<i<<in.strain_rate[q][Tensor<2,dim>::unrolled_to_component_indices(i)]<<std::endl;
-          //       }
-          //   }
-
 
           Tensor<1,2*dim> Sv, s1v, s2v, s3v, s4v, s5v;
           for (unsigned int i=0; i<2*dim; ++i)
@@ -663,14 +650,15 @@ namespace aspect
             }
           // The computation of the viscosity tensor is only
           // necessary after the simulator has been initialized
-          std::cout<<"Outside if "<<std::endl;
+          std::cout<<"T: "<<in.temperature[q]<<std::endl;
           if  ((this->simulator_is_past_initialization()) && (this->get_timestep_number() > 0) && (in.temperature[q]>1000))
             {
-              std::cout<<"Inside if "<<std::endl;
               double E_eq;
               SymmetricTensor<2,dim> E;
               E_eq= std::sqrt((4./3.)*AV<dim>::J2_second_invariant(dislocation_strainrate, min_strain_rate));// Second invariant of strain-rate, use dislocation strain rate
-              std::cout<<"E_eq is:"<<E_eq<<std::endl;
+              // std::cout<<"E_eq is:"<<E_eq<<std::endl;
+              std::cout<<"E dislocation is:"<<dislocation_strainrate<<std::endl;
+              std::cout<<"diffusion fraction: "<<diffusion_strain_rate_f<<std::endl;
               E=dislocation_strainrate;
 
               AssertThrow(isfinite(1/E.norm()),
@@ -690,7 +678,7 @@ namespace aspect
                       Stress[k][l]=Sv[SymmetricTensor<2,dim>::component_to_unrolled_index(TableIndices<2>(k,l))];
                     }
                 }
-              std::cout<<"The stress is:"<<std::endl;
+              // std::cout<<"The stress is:"<<std::endl;
               for (int i = 0; i < dim; i++)
                {
                 for (int j = 0; j < dim; j++)
@@ -721,7 +709,7 @@ namespace aspect
                       S[i][j]= Stress[i][j]*std::pow(AV<dim>::J2_second_invariant(Stress, min_strain_rate),1.25);
                     }
                 }
-              std::cout<<"Stress * second invariant on the factor of.. is:"<<std::endl;
+              // std::cout<<"Stress * second invariant on the factor of.. is:"<<std::endl;
               for (int i = 0; i < dim; i++)
                {
                 for (int j = 0; j < dim; j++)
@@ -782,22 +770,6 @@ namespace aspect
 
 
 
-    // template <int dim>
-    // SymmetricTensor<2,dim> 
-    // LPO_AV_3D_Simple<dim>::get_strainrate (const MaterialModel::MaterialModelInputs<dim> &in) const
-    // {
-    //   // input of only one particle in the future?
-    //   // Initialize prescribed field for the strain rate
-    //   SymmetricTensor<2,dim> strain_rate_store;
-    //   //std::cout<<"number of particles should always be 1: "<<in.n_evaluation_points()<<std::endl;
-    //   for (unsigned int q=0; q<in.n_evaluation_points(); ++q)
-    //     {
-    //       // std::cout<<"strain rate stored by MM is: "<<in.strain_rate[q]<<std::endl;
-    //       strain_rate_store = in.strain_rate[q];
-    //     }
-    //   return strain_rate_store;
-    // }
-
     // A copy of function calculate_isostrain_viscosities from diffusion_dislocation.cc to get the
     // dislocation strain rate
     template <int dim>
@@ -811,9 +783,10 @@ namespace aspect
       const std::vector<double> composition = in.composition[0];
       const std::vector<double> volume_fractions = MaterialUtilities::compute_composition_fractions(composition);
       const double temperature = in.temperature[0];
+      std::cout<<"temperature 2: "<<temperature<<std::endl;
       const double pressure = in.pressure[0];
       const SymmetricTensor<2,dim> strain_rate = in.strain_rate[0];
-      double dislocation_strain_rate_f = 0;
+      double dislocation_strain_rate_f = 0, dislocation_strain_rate = 0;
       // This function calculates viscosities assuming that all the compositional fields
       // experience the same strain rate (isostrain).
 
@@ -846,7 +819,12 @@ namespace aspect
                                                     std::pow(grain_size, -diffusion_creep_parameters.grain_size_exponent) *
                                                     std::exp(-(std::max(diffusion_creep_parameters.activation_energy + pressure*diffusion_creep_parameters.activation_volume,0.0))/
                                                              (constants::gas_constant*temperature));
-
+          std::cout<<"\n"<<std::endl;
+          std::cout<<"prefactor: "<<diffusion_creep_parameters.prefactor<<std::endl;
+          std::cout<<"std::pow(grain_size, -diffusion_creep_parameters.grain_size_exponent): "<<std::pow(grain_size, -diffusion_creep_parameters.grain_size_exponent)<<std::endl;
+          std::cout<<"diffusion_creep_parameters.activation_energy + pressure*diffusion_creep_parameters.activation_volume: "<<diffusion_creep_parameters.activation_energy + pressure*diffusion_creep_parameters.activation_volume<<std::endl;
+          std::cout<<"temperature"<<temperature<<std::endl;
+          std::cout<<"\n"<<std::endl;
           // Because the ratios of the diffusion and dislocation strain rates are not known, stress is also unknown
           // We use Newton's method to find the second invariant of the stress tensor.
           // Start with the assumption that all strain is accommodated by diffusion creep:
@@ -857,6 +835,11 @@ namespace aspect
                               edot_ii/prefactor_stress_diffusion
                               :
                               0.5 / max_visc);
+          // std::cout<<"\n"<<std::endl;
+          // std::cout<<"edot_ii: "<<edot_ii<<std::endl;
+          // std::cout<<"prefactor_stress_diffusion: "<<prefactor_stress_diffusion<<std::endl;
+          // std::cout<<"max_visc: "<<max_visc<<std::endl;
+          // std::cout<<"\n"<<std::endl;
           double strain_rate_residual = 2*strain_rate_residual_threshold;
           double strain_rate_deriv = 0;
           unsigned int stress_iteration = 0;
@@ -864,13 +847,18 @@ namespace aspect
           while (std::abs(strain_rate_residual) > strain_rate_residual_threshold
                  && stress_iteration < stress_max_iteration_number)
             {
-
               const std::pair<double, double> diff_edot_and_deriv = diffusion_creep.compute_strain_rate_and_derivative(stress_ii, pressure, temperature, diffusion_creep_parameters);
               const std::pair<double, double> disl_edot_and_deriv = dislocation_creep.compute_strain_rate_and_derivative(stress_ii, pressure, temperature, dislocation_creep_parameters);
+              // std::cout<<"stress_ii while: "<<stress_ii<<std::endl;
+              // std::cout<<"pressure: "<<pressure<<std::endl;
+              // std::cout<<"temperature: "<<temperature<<std::endl;
+              // std::cout<<"\n"<<std::endl;
 
               strain_rate_residual = diff_edot_and_deriv.first + disl_edot_and_deriv.first - edot_ii;
               strain_rate_deriv = diff_edot_and_deriv.second + disl_edot_and_deriv.second ;
-
+              // std::cout<<"diff_edot_and_deriv.first: "<<diff_edot_and_deriv.first<<std::endl;
+              // std::cout<<"disl_edot_and_deriv.first: "<<disl_edot_and_deriv.first<<std::endl;
+              // std::cout<<"\n"<<std::endl;
               // If the strain rate derivative is zero, we catch it below.
               if (strain_rate_deriv>std::numeric_limits<double>::min())
                 stress_ii -= strain_rate_residual/strain_rate_deriv;
@@ -884,6 +872,9 @@ namespace aspect
               // If anything that would be used in the next iteration is not finite, the
               // Newton iteration would trigger an exception and we want to do the fixpoint
               // iteration instead.
+              std::cout<<"stress_ii: "<<stress_ii<<std::endl;
+              std::cout<<"stress_iteration: "<<stress_iteration<<std::endl;
+              std::cout<<"\n"<<std::endl;
               const bool abort_newton_iteration = !numbers::is_finite(stress_ii)
                                                   || !numbers::is_finite(strain_rate_residual)
                                                   || !numbers::is_finite(strain_rate_deriv)
@@ -899,6 +890,7 @@ namespace aspect
 
                   do
                     {
+                      std::cout<<"abort Newtwon iteration"<<std::endl;
                       const double old_diffusion_strain_rate = diffusion_strain_rate;
 
                       const double diffusion_prefactor = 0.5 * std::pow(diffusion_creep_parameters.prefactor,-1.0/diffusion_creep_parameters.stress_exponent);
@@ -924,6 +916,9 @@ namespace aspect
                       diffusion_strain_rate = diffusion_strain_rate_f * edot_ii;
                       dislocation_strain_rate_f = diffusion_viscosity / (diffusion_viscosity + dislocation_viscosity);
                       dislocation_strain_rate = dislocation_strain_rate_f * edot_ii;
+                      std::cout<<"Dislocation_strain_rate: "<<dislocation_strain_rate<<std::endl;
+                      // std::cout<<"Dislocation_strainrate fraction: "<<dislocation_strain_rate_f<<std::endl;
+                      // std::cout<<"Diffusion_strainrate fraction: "<<diffusion_strain_rate_f<<std::endl;
                       for (int k = 0; k < dim; k++)
                         {
                           for (int l = 0; l < dim; l++)
@@ -954,7 +949,6 @@ namespace aspect
           // The effective viscosity, with minimum and maximum bounds
           composition_viscosities[j] = std::min(std::max(stress_ii/edot_ii/2, min_visc), max_visc);
         }
-      //std::cout<<"Dislocation_strainrate fraction: "<<dislocation_strain_rate_f<<std::endl;
       return dislocation_strainrate;
     }
 
@@ -1127,12 +1121,6 @@ namespace aspect
     void
     LPO_AV_3D_Simple<dim>::create_additional_named_outputs(MaterialModel::MaterialModelOutputs<dim> &out) const
     { 
-      // if (out.template get_additional_output<PrescribedFieldOutputs<dim>>() == NULL)
-      //   {
-      //     const unsigned int n_points = out.n_evaluation_points();
-      //     out.additional_outputs.push_back(
-      //       std_cxx14::make_unique<MaterialModel::PrescribedFieldOutputs<dim>> (n_points, this->n_compositional_fields()));
-      //   }
       if (out.template get_additional_output<AV<dim> >() == nullptr)
         {
           const unsigned int n_points = out.n_evaluation_points();
