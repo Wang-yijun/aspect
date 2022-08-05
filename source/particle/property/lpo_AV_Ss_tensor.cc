@@ -146,15 +146,15 @@ namespace aspect
 
       {
         const size_t n_minerals_local = a_cosine_matrices_grains.size();
-        std::cout<<"n_minerals_local: "<< n_minerals_local<<  std::endl;
+        //std::cout<<"n_minerals_local: "<< n_minerals_local<<  std::endl;
         const size_t n_grains_local = a_cosine_matrices_grains[0].size();
-        std::cout<<"n_grains_local: "<< n_grains_local<<  std::endl;
+        //std::cout<<"n_grains_local: "<< n_grains_local<<  std::endl;
         SymmetricTensor<2,3, double> S_sum;
         const int dim=3;
         double nFo = 1.;
         double A0 = 1.1e5*std::exp(-530000/8.314/temperature);
-        std::cout<<"T: "<<temperature<<std::endl;
-        std::cout<<"A0: "<<A0<<std::endl;
+        //std::cout<<"T: "<<temperature<<std::endl;
+        //std::cout<<"A0: "<<A0<<std::endl;
         FullMatrix<double> Schm(6,3); //Schmid tensor, 6x3 matrix
         FullMatrix<double> pinvschm(3,6); //pseudoinverse of Schmid tensor, 3x6 matrix
 
@@ -400,7 +400,7 @@ namespace aspect
 
               }
           }
-        std::cout << "Ss tensor " << Ss_tensor << std::endl;
+        //std::cout << "Ss tensor " << Ss_tensor << std::endl;
         Particle::Property::LpoSsTensor<dim>::store_particle_data(data_position,
                                                                   data,
                                                                   Ss_tensor);
