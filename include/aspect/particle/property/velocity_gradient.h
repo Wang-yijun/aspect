@@ -32,7 +32,7 @@ namespace aspect
        * @ingroup ParticleProperties
        */
       template <int dim>
-      class Strainrate : public Interface<dim>, public ::aspect::SimulatorAccess<dim>
+      class VelocityGradient : public Interface<dim>, public ::aspect::SimulatorAccess<dim>
       {
         public:
           /**

@@ -26,7 +26,7 @@ namespace aspect
     {
       template <int dim>
       void
-      Strainrate<dim>::initialize_one_particle_property(const Point<dim> &,
+      VelocityGradient<dim>::initialize_one_particle_property(const Point<dim> &,
                                                       std::vector<double> &data) const
       {
        const static Tensor<2,dim> identity = unit_symmetric_tensor<dim>();
@@ -37,7 +37,7 @@ namespace aspect
 
       template <int dim>
       void
-      Strainrate<dim>::update_particle_property(const unsigned int data_position,
+      VelocityGradient<dim>::update_particle_property(const unsigned int data_position,
                                                       const Vector<double> &/*solution*/,
                                                       const std::vector<Tensor<1,dim> > &gradients,
                                                       typename ParticleHandler<dim>::particle_iterator &particle) const
@@ -48,7 +48,7 @@ namespace aspect
         for (unsigned int d=0; d<dim; ++d)
           grad_u[d] = gradients[d];
         //std::cout<<"grad_u: "<<grad_u<<std::endl;
-        
+
         for (unsigned int i = 0; i < Tensor<2,dim>::n_independent_components ; ++i) 
           data[data_position + i] = grad_u[Tensor<2,dim>::unrolled_to_component_indices(i)];
         
@@ -57,24 +57,24 @@ namespace aspect
 
       template <int dim>
       UpdateTimeFlags
-      Strainrate<dim>::need_update() const
+      VelocityGradient<dim>::need_update() const
       {
         return update_time_step;
       }
 
       template <int dim>
       UpdateFlags
-      Strainrate<dim>::get_needed_update_flags () const
+      VelocityGradient<dim>::get_needed_update_flags () const
       {
         return update_gradients;
       }
 
       template <int dim>
       std::vector<std::pair<std::string, unsigned int> >
-      Strainrate<dim>::get_property_information() const
+      VelocityGradient<dim>::get_property_information() const
       {
         const unsigned int n_components = Tensor<2,dim>::n_independent_components;
-        const std::vector<std::pair<std::string,unsigned int> > property_information (1,std::make_pair("strainrate",n_components));
+        const std::vector<std::pair<std::string,unsigned int> > property_information (1,std::make_pair("velocity gradient",n_components));
         return property_information;
       }
     }
@@ -88,8 +88,8 @@ namespace aspect
   {
     namespace Property
     {
-      ASPECT_REGISTER_PARTICLE_PROPERTY(VeloctyGradient,
-                                        "velocity_gradient",
+      ASPECT_REGISTER_PARTICLE_PROPERTY(VelocityGradient,
+                                        "velocity gradient",
                                         "Implementation of a plugin in which the particle "
                                         "property is defined as the recent velocity gradient "
                                         "at this position.")
