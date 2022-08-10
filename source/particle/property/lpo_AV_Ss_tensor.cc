@@ -193,7 +193,7 @@ namespace aspect
                 //std::cout<<"A_ss: "<<A_ss<<  std::endl;
                 //std::cout<<"Volume fraction grains: "<< volume_fractions_grains[mineral_i][i]<<  std::endl; 
                 Tensor<2,3> R = a_cosine_matrices_grains[mineral_i][i];
-                std::cout<<"Rotation matrix: "<<R<<  std::endl;
+                //std::cout<<"Rotation matrix: "<<R<<  std::endl;
                 SymmetricTensor<2,3> Rate_grain=symmetrize(R*strain_rate*transpose(R));
                 //std::cout<<"Rate_grain "<<Rate_grain<<  std::endl;
                 std::array<std::pair<double, Tensor<1, 3>>, 3> Rate_gr_eig = eigenvectors(Rate_grain,SymmetricTensorEigenvectorMethod::jacobi);
