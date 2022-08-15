@@ -83,8 +83,23 @@ namespace aspect
         this->get_material_model().evaluate(material_model_inputs, material_model_outputs);
         double eta = material_model_outputs.viscosities[0];
 
-        const SymmetricTensor<2,dim> stress = 2 * eta * deviatoric_strain_rate +
+        const SymmetricTensor<2,dim> stress = -2.*eta*deviatoric_strain_rate +
                                             pressure * unit_symmetric_tensor<dim>();
+        
+        // Add elastic stresses if existent
+        if (this->get_parameters().enable_elasticity == true)
+            {
+                stress[0][0] += in.composition[q][this->introspection().compositional_index_for_name("ve_stress_xx")];
+                stress[1][1] += in.composition[q][this->introspection().compositional_index_for_name("ve_stress_yy")];
+                stress[0][1] += in.composition[q][this->introspection().compositional_index_for_name("ve_stress_xy")];
+
+                if (dim == 3)
+                    {
+                        stress[2][2] += in.composition[q][this->introspection().compositional_index_for_name("ve_stress_zz")];
+                        stress[0][2] += in.composition[q][this->introspection().compositional_index_for_name("ve_stress_xz")];
+                        stress[1][2] += in.composition[q][this->introspection().compositional_index_for_name("ve_stress_yz")];
+                    }
+            }
 
         for (unsigned int i = 0; i < Tensor<2,dim>::n_independent_components ; ++i) 
           data[data_position + i] = stress[Tensor<2,dim>::unrolled_to_component_indices(i)];
