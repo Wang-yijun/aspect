@@ -783,7 +783,7 @@ namespace aspect
       const std::vector<double> composition = in.composition[0];
       const std::vector<double> volume_fractions = MaterialUtilities::compute_composition_fractions(composition);
       const double temperature = in.temperature[0];
-      std::cout<<"temperature 2: "<<temperature<<std::endl;
+      //std::cout<<"temperature 2: "<<temperature<<std::endl;
       const double pressure = in.pressure[0];
       const SymmetricTensor<2,dim> strain_rate = in.strain_rate[0];
       double dislocation_strain_rate_f = 0, dislocation_strain_rate = 0;
@@ -819,12 +819,12 @@ namespace aspect
                                                     std::pow(grain_size, -diffusion_creep_parameters.grain_size_exponent) *
                                                     std::exp(-(std::max(diffusion_creep_parameters.activation_energy + pressure*diffusion_creep_parameters.activation_volume,0.0))/
                                                              (constants::gas_constant*temperature));
-          std::cout<<"\n"<<std::endl;
-          std::cout<<"prefactor: "<<diffusion_creep_parameters.prefactor<<std::endl;
-          std::cout<<"std::pow(grain_size, -diffusion_creep_parameters.grain_size_exponent): "<<std::pow(grain_size, -diffusion_creep_parameters.grain_size_exponent)<<std::endl;
-          std::cout<<"diffusion_creep_parameters.activation_energy + pressure*diffusion_creep_parameters.activation_volume: "<<diffusion_creep_parameters.activation_energy + pressure*diffusion_creep_parameters.activation_volume<<std::endl;
-          std::cout<<"temperature"<<temperature<<std::endl;
-          std::cout<<"\n"<<std::endl;
+          //std::cout<<"\n"<<std::endl;
+          //std::cout<<"prefactor: "<<diffusion_creep_parameters.prefactor<<std::endl;
+          //std::cout<<"std::pow(grain_size, -diffusion_creep_parameters.grain_size_exponent): "<<std::pow(grain_size, -diffusion_creep_parameters.grain_size_exponent)<<std::endl;
+          //std::cout<<"diffusion_creep_parameters.activation_energy + pressure*diffusion_creep_parameters.activation_volume: "<<diffusion_creep_parameters.activation_energy + pressure*diffusion_creep_parameters.activation_volume<<std::endl;
+          //std::cout<<"temperature"<<temperature<<std::endl;
+          //std::cout<<"\n"<<std::endl;
           // Because the ratios of the diffusion and dislocation strain rates are not known, stress is also unknown
           // We use Newton's method to find the second invariant of the stress tensor.
           // Start with the assumption that all strain is accommodated by diffusion creep:
@@ -872,9 +872,9 @@ namespace aspect
               // If anything that would be used in the next iteration is not finite, the
               // Newton iteration would trigger an exception and we want to do the fixpoint
               // iteration instead.
-              std::cout<<"stress_ii: "<<stress_ii<<std::endl;
-              std::cout<<"stress_iteration: "<<stress_iteration<<std::endl;
-              std::cout<<"\n"<<std::endl;
+              //std::cout<<"stress_ii: "<<stress_ii<<std::endl;
+              //std::cout<<"stress_iteration: "<<stress_iteration<<std::endl;
+              //std::cout<<"\n"<<std::endl;
               const bool abort_newton_iteration = !numbers::is_finite(stress_ii)
                                                   || !numbers::is_finite(strain_rate_residual)
                                                   || !numbers::is_finite(strain_rate_deriv)
@@ -890,7 +890,7 @@ namespace aspect
 
                   do
                     {
-                      std::cout<<"abort Newtwon iteration"<<std::endl;
+                      //std::cout<<"abort Newtwon iteration"<<std::endl;
                       const double old_diffusion_strain_rate = diffusion_strain_rate;
 
                       const double diffusion_prefactor = 0.5 * std::pow(diffusion_creep_parameters.prefactor,-1.0/diffusion_creep_parameters.stress_exponent);
@@ -916,7 +916,7 @@ namespace aspect
                       diffusion_strain_rate = diffusion_strain_rate_f * edot_ii;
                       dislocation_strain_rate_f = diffusion_viscosity / (diffusion_viscosity + dislocation_viscosity);
                       dislocation_strain_rate = dislocation_strain_rate_f * edot_ii;
-                      std::cout<<"Dislocation_strain_rate: "<<dislocation_strain_rate<<std::endl;
+                      //std::cout<<"Dislocation_strain_rate: "<<dislocation_strain_rate<<std::endl;
                       // std::cout<<"Dislocation_strainrate fraction: "<<dislocation_strain_rate_f<<std::endl;
                       // std::cout<<"Diffusion_strainrate fraction: "<<diffusion_strain_rate_f<<std::endl;
                       for (int k = 0; k < dim; k++)
