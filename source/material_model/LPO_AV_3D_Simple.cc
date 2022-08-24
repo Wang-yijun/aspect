@@ -650,7 +650,7 @@ namespace aspect
             }
           // The computation of the viscosity tensor is only
           // necessary after the simulator has been initialized
-          std::cout<<"T: "<<in.temperature[q]<<std::endl;
+//           std::cout<<"T: "<<in.temperature[q]<<std::endl;
           if  ((this->simulator_is_past_initialization()) && (this->get_timestep_number() > 0) && (in.temperature[q]>1000))
             {
               double E_eq;
@@ -679,14 +679,14 @@ namespace aspect
                     }
                 }
               // std::cout<<"The stress is:"<<std::endl;
-              for (int i = 0; i < dim; i++)
-               {
-                for (int j = 0; j < dim; j++)
-                {
-                  std::cout << Stress[i][j] << ", ";
-                }
-                std::cout << std::endl;
-              }
+//               for (int i = 0; i < dim; i++)
+//                {
+//                 for (int j = 0; j < dim; j++)
+//                 {
+//                   std::cout << Stress[i][j] << ", ";
+//                 }
+//                 std::cout << std::endl;
+//               }
 
               const double Stress_eq= std::sqrt(3.0*AV<dim>::J2_second_invariant(Stress, min_strain_rate));
               /* std::cout<<"Stress eq is: "<<Stress_eq<<std::endl;
@@ -710,14 +710,14 @@ namespace aspect
                     }
                 }
               // std::cout<<"Stress * second invariant on the factor of.. is:"<<std::endl;
-              for (int i = 0; i < dim; i++)
-               {
-                for (int j = 0; j < dim; j++)
-                {
-                  std::cout << S[i][j] << ", ";
-                }
-                std::cout << std::endl;
-              }
+//               for (int i = 0; i < dim; i++)
+//                {
+//                 for (int j = 0; j < dim; j++)
+//                 {
+//                   std::cout << S[i][j] << ", ";
+//                 }
+//                 std::cout << std::endl;
+//               }
 
               //Build the stress independent V tensor
               SymmetricTensor<4,dim> V, ViscoTensor_r4;
@@ -743,13 +743,13 @@ namespace aspect
                             }
                         }
                     }
-                }
-              std::cout<<"diffusion viscosity: "<<diffusion_viscosity<<std::endl;
-              std::cout<<"diffusion fraction: "<<diffusion_strain_rate_f<<std::endl;
-              std::cout<<"Dislocation ViscoTensor_r4: "<<ViscoTensor_r4<<std::endl;
+//                 }
+//               std::cout<<"diffusion viscosity: "<<diffusion_viscosity<<std::endl;
+//               std::cout<<"diffusion fraction: "<<diffusion_strain_rate_f<<std::endl;
+//               std::cout<<"Dislocation ViscoTensor_r4: "<<ViscoTensor_r4<<std::endl;
               SymmetricTensor<4,dim> identity_r4 = dealii::identity_tensor<dim> ();
               SymmetricTensor<4,dim> ViscoTensor_r4_full = ViscoTensor_r4*(1-diffusion_strain_rate_f) + identity_r4*diffusion_viscosity*diffusion_strain_rate_f;
-              std::cout<<"Full viscosity tensor: "<<ViscoTensor_r4_full<<std::endl;
+//               std::cout<<"Full viscosity tensor: "<<ViscoTensor_r4_full<<std::endl;
 
               // Overwrite the scalar viscosity with an effective viscosity
               out.viscosities[q] = std::abs(Stress_eq/E_eq);
@@ -819,12 +819,12 @@ namespace aspect
                                                     std::pow(grain_size, -diffusion_creep_parameters.grain_size_exponent) *
                                                     std::exp(-(std::max(diffusion_creep_parameters.activation_energy + pressure*diffusion_creep_parameters.activation_volume,0.0))/
                                                              (constants::gas_constant*temperature));
-          std::cout<<"\n"<<std::endl;
-          std::cout<<"prefactor: "<<diffusion_creep_parameters.prefactor<<std::endl;
-          std::cout<<"std::pow(grain_size, -diffusion_creep_parameters.grain_size_exponent): "<<std::pow(grain_size, -diffusion_creep_parameters.grain_size_exponent)<<std::endl;
-          std::cout<<"diffusion_creep_parameters.activation_energy + pressure*diffusion_creep_parameters.activation_volume: "<<diffusion_creep_parameters.activation_energy + pressure*diffusion_creep_parameters.activation_volume<<std::endl;
-          std::cout<<"temperature"<<temperature<<std::endl;
-          std::cout<<"\n"<<std::endl;
+//           std::cout<<"\n"<<std::endl;
+//           std::cout<<"prefactor: "<<diffusion_creep_parameters.prefactor<<std::endl;
+//           std::cout<<"std::pow(grain_size, -diffusion_creep_parameters.grain_size_exponent): "<<std::pow(grain_size, -diffusion_creep_parameters.grain_size_exponent)<<std::endl;
+//           std::cout<<"diffusion_creep_parameters.activation_energy + pressure*diffusion_creep_parameters.activation_volume: "<<diffusion_creep_parameters.activation_energy + pressure*diffusion_creep_parameters.activation_volume<<std::endl;
+//           std::cout<<"temperature"<<temperature<<std::endl;
+//           std::cout<<"\n"<<std::endl;
           // Because the ratios of the diffusion and dislocation strain rates are not known, stress is also unknown
           // We use Newton's method to find the second invariant of the stress tensor.
           // Start with the assumption that all strain is accommodated by diffusion creep:
@@ -872,9 +872,9 @@ namespace aspect
               // If anything that would be used in the next iteration is not finite, the
               // Newton iteration would trigger an exception and we want to do the fixpoint
               // iteration instead.
-              std::cout<<"stress_ii: "<<stress_ii<<std::endl;
-              std::cout<<"stress_iteration: "<<stress_iteration<<std::endl;
-              std::cout<<"\n"<<std::endl;
+//               std::cout<<"stress_ii: "<<stress_ii<<std::endl;
+//               std::cout<<"stress_iteration: "<<stress_iteration<<std::endl;
+//               std::cout<<"\n"<<std::endl;
               const bool abort_newton_iteration = !numbers::is_finite(stress_ii)
                                                   || !numbers::is_finite(strain_rate_residual)
                                                   || !numbers::is_finite(strain_rate_deriv)
@@ -890,7 +890,7 @@ namespace aspect
 
                   do
                     {
-                      std::cout<<"abort Newtwon iteration"<<std::endl;
+//                       std::cout<<"abort Newtwon iteration"<<std::endl;
                       const double old_diffusion_strain_rate = diffusion_strain_rate;
 
                       const double diffusion_prefactor = 0.5 * std::pow(diffusion_creep_parameters.prefactor,-1.0/diffusion_creep_parameters.stress_exponent);
@@ -916,7 +916,7 @@ namespace aspect
                       diffusion_strain_rate = diffusion_strain_rate_f * edot_ii;
                       dislocation_strain_rate_f = diffusion_viscosity / (diffusion_viscosity + dislocation_viscosity);
                       dislocation_strain_rate = dislocation_strain_rate_f * edot_ii;
-                      std::cout<<"Dislocation_strain_rate: "<<dislocation_strain_rate<<std::endl;
+//                       std::cout<<"Dislocation_strain_rate: "<<dislocation_strain_rate<<std::endl;
                       // std::cout<<"Dislocation_strainrate fraction: "<<dislocation_strain_rate_f<<std::endl;
                       // std::cout<<"Diffusion_strainrate fraction: "<<diffusion_strain_rate_f<<std::endl;
                       for (int k = 0; k < dim; k++)
