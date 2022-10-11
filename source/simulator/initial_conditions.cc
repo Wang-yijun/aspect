@@ -292,7 +292,7 @@ namespace aspect
       if (cell->is_locally_owned())
         {
           fe_values.reinit (cell);
-          const std::vector<Point<dim> > quadrature_points = fe_values.get_quadrature_points();
+          const std::vector<Point<dim>> quadrature_points = fe_values.get_quadrature_points();
 
           std::vector<std::vector<double>> particle_properties;
 
