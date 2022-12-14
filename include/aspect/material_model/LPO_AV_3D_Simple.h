@@ -49,6 +49,9 @@ namespace aspect
 
         static double J2_second_invariant(const SymmetricTensor<2,dim> t, const double min_strain_rate);
 
+        
+        
+
 
         virtual std::vector<double> get_nth_output(const unsigned int idx) const;
 
@@ -68,6 +71,10 @@ namespace aspect
 
 
     };
+
+    template <int matrix_size>
+    void check_eigenvalues_positive(const SymmetricTensor<2,matrix_size> &matrix);
+
     template <int dim>
     class LPO_AV_3D_Simple : public MaterialModel::Simple<dim>
     {

@@ -41,6 +41,10 @@
 #include <string>
 #include <vector>
 
+#include <deal.II/lac/full_matrix.h>
+#include <deal.II/lac/lapack_full_matrix.h>
+#include <deal.II/lac/vector.h>
+
 //#include <world_builder/utilities.h>
 
 #include <aspect/simulator_access.h>
@@ -483,6 +487,46 @@ namespace aspect
 //Next session is a more evolved implementation of anisotropic viscosity in the material model based on Hansen et al 2016 and Kiraly et al 2020
   namespace MaterialModel
   {
+    namespace
+    {
+      /**
+       * A function that checks that a second rank tensor (not
+       * necessarily symmetric) has only positive eigenvalues.
+      */
+      template <int matrix_size>
+      void check_eigenvalues_positive(const Tensor<2,matrix_size> &matrix)
+      {
+        // This is a good matrix to test, it has a negative eigenvalue
+        // const double left[4][4] = {{1.75, -0.433012701892219, 0.0, 0.0},
+        //                      {-0.433012701892219, -1.25, 0.0, 0.0},
+        //                      {0.0, 0.0, 3.5, -0.5},
+        //                      {0.0, 0.0, -0.5, 3.5}};
+        // FullMatrix<double>       A(4, 4, &left[0][0]);
+
+        FullMatrix<double> A(matrix_size, matrix_size);
+        for (unsigned int i=0; i<matrix_size; ++i)
+          for (unsigned int j=0; j<matrix_size; ++j)
+            A[i][j] = matrix[i][j];
+
+        LAPACKFullMatrix<double> LA(matrix_size, matrix_size);
+        LA = A;
+
+        LA.compute_eigenvalues();
+
+        for (unsigned int i = 0; i < LA.m(); ++i)
+          {
+            const double eigenvalue = LA.eigenvalue(i).real();
+            if (eigenvalue < 0.0)
+              {
+                std::stringstream error_message;
+                error_message << "eigenvalue " << i << ": " << std::scientific << eigenvalue << std::endl;
+
+                AssertThrow (false, ExcMessage(error_message.str()));
+              }
+          }
+      }
+    }
+
     template <int dim>
     void
     LPO_AV_3D_Simple<dim>::set_assemblers(const SimulatorAccess<dim> &,
@@ -677,27 +721,82 @@ namespace aspect
                 std::cout << std::endl;
               } */
 
-              //Build the stress independent V tensor
-              SymmetricTensor<4,dim> V, ViscoTensor_r4;
+              //Build the stress independent V tensor - change in 2022-12-12 to first calculate elements of the 6x6 symmetric matrix
+              SymmetricTensor<2,6> V;
+              
+              V[0][2]=((4.*s1[0][0]-s2[0][0])*(E[0][0]/3.*E_eq)+(s1[0][0]-s2[0][0])*(E[1][1]/3.*E_eq)+s3[0][0]+s4[0][0]+s5[0][0]-S[0][0])/2.*E[0][0];
+              V[0][0]=(4.*s1[0][0]-s2[0][0])/E_eq-V[0][2];
+              V[0][1]=(s1[0][0]-s2[0][0])/(3.*E_eq);
+              V[0][3]=0.5*s5[0][0]/E_eq;
+              V[0][4]=0.5*s4[0][0]/E_eq;
+              V[0][5]=0.5*s3[0][0]/E_eq;
+              V[1][1]=V[0][2]+(s1[0][0]-s2[0][0]-s1[1][1]-2.*s2[1][1])/(3.*E_eq);
+              V[1][2]=V[0][2]+(s1[0][0]-s2[0][0]-2.*s1[1][1]-s2[1][1])/(3.*E_eq);
+              V[1][3]=0.5*s5[1][1]/E_eq;
+              V[1][4]=0.5*s4[1][1]/E_eq;
+              V[1][5]=0.5*s3[1][1]/E_eq;
+              V[2][2]=V[0][2]+(s1[0][0]-s2[0][0]-2.*s1[1][1]-s2[1][1]-3.*s1[2][2])/(6.*E_eq);
+              V[2][3]=0.5*s5[2][2]/E_eq;
+              V[2][4]=0.5*s4[2][2]/E_eq;
+              V[2][5]=0.5*s3[2][2]/E_eq;
+              V[3][3]=0.5*s5[1][2]/E_eq;
+              V[3][4]=0.25*(s5[0][2]+s4[1][2])/E_eq;
+              V[3][5]=0.25*(s5[0][1]+s3[1][2])/E_eq;
+              V[4][4]=0.5*s4[0][2]/E_eq;
+              V[4][5]=0.25*(s3[0][2]+s4[1][2])/E_eq;
+              V[5][5]=0.5*s3[0][1]/E_eq;
+
+              check_eigenvalues_positive(V);
+
+              SymmetricTensor<4,dim> V_r4, ViscoTensor_r4;
+              V_r4[0][0][0][0]=V[0][0];
+              V_r4[0][0][1][1]=V[0][1];
+              V_r4[1][1][0][0]=V[0][1];
+              V_r4[0][0][2][2]=V[0][2];
+              V_r4[2][2][0][0]=V[0][2];
+              V_r4[0][0][1][2]=V[0][3];
+              V_r4[1][2][0][0]=V[0][3];
+              V_r4[0][0][0][2]=V[0][4];
+              V_r4[0][2][0][0]=V[0][4];
+              V_r4[0][0][0][1]=V[0][5];
+              V_r4[0][1][0][0]=V[0][5];
+              V_r4[1][1][1][1]=V[1][1];
+              V_r4[1][1][2][2]=V[1][2];
+              V_r4[2][2][1][1]=V[1][2];
+              V_r4[1][1][1][2]=V[1][3];
+              V_r4[1][2][1][1]=V[1][3];
+              V_r4[1][1][0][2]=V[1][4];
+              V_r4[0][2][1][1]=V[1][4];
+              V_r4[1][1][0][1]=V[1][5];
+              V_r4[0][1][1][1]=V[1][5];
+              V_r4[2][2][2][2]=V[2][2];
+              V_r4[2][2][1][2]=V[2][3];
+              V_r4[1][2][2][2]=V[2][3];
+              V_r4[2][2][0][2]=V[2][4];
+              V_r4[0][2][2][2]=V[2][4];
+              V_r4[2][2][0][1]=V[2][5];
+              V_r4[0][1][2][2]=V[2][5];
+              V_r4[1][2][1][2]=V[3][3];
+              V_r4[1][2][0][2]=V[3][4];
+              V_r4[0][2][1][2]=V[3][4];
+              V_r4[1][2][0][1]=V[3][5];
+              V_r4[0][1][1][2]=V[3][5];
+              V_r4[0][2][0][1]=V[4][4];
+              V_r4[0][2][0][1]=V[4][5];
+              V_r4[0][1][0][2]=V[4][5];
+              V_r4[0][1][0][1]=V[5][5];
+
               for (int i = 0; i < dim; i++)
                 {
                   for (int j = 0; j < dim; j++)
                     {
-                      V[i][j][2][2] = (S[i][j] - ((2.0/3.0*s1[i][j]/E_eq)+(1.0/3.0*s2[i][j]/E_eq)) *E[0][0]
-                                       - ((1.0/3.0*s1[i][j]/E_eq)-(1.0/3.0*s2[i][j]/E_eq)) *E[1][1]
-                                       - s3[i][j]*E[0][1]/E_eq - s4[i][j]*E[0][2]/E_eq - s5[i][j]*E[1][2]/E_eq)/
-                                      (E[0][0]/3.0 + 2.0*E[1][1]/3.0 + E[2][2]);
-                      V[i][j][0][0] = (2.0/3.0* s1[i][j] + 1.0/3.0*s2[i][j])/E_eq + 1.0/3.0*V[i][j][2][2];
-                      V[i][j][1][1] = (1.0/3.0* s1[i][j] - 1.0/3.0*s2[i][j])/E_eq + 2.0/3.0*V[i][j][2][2];
-                      V[i][j][0][1] = 0.5*s3[i][j]/E_eq;
-                      V[i][j][0][2] = 0.5*s4[i][j]/E_eq;
-                      V[i][j][1][2] = 0.5*s5[i][j]/E_eq;
+                      
                       for (int k = 0; k<dim; k++)
                         {
                           for (int l = 0; l<dim; l++)
                             {
                               //std::cout<<"V"<<i+1<<j+1<<k+1<<l+1<<"is: "<<V[i][j][k][l]<<std::endl;
-                              ViscoTensor_r4[i][j][k][l]= V[i][j][k][l]/std::pow(AV<dim>::J2_second_invariant(Stress, min_strain_rate),1.25);
+                              ViscoTensor_r4[i][j][k][l]= V_r4[i][j][k][l]/std::pow(AV<dim>::J2_second_invariant(Stress, min_strain_rate),1.25);
                             }
                         }
                     }
