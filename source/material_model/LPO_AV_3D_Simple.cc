@@ -560,7 +560,7 @@ namespace aspect
                   ExcMessage("Olivine has 3 independent slip systems, allowing for deformation in 3 independent directions, hence these models only work in 3D"));
 
       //move c_idx_S part here (right?)
-      
+
       c_idx_S.push_back (this->introspection().compositional_index_for_name("S1"));
       c_idx_S.push_back (this->introspection().compositional_index_for_name("S2"));
       c_idx_S.push_back (this->introspection().compositional_index_for_name("S3"));
@@ -667,7 +667,7 @@ namespace aspect
               //std::cout<<"E_eq is:"<<E_eq<<std::endl;
               E=in.strain_rate[q];
               //std::cout<<"The strain rate is:"<< E << std::endl;
-              
+
 
               AssertThrow(isfinite(1/E.norm()),
                           ExcMessage("Strain rate should be finite"));
@@ -688,7 +688,7 @@ namespace aspect
                 }
               //std::cout<<"Svector is: "<<Sv<<std::endl;
               //std::cout<<"The stress is:"<< Stress << std::endl;
-              
+
 
               const double Stress_eq= std::sqrt(3.0*AV<dim>::J2_second_invariant(Stress, min_strain_rate));
               //std::cout<<"Stress eq is: "<<Stress_eq<<std::endl;
@@ -721,86 +721,68 @@ namespace aspect
                 std::cout << std::endl;
               } */
 
-              //Build the stress independent V tensor - change in 2022-12-12 to first calculate elements of the 6x6 symmetric matrix
-              SymmetricTensor<2,6> V;
-              
-              V[0][2]=((4.*s1[0][0]-s2[0][0])*(E[0][0]/3.*E_eq)+(s1[0][0]-s2[0][0])*(E[1][1]/3.*E_eq)+s3[0][0]+s4[0][0]+s5[0][0]-S[0][0])/2.*E[0][0];
-              V[0][0]=(4.*s1[0][0]-s2[0][0])/E_eq-V[0][2];
-              V[0][1]=(s1[0][0]-s2[0][0])/(3.*E_eq);
-              V[0][3]=0.5*s5[0][0]/E_eq;
-              V[0][4]=0.5*s4[0][0]/E_eq;
-              V[0][5]=0.5*s3[0][0]/E_eq;
-              V[1][1]=V[0][2]+(s1[0][0]-s2[0][0]-s1[1][1]-2.*s2[1][1])/(3.*E_eq);
-              V[1][2]=V[0][2]+(s1[0][0]-s2[0][0]-2.*s1[1][1]-s2[1][1])/(3.*E_eq);
-              V[1][3]=0.5*s5[1][1]/E_eq;
-              V[1][4]=0.5*s4[1][1]/E_eq;
-              V[1][5]=0.5*s3[1][1]/E_eq;
-              V[2][2]=V[0][2]+(s1[0][0]-s2[0][0]-2.*s1[1][1]-s2[1][1]-3.*s1[2][2])/(6.*E_eq);
-              V[2][3]=0.5*s5[2][2]/E_eq;
-              V[2][4]=0.5*s4[2][2]/E_eq;
-              V[2][5]=0.5*s3[2][2]/E_eq;
-              V[3][3]=0.5*s5[1][2]/E_eq;
-              V[3][4]=0.25*(s5[0][2]+s4[1][2])/E_eq;
-              V[3][5]=0.25*(s5[0][1]+s3[1][2])/E_eq;
-              V[4][4]=0.5*s4[0][2]/E_eq;
-              V[4][5]=0.25*(s3[0][2]+s4[1][2])/E_eq;
-              V[5][5]=0.5*s3[0][1]/E_eq;
-
-              check_eigenvalues_positive(V);
-
-              SymmetricTensor<4,dim> V_r4, ViscoTensor_r4;
-              V_r4[0][0][0][0]=V[0][0];
-              V_r4[0][0][1][1]=V[0][1];
-              V_r4[1][1][0][0]=V[0][1];
-              V_r4[0][0][2][2]=V[0][2];
-              V_r4[2][2][0][0]=V[0][2];
-              V_r4[0][0][1][2]=V[0][3];
-              V_r4[1][2][0][0]=V[0][3];
-              V_r4[0][0][0][2]=V[0][4];
-              V_r4[0][2][0][0]=V[0][4];
-              V_r4[0][0][0][1]=V[0][5];
-              V_r4[0][1][0][0]=V[0][5];
-              V_r4[1][1][1][1]=V[1][1];
-              V_r4[1][1][2][2]=V[1][2];
-              V_r4[2][2][1][1]=V[1][2];
-              V_r4[1][1][1][2]=V[1][3];
-              V_r4[1][2][1][1]=V[1][3];
-              V_r4[1][1][0][2]=V[1][4];
-              V_r4[0][2][1][1]=V[1][4];
-              V_r4[1][1][0][1]=V[1][5];
-              V_r4[0][1][1][1]=V[1][5];
-              V_r4[2][2][2][2]=V[2][2];
-              V_r4[2][2][1][2]=V[2][3];
-              V_r4[1][2][2][2]=V[2][3];
-              V_r4[2][2][0][2]=V[2][4];
-              V_r4[0][2][2][2]=V[2][4];
-              V_r4[2][2][0][1]=V[2][5];
-              V_r4[0][1][2][2]=V[2][5];
-              V_r4[1][2][1][2]=V[3][3];
-              V_r4[1][2][0][2]=V[3][4];
-              V_r4[0][2][1][2]=V[3][4];
-              V_r4[1][2][0][1]=V[3][5];
-              V_r4[0][1][1][2]=V[3][5];
-              V_r4[0][2][0][1]=V[4][4];
-              V_r4[0][2][0][1]=V[4][5];
-              V_r4[0][1][0][2]=V[4][5];
-              V_r4[0][1][0][1]=V[5][5];
-
+              //Build the stress independent V tensor
+              SymmetricTensor<4,dim> V, ViscoTensor_r4;
               for (int i = 0; i < dim; i++)
                 {
                   for (int j = 0; j < dim; j++)
                     {
-                      
+                      V[i][j][2][2] = (S[i][j] - ((2.0/3.0*s1[i][j]/E_eq)+(1.0/3.0*s2[i][j]/E_eq)) *E[0][0]
+                                       - ((1.0/3.0*s1[i][j]/E_eq)-(1.0/3.0*s2[i][j]/E_eq)) *E[1][1]
+                                       - s3[i][j]*E[0][1]/E_eq - s4[i][j]*E[0][2]/E_eq - s5[i][j]*E[1][2]/E_eq)/
+                                      (E[0][0]/3.0 + 2.0*E[1][1]/3.0 + E[2][2]);
+                      V[i][j][0][0] = (2.0/3.0* s1[i][j] + 1.0/3.0*s2[i][j])/E_eq + 1.0/3.0*V[i][j][2][2];
+                      V[i][j][1][1] = (1.0/3.0* s1[i][j] - 1.0/3.0*s2[i][j])/E_eq + 2.0/3.0*V[i][j][2][2];
+                      V[i][j][0][1] = 0.5*s3[i][j]/E_eq;
+                      V[i][j][0][2] = 0.5*s4[i][j]/E_eq;
+                      V[i][j][1][2] = 0.5*s5[i][j]/E_eq;
                       for (int k = 0; k<dim; k++)
                         {
                           for (int l = 0; l<dim; l++)
                             {
                               //std::cout<<"V"<<i+1<<j+1<<k+1<<l+1<<"is: "<<V[i][j][k][l]<<std::endl;
-                              ViscoTensor_r4[i][j][k][l]= V_r4[i][j][k][l]/std::pow(AV<dim>::J2_second_invariant(Stress, min_strain_rate),1.25);
+                              ViscoTensor_r4[i][j][k][l]= V[i][j][k][l]/std::pow(AV<dim>::J2_second_invariant(Stress, min_strain_rate),1.25);
                             }
                         }
                     }
                 }
+                Tensor<2,6> ViscoTensor;
+                      ViscoTensor[0][0]=ViscoTensor_r4[0][0][0][0];
+                      ViscoTensor[0][1]=ViscoTensor_r4[0][0][1][1];
+                      ViscoTensor[0][2]=ViscoTensor_r4[0][0][2][2];
+                      ViscoTensor[1][0]=ViscoTensor_r4[1][1][0][0];
+                      ViscoTensor[1][1]=ViscoTensor_r4[1][1][1][1];
+                      ViscoTensor[1][2]=ViscoTensor_r4[1][1][2][2];
+                      ViscoTensor[2][0]=ViscoTensor_r4[2][2][0][0];
+                      ViscoTensor[2][1]=ViscoTensor_r4[2][2][1][1];
+                      ViscoTensor[2][2]=ViscoTensor_r4[2][2][2][2];
+                      ViscoTensor[0][3]=ViscoTensor_r4[0][0][1][2] * std::sqrt(2);
+                      ViscoTensor[0][4]=ViscoTensor_r4[0][0][0][2] * std::sqrt(2);
+                      ViscoTensor[0][5]=ViscoTensor_r4[0][0][0][1] * std::sqrt(2);
+                      ViscoTensor[1][3]=ViscoTensor_r4[1][1][1][2] * std::sqrt(2);
+                      ViscoTensor[1][4]=ViscoTensor_r4[1][1][0][2] * std::sqrt(2);
+                      ViscoTensor[1][5]=ViscoTensor_r4[1][1][0][1] * std::sqrt(2);
+                      ViscoTensor[2][3]=ViscoTensor_r4[2][2][1][2] * std::sqrt(2);
+                      ViscoTensor[2][4]=ViscoTensor_r4[2][2][0][2] * std::sqrt(2);
+                      ViscoTensor[2][5]=ViscoTensor_r4[2][2][0][1] * std::sqrt(2);
+                      ViscoTensor[3][0]=ViscoTensor_r4[1][2][0][0] * std::sqrt(2);
+                      ViscoTensor[3][1]=ViscoTensor_r4[1][2][0][0] * std::sqrt(2);
+                      ViscoTensor[3][2]=ViscoTensor_r4[1][2][0][0] * std::sqrt(2);
+                      ViscoTensor[4][0]=ViscoTensor_r4[0][2][1][1] * std::sqrt(2);
+                      ViscoTensor[4][1]=ViscoTensor_r4[0][2][1][1] * std::sqrt(2);
+                      ViscoTensor[4][2]=ViscoTensor_r4[0][2][1][1] * std::sqrt(2);
+                      ViscoTensor[5][0]=ViscoTensor_r4[0][1][2][2] * std::sqrt(2);
+                      ViscoTensor[5][1]=ViscoTensor_r4[0][1][2][2] * std::sqrt(2);
+                      ViscoTensor[5][2]=ViscoTensor_r4[0][1][2][2] * std::sqrt(2);
+                      ViscoTensor[3][3]=ViscoTensor_r4[1][2][1][2] * 2;
+                      ViscoTensor[3][4]=ViscoTensor_r4[1][2][0][2] * 2;
+                      ViscoTensor[3][5]=ViscoTensor_r4[1][2][0][1] * 2;
+                      ViscoTensor[4][3]=ViscoTensor_r4[0][2][1][2] * 2;
+                      ViscoTensor[4][4]=ViscoTensor_r4[0][2][0][2] * 2;
+                      ViscoTensor[4][5]=ViscoTensor_r4[0][2][0][1] * 2;
+                      ViscoTensor[5][3]=ViscoTensor_r4[0][1][1][2] * 2;
+                      ViscoTensor[5][4]=ViscoTensor_r4[0][1][0][2] * 2;
+                      ViscoTensor[5][5]=ViscoTensor_r4[0][1][0][1] * 2;
 
               // Overwrite the scalar viscosity with an effective viscosity
               out.viscosities[q] = std::abs(Stress_eq/E_eq);
@@ -809,6 +791,17 @@ namespace aspect
                           ExcMessage("Viscosity should not be 0"));
               AssertThrow(isfinite(out.viscosities[q]),
                           ExcMessage("Viscosity should not be finite"));
+
+              // This is a good test tensor, it has a negative eigenvalue.
+              // if you change -1.25 to 1.25 on the main diagonal it has
+              // only positive eigenvalues
+              const Tensor<2,4> tensor (ArrayView<const double>({1.75, -0.433012701892219, 0.0, 0.0,
+                      -0.433012701892219, -1.25, 0.0, 0.0,
+                      0.0, 0.0, 3.5, -0.5,
+                      0.0, 0.0, -0.5, 3.5
+              }));
+              check_eigenvalues_positive(ViscoTensor);
+
               if (anisotropic_viscosity != nullptr)
                 {
                   anisotropic_viscosity->stress_strain_directors[q] = ViscoTensor_r4/(2.0*Stress_eq/E_eq);
