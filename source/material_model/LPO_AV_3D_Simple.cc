@@ -487,45 +487,7 @@ namespace aspect
 //Next session is a more evolved implementation of anisotropic viscosity in the material model based on Hansen et al 2016 and Kiraly et al 2020
   namespace MaterialModel
   {
-    namespace
-    {
-      /**
-       * A function that checks that a second rank tensor (not
-       * necessarily symmetric) has only positive eigenvalues.
-      */
-      template <int matrix_size>
-      void check_eigenvalues_positive(const Tensor<2,matrix_size> &matrix)
-      {
-        // This is a good matrix to test, it has a negative eigenvalue
-        // const double left[4][4] = {{1.75, -0.433012701892219, 0.0, 0.0},
-        //                      {-0.433012701892219, -1.25, 0.0, 0.0},
-        //                      {0.0, 0.0, 3.5, -0.5},
-        //                      {0.0, 0.0, -0.5, 3.5}};
-        // FullMatrix<double>       A(4, 4, &left[0][0]);
-
-        FullMatrix<double> A(matrix_size, matrix_size);
-        for (unsigned int i=0; i<matrix_size; ++i)
-          for (unsigned int j=0; j<matrix_size; ++j)
-            A[i][j] = matrix[i][j];
-
-        LAPACKFullMatrix<double> LA(matrix_size, matrix_size);
-        LA = A;
-
-        LA.compute_eigenvalues();
-
-        for (unsigned int i = 0; i < LA.m(); ++i)
-          {
-            const double eigenvalue = LA.eigenvalue(i).real();
-            if (eigenvalue < 0.0)
-              {
-                std::stringstream error_message;
-                error_message << "eigenvalue " << i << ": " << std::scientific << eigenvalue << std::endl;
-
-                AssertThrow (false, ExcMessage(error_message.str()));
-              }
-          }
-      }
-    }
+    
 
     template <int dim>
     void
@@ -746,7 +708,10 @@ namespace aspect
               V[4][5]=0.25*(s3[0][2]+s4[1][2])/E_eq;
               V[5][5]=0.5*s3[0][1]/E_eq;
 
-              check_eigenvalues_positive(V);
+              std::cout<<"V matrix: "<<V<<std::endl;
+              std::cout<<"Strain rate: "<<E<<std::endl; //TRACE(E) is not 0!
+
+              //check_eigenvalues_positive(V);
 
               SymmetricTensor<4,dim> V_r4, ViscoTensor_r4;
               V_r4[0][0][0][0]=V[0][0];
