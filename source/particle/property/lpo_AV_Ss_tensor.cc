@@ -151,7 +151,7 @@ namespace aspect
         //std::cout<<"n_grains_local: "<< n_grains_local<<  std::endl;
         SymmetricTensor<2,3, double> S_sum;
         const int dim=3;
-        double nFo = 4.1;
+        double nFo = 1.;
         double A0 = 1.1e5*std::exp(-530000/8.314/temperature);
         //std::cout<<"T: "<<temperature<<std::endl;
         //std::cout<<"A0: "<<A0<<std::endl;
@@ -180,9 +180,9 @@ namespace aspect
               }
             else
               {
-                A_ss[0] = 139.2525;
-                A_ss[1] = 214.4907;
-                A_ss[2] = 0.3520;
+                A_ss[0] = 1.;
+                A_ss[1] = 1.;
+                A_ss[2] = 1.;
                 //std::cout<<"Setting Olivine A_ss: "<<A_ss<<std::endl;
               }
 
@@ -383,7 +383,7 @@ namespace aspect
             stress4=compute_S_tensor(e4, grain_size, volume_fraction_mineral, volume_fractions_grains, a_cosine_matrices_grains, deformation_type, temperature);
             stress5=compute_S_tensor(e5, grain_size, volume_fraction_mineral, volume_fractions_grains, a_cosine_matrices_grains, deformation_type, temperature);
             Stress =compute_S_tensor(E, grain_size, volume_fraction_mineral, volume_fractions_grains, a_cosine_matrices_grains, deformation_type, temperature);
-            //std::cout << "Strain rate particle " << E << std::endl;
+            std::cout << "Strain rate particle " << E << std::endl;
             //std::cout << "Stress tensor particle " << Stress << std::endl;
 
 

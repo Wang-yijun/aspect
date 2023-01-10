@@ -72,8 +72,8 @@ namespace aspect
 
     };
 
-    template <int matrix_size>
-    void check_eigenvalues_positive(const SymmetricTensor<2,matrix_size> &matrix);
+    /*template <int matrix_size>
+    void check_eigenvalues_positive(const SymmetricTensor<2,matrix_size> &matrix);*/
 
     template <int dim>
     class LPO_AV_3D_Simple : public MaterialModel::Simple<dim>
