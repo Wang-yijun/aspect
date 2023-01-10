@@ -665,12 +665,12 @@ namespace aspect
                 {
                   for (int j = 0; j < dim; j++)
                     {
-                      s1[i][j]= stress1[i][j]*std::pow(AV<dim>::J2_second_invariant(stress1, min_strain_rate),1.25);//assuming n=3.5, so (n-1)/2=1.25
-                      s2[i][j]= stress2[i][j]*std::pow(AV<dim>::J2_second_invariant(stress2, min_strain_rate),1.25);
-                      s3[i][j]= stress3[i][j]*std::pow(AV<dim>::J2_second_invariant(stress3, min_strain_rate),1.25);
-                      s4[i][j]= stress4[i][j]*std::pow(AV<dim>::J2_second_invariant(stress4, min_strain_rate),1.25);
-                      s5[i][j]= stress5[i][j]*std::pow(AV<dim>::J2_second_invariant(stress5, min_strain_rate),1.25);
-                      S[i][j]= Stress[i][j]*std::pow(AV<dim>::J2_second_invariant(Stress, min_strain_rate),1.25);
+                      s1[i][j]= stress1[i][j];//*std::pow(AV<dim>::J2_second_invariant(stress1, min_strain_rate),1.25);//assuming n=3.5, so (n-1)/2=1.25
+                      s2[i][j]= stress2[i][j];//*std::pow(AV<dim>::J2_second_invariant(stress2, min_strain_rate),1.25);
+                      s3[i][j]= stress3[i][j];//*std::pow(AV<dim>::J2_second_invariant(stress3, min_strain_rate),1.25);
+                      s4[i][j]= stress4[i][j];//*std::pow(AV<dim>::J2_second_invariant(stress4, min_strain_rate),1.25);
+                      s5[i][j]= stress5[i][j];//*std::pow(AV<dim>::J2_second_invariant(stress5, min_strain_rate),1.25);
+                      S[i][j]= Stress[i][j];//*std::pow(AV<dim>::J2_second_invariant(Stress, min_strain_rate),1.25);
                     }
                 }
               /* std::cout<<"Stress * second invariant on the factor of.. is:"<<std::endl;
@@ -686,8 +686,8 @@ namespace aspect
               //Build the stress independent V tensor - change in 2022-12-12 to first calculate elements of the 6x6 symmetric matrix
               SymmetricTensor<2,6> V;
               
-              V[0][2]=((4.*s1[0][0]-s2[0][0])*(E[0][0]/3.*E_eq)+(s1[0][0]-s2[0][0])*(E[1][1]/3.*E_eq)+s3[0][0]+s4[0][0]+s5[0][0]-S[0][0])/2.*E[0][0];
-              V[0][0]=(4.*s1[0][0]-s2[0][0])/E_eq-V[0][2];
+              /*V[0][2]=((4.*s1[0][0]-s2[0][0])*(E[0][0]/3.*E_eq)+(s1[0][0]-s2[0][0])*(E[1][1]/3.*E_eq)+s3[0][0]+s4[0][0]+s5[0][0]-S[0][0])/2.*E[0][0];
+              V[0][0]=(4.*s1[0][0]-s2[0][0])/(3*E_eq)-V[0][2];
               V[0][1]=(s1[0][0]-s2[0][0])/(3.*E_eq);
               V[0][3]=0.5*s5[0][0]/E_eq;
               V[0][4]=0.5*s4[0][0]/E_eq;
@@ -705,8 +705,13 @@ namespace aspect
               V[3][4]=0.25*(s5[0][2]+s4[1][2])/E_eq;
               V[3][5]=0.25*(s5[0][1]+s3[1][2])/E_eq;
               V[4][4]=0.5*s4[0][2]/E_eq;
-              V[4][5]=0.25*(s3[0][2]+s4[1][2])/E_eq;
-              V[5][5]=0.5*s3[0][1]/E_eq;
+              V[4][5]=0.25*(s3[0][2]+s4[0][1])/E_eq;
+              V[5][5]=0.5*s3[0][1]/E_eq;*/
+
+              for (int i = 0; i < 6; i++)
+                {
+                  V[i][i]=std::abs(Stress_eq/E_eq);
+                }
 
               std::cout<<"V matrix: "<<V<<std::endl;
               std::cout<<"Strain rate: "<<E<<std::endl; //TRACE(E) is not 0!
@@ -741,15 +746,15 @@ namespace aspect
               V_r4[0][2][2][2]=V[2][4];
               V_r4[2][2][0][1]=V[2][5];
               V_r4[0][1][2][2]=V[2][5];
-              V_r4[1][2][1][2]=V[3][3];
+              V_r4[1][2][1][2]=V[3][3]/2.; //Need to change back later
               V_r4[1][2][0][2]=V[3][4];
               V_r4[0][2][1][2]=V[3][4];
               V_r4[1][2][0][1]=V[3][5];
               V_r4[0][1][1][2]=V[3][5];
-              V_r4[0][2][0][1]=V[4][4];
+              V_r4[0][2][0][1]=V[4][4]/2.;//Need to change back later
               V_r4[0][2][0][1]=V[4][5];
               V_r4[0][1][0][2]=V[4][5];
-              V_r4[0][1][0][1]=V[5][5];
+              V_r4[0][1][0][1]=V[5][5]/2.;//Need to change back later
 
               for (int i = 0; i < dim; i++)
                 {
@@ -761,7 +766,7 @@ namespace aspect
                           for (int l = 0; l<dim; l++)
                             {
                               //std::cout<<"V"<<i+1<<j+1<<k+1<<l+1<<"is: "<<V[i][j][k][l]<<std::endl;
-                              ViscoTensor_r4[i][j][k][l]= V_r4[i][j][k][l]/std::pow(AV<dim>::J2_second_invariant(Stress, min_strain_rate),1.25);
+                              ViscoTensor_r4[i][j][k][l]= V_r4[i][j][k][l];///std::pow(AV<dim>::J2_second_invariant(Stress, min_strain_rate),(1.25));
                             }
                         }
                     }
