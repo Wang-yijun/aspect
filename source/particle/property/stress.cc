@@ -25,6 +25,13 @@ namespace aspect
     namespace Property
     {
       template <int dim>
+      Stress<dim>::Stress ()
+        :
+        material_inputs(1,0),
+        material_outputs(1,0)
+      {}
+
+      template <int dim>
       void
       Stress<dim>::initialize ()
       {
