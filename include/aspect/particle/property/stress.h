@@ -36,6 +36,13 @@ namespace aspect
       {
         public:
           /**
+           * Constructor.
+           */
+          ElasticStress ();
+          
+          void initialize () override;
+          
+          /**
            * Initialization function. This function is called once at the
            * creation of every particle for every property to initialize its
            * value.
@@ -46,9 +53,6 @@ namespace aspect
            * of this function should be to extend this vector by a number of
            * properties.
            */
-
-          void initialize () override;
-          
           void
           initialize_one_particle_property (const Point<dim> &position,
                                             std::vector<double> &particle_properties) const override;
