@@ -38,10 +38,10 @@ namespace aspect
           /**
            * Constructor.
            */
-          ElasticStress ();
+          Stress ();
           
           void initialize () override;
-          
+
           /**
            * Initialization function. This function is called once at the
            * creation of every particle for every property to initialize its
