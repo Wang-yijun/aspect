@@ -26,6 +26,15 @@ namespace aspect
     {
       template <int dim>
       void
+      Stress<dim>::initialize ()
+      {
+        material_inputs = MaterialModel::MaterialModelInputs<dim>(1, this->n_compositional_fields());
+
+        material_outputs = MaterialModel::MaterialModelOutputs<dim>(1, this->n_compositional_fields());
+      }
+
+      template <int dim>
+      void
       Stress<dim>::initialize_one_particle_property(const Point<dim> &,
                                                       std::vector<double> &data) const
       {
@@ -87,19 +96,19 @@ namespace aspect
                                             pressure * unit_symmetric_tensor<dim>();
         
         // Add elastic stresses if existent
-//         if (this->get_parameters().enable_elasticity == true)
-//             {
-//                 stress[0][0] += material_model_inputs.composition[0][this->introspection().compositional_index_for_name("ve_stress_xx")];
-//                 stress[1][1] += material_model_inputs.composition[0][this->introspection().compositional_index_for_name("ve_stress_yy")];
-//                 stress[0][1] += material_model_inputs.composition[0][this->introspection().compositional_index_for_name("ve_stress_xy")];
+        if (this->get_parameters().enable_elasticity == true)
+            {
+                stress[0][0] += material_model_inputs.composition[0][this->introspection().compositional_index_for_name("ve_stress_xx")];
+                stress[1][1] += material_model_inputs.composition[0][this->introspection().compositional_index_for_name("ve_stress_yy")];
+                stress[0][1] += material_model_inputs.composition[0][this->introspection().compositional_index_for_name("ve_stress_xy")];
 
-//                 if (dim == 3)
-//                     {
-//                         stress[2][2] += material_model_inputs.composition[0][this->introspection().compositional_index_for_name("ve_stress_zz")];
-//                         stress[0][2] += material_model_inputs.composition[0][this->introspection().compositional_index_for_name("ve_stress_xz")];
-//                         stress[1][2] += material_model_inputs.composition[0][this->introspection().compositional_index_for_name("ve_stress_yz")];
-//                     }
-//             }
+                if (dim == 3)
+                    {
+                        stress[2][2] += material_model_inputs.composition[0][this->introspection().compositional_index_for_name("ve_stress_zz")];
+                        stress[0][2] += material_model_inputs.composition[0][this->introspection().compositional_index_for_name("ve_stress_xz")];
+                        stress[1][2] += material_model_inputs.composition[0][this->introspection().compositional_index_for_name("ve_stress_yz")];
+                    }
+            }
 
         for (unsigned int i = 0; i < Tensor<2,dim>::n_independent_components ; ++i) 
           data[data_position + i] = stress[Tensor<2,dim>::unrolled_to_component_indices(i)];
