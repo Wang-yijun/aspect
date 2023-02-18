@@ -25,22 +25,6 @@ namespace aspect
     namespace Property
     {
       template <int dim>
-      Stress<dim>::Stress ()
-        :
-        material_model_inputs(1,0),
-        material_model_outputs(1,0)
-      {}
-
-      template <int dim>
-      void
-      Stress<dim>::initialize ()
-      {
-        material_model_inputs = MaterialModel::MaterialModelInputs<dim>(1, this->n_compositional_fields());
-
-        material_model_outputs = MaterialModel::MaterialModelOutputs<dim>(1, this->n_compositional_fields());
-      }
-
-      template <int dim>
       void
       Stress<dim>::initialize_one_particle_property(const Point<dim> &,
                                                       std::vector<double> &data) const

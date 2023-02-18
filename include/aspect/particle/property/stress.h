@@ -36,13 +36,6 @@ namespace aspect
       {
         public:
           /**
-           * Constructor.
-           */
-          Stress ();
-          
-          void initialize () override;
-
-          /**
            * Initialization function. This function is called once at the
            * creation of every particle for every property to initialize its
            * value.
