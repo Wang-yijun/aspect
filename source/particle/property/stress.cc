@@ -90,7 +90,7 @@ namespace aspect
         // Add elastic stresses if existent
         if (this->get_parameters().enable_elasticity == true)
             {
-                std::cout<<"stress 0,0: "<<stress[0][0]<<std::endl;
+                stress[0][0] = stress[0][0] + 1;
                 stress[0][0] += material_model_inputs.composition[0][this->introspection().compositional_index_for_name("ve_stress_xx")];
                 stress[1][1] += material_model_inputs.composition[0][this->introspection().compositional_index_for_name("ve_stress_yy")];
                 stress[0][1] += material_model_inputs.composition[0][this->introspection().compositional_index_for_name("ve_stress_xy")];
