@@ -86,7 +86,8 @@ namespace aspect
         // Compressive stress is positive in geoscience applications
         const SymmetricTensor<2,dim> stress = -2.*eta*deviatoric_strain_rate +
                                             pressure * unit_symmetric_tensor<dim>();
-        
+        stress[0][0] += 1;  
+      
         // Add elastic stresses if existent
         if (this->get_parameters().enable_elasticity == true)
             {
