@@ -46,6 +46,9 @@ namespace aspect
            * of this function should be to extend this vector by a number of
            * properties.
            */
+
+          void initialize () override;
+          
           void
           initialize_one_particle_property (const Point<dim> &position,
                                             std::vector<double> &particle_properties) const override;
