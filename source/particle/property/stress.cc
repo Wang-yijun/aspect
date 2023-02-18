@@ -71,7 +71,7 @@ namespace aspect
                 compositions.push_back(solution[solution_component]);
             }
 
-        // MaterialModel::MaterialModelInputs<dim> material_model_inputs(1,this->n_compositional_fields());
+        MaterialModel::MaterialModelInputs<dim> material_model_inputs(1,this->n_compositional_fields());
         material_model_inputs.position[0] = particle->get_location();
         material_model_inputs.temperature[0] = temperature;
         material_model_inputs.pressure[0] = pressure;
@@ -79,7 +79,7 @@ namespace aspect
         material_model_inputs.composition[0] = compositions;
         material_model_inputs.strain_rate[0] = strain_rate;
 
-        // MaterialModel::MaterialModelOutputs<dim> material_model_outputs(1,this->n_compositional_fields());
+        MaterialModel::MaterialModelOutputs<dim> material_model_outputs(1,this->n_compositional_fields());
         this->get_material_model().evaluate(material_model_inputs, material_model_outputs);
         double eta = material_model_outputs.viscosities[0];
 
