@@ -84,7 +84,7 @@ namespace aspect
         double eta = material_model_outputs.viscosities[0];
 
         // Compressive stress is positive in geoscience applications
-        SymmetricTensor<2,dim> stress = -2.*eta*deviatoric_strain_rate + pressure * unit_symmetric_tensor<dim>();
+        SymmetricTensor<2,dim> stress = 2.*eta*deviatoric_strain_rate;
         
         // Add elastic stresses if existent
         if (this->get_parameters().enable_elasticity == true)
