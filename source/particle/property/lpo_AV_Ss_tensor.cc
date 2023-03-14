@@ -142,15 +142,15 @@ namespace aspect
       
       {
         const size_t n_minerals_local = a_cosine_matrices_grains.size();
-        std::cout<<"n_minerals_local: "<< n_minerals_local<<  std::endl;
+        //std::cout<<"n_minerals_local: "<< n_minerals_local<<  std::endl;
         const size_t n_grains_local = a_cosine_matrices_grains[0].size();
-        std::cout<<"n_grains_local: "<< n_grains_local<<  std::endl;
+        //std::cout<<"n_grains_local: "<< n_grains_local<<  std::endl;
         SymmetricTensor<2,3, double> S_sum;
         const int dim=3;
         double nFo = 4.1;
         double A0 = 1.1e5*std::exp(-530000/8.314/temperature);
-        std::cout<<"T: "<<temperature<<std::endl;
-        std::cout<<"A0: "<<A0<<std::endl;
+        //std::cout<<"T: "<<temperature<<std::endl;
+        //std::cout<<"A0: "<<A0<<std::endl;
         FullMatrix<double> Schm(6,3); //Schmid tensor, 6x3 matrix
         FullMatrix<double> pinvschm(3,6); //pseudoinverse of Schmid tensor, 3x6 matrix
         
@@ -182,20 +182,20 @@ namespace aspect
                 //std::cout<<"Setting Olivine A_ss: "<<A_ss<<std::endl;
               }
             
-            std::cout<<"A_ss: "<<A_ss<<std::endl;
+            //std::cout<<"A_ss: "<<A_ss<<std::endl;
             for (size_t i = 0; i < n_grains_local; i++)
               {
-                std::cout<<"strain rate: "<<strain_rate<<std::endl;
+                //std::cout<<"strain rate: "<<strain_rate<<std::endl;
                 Tensor<2,3> R = a_cosine_matrices_grains[mineral_i][i];
-                std::cout<<"Rotation matrix: "<<R<<std::endl;
+                //std::cout<<"Rotation matrix: "<<R<<std::endl;
                 SymmetricTensor<2,3> Rate_grain=symmetrize(R*strain_rate*transpose(R));
-                std::cout<<"Rate_grain "<<Rate_grain<<  std::endl;
+                //std::cout<<"Rate_grain "<<Rate_grain<<  std::endl;
                 std::array<std::pair<double, Tensor<1, 3>>, 3> Rate_gr_eig = eigenvectors(Rate_grain,SymmetricTensorEigenvectorMethod::jacobi);
-                std::cout<<"Rate_grain eigen values: "<<Rate_gr_eig[0].first<<"; "<<Rate_gr_eig[1].first<<"; "<<Rate_gr_eig[2].first<<std::endl;
+                //std::cout<<"Rate_grain eigen values: "<<Rate_gr_eig[0].first<<"; "<<Rate_gr_eig[1].first<<"; "<<Rate_gr_eig[2].first<<std::endl;
                 double inv2=std::pow(Rate_gr_eig[0].first-Rate_gr_eig[1].first,2)
                           +std::pow(Rate_gr_eig[1].first-Rate_gr_eig[2].first,2)
                           +std::pow(Rate_gr_eig[2].first-Rate_gr_eig[0].first,2);
-                std::cout<<"inv2: "<<inv2<<  std::endl;
+                //std::cout<<"inv2: "<<inv2<<  std::endl;
 
                 FullMatrix<double> Rate_grain_voigt(6,1);
                 Rate_grain_voigt[0][0]=Rate_grain[0][0];
@@ -205,12 +205,12 @@ namespace aspect
                 Rate_grain_voigt[4][0]=2*Rate_grain[0][2];
                 Rate_grain_voigt[5][0]=2*Rate_grain[0][1];
                 
-                std::cout<<"Rate_grain_voigt: "<<Rate_grain_voigt[0][0]<<"; "<<Rate_grain_voigt[1][0]<<"; "<<Rate_grain_voigt[2][0]<<"; "<<Rate_grain_voigt[3][0]<<"; "<<Rate_grain_voigt[4][0]<<"; "<<Rate_grain_voigt[5][0]<<std::endl;
+                //std::cout<<"Rate_grain_voigt: "<<Rate_grain_voigt[0][0]<<"; "<<Rate_grain_voigt[1][0]<<"; "<<Rate_grain_voigt[2][0]<<"; "<<Rate_grain_voigt[3][0]<<"; "<<Rate_grain_voigt[4][0]<<"; "<<Rate_grain_voigt[5][0]<<std::endl;
 
                 FullMatrix<double> r_ss(3,1); //Optimazition to find shear strain rate on slip system
                 FullMatrix<double> r_gc_v(6,1); //strain rate tensor for grain in Voigt notation and crystal reference frame
                 pinvschm.mmult(r_ss, Rate_grain_voigt);
-                std::cout<<"r_ss: "<<r_ss[0][0]<<"; "<<r_ss[1][0]<<"; "<<r_ss[2][0]<<std::endl;
+                //std::cout<<"r_ss: "<<r_ss[0][0]<<"; "<<r_ss[1][0]<<"; "<<r_ss[2][0]<<std::endl;
                 Schm.mmult(r_gc_v,r_ss);
 
                 SymmetricTensor<2,3> r_gc; 
@@ -243,9 +243,9 @@ namespace aspect
 		            tau_ss[0][0]= std::copysignf(1.0,r_ss[0][0])*std::pow(1.0/A_ss[0]*1.0/A0*std::pow(grain_size,0.73)*std::fabs(r_ss[0][0]/2),1.0/nFo);
 		            tau_ss[1][0]= std::copysignf(1.0,r_ss[1][0])*std::pow(1.0/A_ss[1]*1.0/A0*std::pow(grain_size,0.73)*std::fabs(r_ss[1][0]/2),1.0/nFo);
 		            tau_ss[2][0]= std::copysignf(1.0,r_ss[2][0])*std::pow(1.0/A_ss[2]*1.0/A0*std::pow(grain_size,0.73)*std::fabs(r_ss[2][0]/2),1.0/nFo);
-                std::cout<<"Tau_ss(0,0): "<<tau_ss[0][0]<<  std::endl;
-                std::cout<<"Tau_ss(1,0): "<<tau_ss[1][0]<<  std::endl;
-                std::cout<<"Tau_ss(2,0): "<<tau_ss[2][0]<<  std::endl;
+                //std::cout<<"Tau_ss(0,0): "<<tau_ss[0][0]<<  std::endl;
+                //std::cout<<"Tau_ss(1,0): "<<tau_ss[1][0]<<  std::endl;
+                //std::cout<<"Tau_ss(2,0): "<<tau_ss[2][0]<<  std::endl;
 
                 FullMatrix<double>  S_gc_v(6,1);
                 Schm.mmult(S_gc_v,tau_ss); //Voigt notation of the resolved stress on the grain
@@ -256,12 +256,12 @@ namespace aspect
                 S_gc[1][2] = S_gc_v[3][0];
                 S_gc[0][2] = S_gc_v[4][0];
                 S_gc[0][1] = S_gc_v[5][0];
-		std::cout<<"S_gc: "<<S_gc<<std::endl;
+		//std::cout<<"S_gc: "<<S_gc<<std::endl;
                 SymmetricTensor<2,3> S_g= symmetrize(transpose(R)*S_gc*R); //Here instead of making a multidimensional array what I sum at the end, I create S_g and add it to S_sum
                 //SymmetricTensor<2,3> S_sum;
-                std::cout<<"S_g: "<<S_g<<std::endl;
+                //std::cout<<"S_g: "<<S_g<<std::endl;
                 S_sum += S_g;
-                std::cout<<"S_sum: "<<S_sum<<std::endl;
+                //std::cout<<"S_sum: "<<S_sum<<std::endl;
 
               }
             S_sum=S_sum/n_grains_local; //Stress for mineralphase
@@ -269,7 +269,7 @@ namespace aspect
           }
         S_sum=S_sum/n_minerals_local; //stress for particle
         S_sum *= 1e6;
-        std::cout<<"S_sum final: "<<S_sum<<  std::endl;
+        //std::cout<<"S_sum final: "<<S_sum<<  std::endl;
 
         return S_sum;
       }
@@ -380,8 +380,8 @@ namespace aspect
           stress4=compute_S_tensor(e4, grain_size, a_cosine_matrices_grains, deformation_type, temperature);
           stress5=compute_S_tensor(e5, grain_size, a_cosine_matrices_grains, deformation_type, temperature);
           Stress =compute_S_tensor(E, grain_size, a_cosine_matrices_grains, deformation_type, temperature);
-          std::cout<<"Stress SS tensor: "<<Stress<<std::endl;
-          std::cout<<"strain rate: "<<E<<std::endl;
+          //std::cout<<"Stress SS tensor: "<<Stress<<std::endl;
+          //std::cout<<"strain rate: "<<E<<std::endl;
           // std::cout<<"Rotation matrix: "<<a_cosine_matrices_grains[0][0]<<std::endl;
           for (unsigned int i = 0; i < SymmetricTensor<2,dim>::n_independent_components ; ++i)
           {
@@ -397,7 +397,7 @@ namespace aspect
         Particle::Property::LpoSsTensor<dim>::store_particle_data(data_position,
                                                                        data,
                                                                        Ss_tensor);
-        std::cout<<"Stress again: "<< Ss_tensor[0]<< std::endl;
+        //std::cout<<"Stress again: "<< Ss_tensor[0]<< std::endl;
 
       }
 
