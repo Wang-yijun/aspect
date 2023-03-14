@@ -100,7 +100,9 @@ namespace aspect
                         stress[1][2] += material_model_inputs.composition[0][this->introspection().compositional_index_for_name("ve_stress_yz")];
                     }
             }
-
+        
+        stress = deviator(stress);
+        
         for (unsigned int i = 0; i < Tensor<2,dim>::n_independent_components ; ++i) 
           data[data_position + i] = stress[Tensor<2,dim>::unrolled_to_component_indices(i)];
         
@@ -143,7 +145,7 @@ namespace aspect
       ASPECT_REGISTER_PARTICLE_PROPERTY(Stress,
                                         "stress",
                                         "Implementation of a plugin in which the particle "
-                                        "property is defined as the recent stress at "
+                                        "property is defined as the recent deviatoric stress at "
                                         "this position.")
     }
   }
