@@ -220,7 +220,7 @@ namespace aspect
                 r_gc[1][2]=0.5*r_gc_v[3][0];
                 r_gc[0][2]=0.5*r_gc_v[4][0];
                 r_gc[0][1]=0.5*r_gc_v[5][0];
-                std::cout<<"r_gc:  "<<r_gc<<  std::endl;
+                //std::cout<<"r_gc:  "<<r_gc<<  std::endl;
                 std::array<std::pair<double, Tensor<1, dim>>, dim> r_gc_eig = eigenvectors(r_gc, SymmetricTensorEigenvectorMethod::jacobi);
 		      
                 double inv2best =std::pow(r_gc_eig[0].first-r_gc_eig[1].first,2)
@@ -382,7 +382,7 @@ namespace aspect
           Stress =compute_S_tensor(E, grain_size, a_cosine_matrices_grains, deformation_type, temperature);
           //std::cout<<"Stress SS tensor: "<<Stress<<std::endl;
           //std::cout<<"strain rate: "<<E<<std::endl;
-          // std::cout<<"Rotation matrix: "<<a_cosine_matrices_grains[0][0]<<std::endl;
+          //std::cout<<"Rotation matrix: "<<a_cosine_matrices_grains[0][0]<<std::endl;
           for (unsigned int i = 0; i < SymmetricTensor<2,dim>::n_independent_components ; ++i)
           {
             Ss_tensor[0][i] = Stress[SymmetricTensor<2,dim>::unrolled_to_component_indices(i)];
