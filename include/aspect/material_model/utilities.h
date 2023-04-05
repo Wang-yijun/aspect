@@ -315,7 +315,64 @@ namespace aspect
       double average_value (const std::vector<double> &volume_fractions,
                             const std::vector<double> &parameter_values,
                             const CompositionalAveragingOperation &average_type);
+      
+      
+      /**
+       * A data structure with all inputs for the
+       * MaterialModel::Interface::compute_drucker_prager_yielding() method.
+       */
+      struct DruckerPragerInputs
+      {
+        /**
+         * Constructor. Initializes the various variables of this structure
+         * with the input values. By default, there is no maximum yield
+         * strength, so the parameter is set to infinity.
+         */
+        DruckerPragerInputs(const double cohesion,
+                            const double friction_angle,
+                            const double pressure,
+                            const double effective_strain_rate,
+                            const double max_yield_strength = std::numeric_limits<double>::infinity());
 
+        const double cohesion;
+        const double friction_angle;
+        const double pressure;
+        const double effective_strain_rate;
+        const double max_yield_strength;
+      };
+
+
+
+      /**
+       * A data structure with all outputs computed by the
+       * MaterialModel::Interface::compute_drucker_prager_yielding() method.
+       */
+      struct DruckerPragerOutputs
+      {
+        /**
+         * Constructor. Initializes the various variables of this structure to
+         * NaNs.
+         */
+        DruckerPragerOutputs();
+
+        double yield_strength;
+        double plastic_viscosity;
+        double viscosity_pressure_derivative;
+      };
+
+
+
+      /**
+       * For material models with plasticity:
+       * Function to compute the material properties in @p out given the
+       * inputs in @p in according to the the Drucker-Prager yield criterion.
+       */
+      template <int dim>
+      void
+      compute_drucker_prager_yielding (const DruckerPragerInputs &in,
+                                       DruckerPragerOutputs &out);
+      
+      
       /**
        * Utilities for material models with multiple phases
        */
