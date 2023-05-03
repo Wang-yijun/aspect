@@ -35,16 +35,16 @@ namespace aspect
   {
     namespace Property
     {
-      enum class DeformationType
+      enum class DeformationType_lpo
       {
         Passive, OlivineAFabric, OlivineBFabric, OlivineCFabric, OlivineDFabric, OlivineEFabric, Enstatite
       };
-      enum class DeformationTypeSelector
+      enum class DeformationTypeSelector_lpo
       {
         Passive, OlivineAFabric, OlivineBFabric, OlivineCFabric, OlivineDFabric, OlivineEFabric, Enstatite, OlivineKarato2008
       };
 
-      enum class AdvectionMethod
+      enum class AdvectionMethod_lpo
       {
         ForwardEuler, BackwardEuler, CrankNicolson
       };
@@ -236,7 +236,7 @@ namespace aspect
           /**
            * todo
            */
-          DeformationType
+          DeformationType_lpo
           determine_deformation_type(const double stress, const double water_content) const;
 
 
@@ -248,7 +248,7 @@ namespace aspect
            * Fortran D-Rex uses 1e60
            */
           std::array<double,4>
-          reference_resolved_shear_stress_from_deformation_type(DeformationType deformation_type,
+          reference_resolved_shear_stress_from_deformation_type(DeformationType_lpo deformation_type,
                                                                 double max_value = 1e60) const;
 
           std::vector<Tensor<2,3> >
@@ -368,7 +368,7 @@ namespace aspect
 
         private:
 
-          std::vector<DeformationTypeSelector> deformation_type_selector;
+          std::vector<DeformationTypeSelector_lpo> deformation_type_selector;
 
           double rad_to_degree = 180.0/M_PI;
           double degree_to_rad = M_PI/180.0;
@@ -428,7 +428,7 @@ namespace aspect
           /**
            * Advection method for particle properties
            */
-          AdvectionMethod advection_method;
+          AdvectionMethod_lpo advection_method;
 
           /**
            * What algorithm to use to compute the derivatives
