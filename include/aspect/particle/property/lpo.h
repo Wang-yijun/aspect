@@ -1,18 +1,14 @@
 /*
  Copyright (C) 2015 - 2017 by the authors of the ASPECT code.
-
  This file is part of ASPECT.
-
  ASPECT is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation; either version 2, or (at your option)
  any later version.
-
  ASPECT is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
-
  You should have received a copy of the GNU General Public License
  along with ASPECT; see the file LICENSE.  If not see
  <http://www.gnu.org/licenses/>.
@@ -35,16 +31,16 @@ namespace aspect
   {
     namespace Property
     {
-      enum class DeformationType
+      enum class DeformationType_lpo
       {
         Passive, OlivineAFabric, OlivineBFabric, OlivineCFabric, OlivineDFabric, OlivineEFabric, Enstatite
       };
-      enum class DeformationTypeSelector
+      enum class DeformationTypeSelector_lpo
       {
         Passive, OlivineAFabric, OlivineBFabric, OlivineCFabric, OlivineDFabric, OlivineEFabric, Enstatite, OlivineKarato2008
       };
 
-      enum class AdvectionMethod
+      enum class AdvectionMethod_lpo
       {
         ForwardEuler, BackwardEuler, CrankNicolson
       };
@@ -232,11 +228,11 @@ namespace aspect
            * Find nearest orthogonal matrix using a SVD if the
            * deteriminant is more than a tolerance away from one.
            */
-         
+
           /**
            * todo
            */
-          DeformationType
+          DeformationType_lpo
           determine_deformation_type(const double stress, const double water_content) const;
 
 
@@ -248,7 +244,7 @@ namespace aspect
            * Fortran D-Rex uses 1e60
            */
           std::array<double,4>
-          reference_resolved_shear_stress_from_deformation_type(DeformationType deformation_type,
+          reference_resolved_shear_stress_from_deformation_type(DeformationType_lpo deformation_type,
                                                                 double max_value = 1e60) const;
 
           std::vector<Tensor<2,3> >
@@ -368,7 +364,7 @@ namespace aspect
 
         private:
 
-          std::vector<DeformationTypeSelector> deformation_type_selector;
+          std::vector<DeformationTypeSelector_lpo> deformation_type_selector;
 
           double rad_to_degree = 180.0/M_PI;
           double degree_to_rad = M_PI/180.0;
@@ -428,7 +424,7 @@ namespace aspect
           /**
            * Advection method for particle properties
            */
-          AdvectionMethod advection_method;
+          AdvectionMethod_lpo advection_method;
 
           /**
            * What algorithm to use to compute the derivatives
