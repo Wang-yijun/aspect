@@ -29,6 +29,7 @@
 #include <deal.II/particles/particle_handler.h>
 #include <deal.II/base/data_out_base.h>
 #include <tuple>
+#include <boost/random.hpp>
 
 namespace aspect
 {
@@ -143,7 +144,7 @@ namespace aspect
         const double rad_to_degree = 180.0/M_PI;
         const double degree_to_rad = M_PI/180.0;
 
-        mutable boost::lagged_fibonacci44497            random_number_generator;
+        mutable boost::lagged_fibonacci44497 		random_number_generator;
 
         unsigned int random_number_seed;
 
