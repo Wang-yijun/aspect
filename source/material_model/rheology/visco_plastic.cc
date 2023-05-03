@@ -553,6 +553,11 @@ namespace aspect
                            "full pressure has an unusually large negative value arising from "
                            "large negative dynamic pressure, resulting in solver convergence "
                            "issue and in some cases a viscosity of zero.");
+        prm.declare_entry ("List of component masks", "",
+                           Patterns::Anything (),
+                           "Indicate which compositional field are ignored by the visco plastic "
+                           "rheology model by listing the names of the fields.");
+
 
         // Diffusion creep parameters
         Rheology::DiffusionCreep<dim>::declare_parameters(prm);

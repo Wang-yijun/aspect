@@ -1018,6 +1018,7 @@ namespace aspect
       {}
 
 
+
       template <int dim>
       void
       fill_averaged_equation_of_state_outputs(const EquationOfStateOutputs<dim> &eos_outputs,
@@ -1035,6 +1036,7 @@ namespace aspect
         out.entropy_derivative_temperature[i] = MaterialUtilities::average_value (mass_fractions, eos_outputs.entropy_derivative_temperature, MaterialUtilities::arithmetic);
         out.specific_heat[i] = MaterialUtilities::average_value (mass_fractions, eos_outputs.specific_heat_capacities, MaterialUtilities::arithmetic);
       }
+
 
 
 
