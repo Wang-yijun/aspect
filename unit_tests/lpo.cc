@@ -179,80 +179,80 @@ TEST_CASE("Fabric determination function")
   LPO<3> lpo;
   double MPa = 1e6;
 
-  CHECK(lpo.determine_deformation_type(379.*MPa, 0.) == DeformationType::OlivineAFabric);
-  CHECK(lpo.determine_deformation_type(381.*MPa, 0.) == DeformationType::OlivineDFabric);
-  CHECK(lpo.determine_deformation_type(0.*MPa, 100.) == DeformationType::OlivineAFabric);
-  CHECK(lpo.determine_deformation_type(100.*MPa, 50.) == DeformationType::OlivineAFabric);
-  CHECK(lpo.determine_deformation_type(360.*MPa, 50.) == DeformationType::OlivineAFabric);
-  CHECK(lpo.determine_deformation_type(379.*MPa, 50.) == DeformationType::OlivineDFabric);
-  CHECK(lpo.determine_deformation_type(480.*MPa, 49.) == DeformationType::OlivineDFabric);
-  CHECK(lpo.determine_deformation_type(480.*MPa, 75.) == DeformationType::OlivineBFabric);
-  CHECK(lpo.determine_deformation_type(100.*MPa, 100.) == DeformationType::OlivineAFabric);
-  CHECK(lpo.determine_deformation_type(360.*MPa, 100.) == DeformationType::OlivineAFabric);
-  CHECK(lpo.determine_deformation_type(379.*MPa, 100.) == DeformationType::OlivineBFabric);
-  CHECK(lpo.determine_deformation_type(480.*MPa, 100.) == DeformationType::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(379.*MPa, 0.) == DeformationType_lpo::OlivineAFabric);
+  CHECK(lpo.determine_deformation_type(381.*MPa, 0.) == DeformationType_lpo::OlivineDFabric);
+  CHECK(lpo.determine_deformation_type(0.*MPa, 100.) == DeformationType_lpo::OlivineAFabric);
+  CHECK(lpo.determine_deformation_type(100.*MPa, 50.) == DeformationType_lpo::OlivineAFabric);
+  CHECK(lpo.determine_deformation_type(360.*MPa, 50.) == DeformationType_lpo::OlivineAFabric);
+  CHECK(lpo.determine_deformation_type(379.*MPa, 50.) == DeformationType_lpo::OlivineDFabric);
+  CHECK(lpo.determine_deformation_type(480.*MPa, 49.) == DeformationType_lpo::OlivineDFabric);
+  CHECK(lpo.determine_deformation_type(480.*MPa, 75.) == DeformationType_lpo::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(100.*MPa, 100.) == DeformationType_lpo::OlivineAFabric);
+  CHECK(lpo.determine_deformation_type(360.*MPa, 100.) == DeformationType_lpo::OlivineAFabric);
+  CHECK(lpo.determine_deformation_type(379.*MPa, 100.) == DeformationType_lpo::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(480.*MPa, 100.) == DeformationType_lpo::OlivineBFabric);
 
-  CHECK(lpo.determine_deformation_type(20.*MPa, 200.) == DeformationType::OlivineAFabric);
-  CHECK(lpo.determine_deformation_type(100.*MPa, 200.) == DeformationType::OlivineAFabric);
-  CHECK(lpo.determine_deformation_type(200.*MPa, 200.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(360.*MPa, 200.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(380.*MPa, 200.) == DeformationType::OlivineBFabric);
-  CHECK(lpo.determine_deformation_type(480.*MPa, 200.) == DeformationType::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(20.*MPa, 200.) == DeformationType_lpo::OlivineAFabric);
+  CHECK(lpo.determine_deformation_type(100.*MPa, 200.) == DeformationType_lpo::OlivineAFabric);
+  CHECK(lpo.determine_deformation_type(200.*MPa, 200.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(360.*MPa, 200.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(380.*MPa, 200.) == DeformationType_lpo::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(480.*MPa, 200.) == DeformationType_lpo::OlivineBFabric);
 
-  CHECK(lpo.determine_deformation_type(20.*MPa, 300.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(100.*MPa, 300.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(200.*MPa, 300.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(360.*MPa, 300.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(380.*MPa, 300.) == DeformationType::OlivineBFabric);
-  CHECK(lpo.determine_deformation_type(480.*MPa, 300.) == DeformationType::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(20.*MPa, 300.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(100.*MPa, 300.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(200.*MPa, 300.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(360.*MPa, 300.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(380.*MPa, 300.) == DeformationType_lpo::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(480.*MPa, 300.) == DeformationType_lpo::OlivineBFabric);
 
-  CHECK(lpo.determine_deformation_type(20.*MPa, 380.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(100.*MPa, 380.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(200.*MPa, 380.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(340.*MPa, 380.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(360.*MPa, 380.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(380.*MPa, 380.) == DeformationType::OlivineBFabric);
-  CHECK(lpo.determine_deformation_type(480.*MPa, 380.) == DeformationType::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(20.*MPa, 380.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(100.*MPa, 380.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(200.*MPa, 380.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(340.*MPa, 380.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(360.*MPa, 380.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(380.*MPa, 380.) == DeformationType_lpo::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(480.*MPa, 380.) == DeformationType_lpo::OlivineBFabric);
 
-  CHECK(lpo.determine_deformation_type(20.*MPa, 400.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(100.*MPa, 400.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(200.*MPa, 400.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(340.*MPa, 400.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(360.*MPa, 400.) == DeformationType::OlivineCFabric);
-  CHECK(lpo.determine_deformation_type(380.*MPa, 400.) == DeformationType::OlivineBFabric);
-  CHECK(lpo.determine_deformation_type(480.*MPa, 400.) == DeformationType::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(20.*MPa, 400.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(100.*MPa, 400.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(200.*MPa, 400.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(340.*MPa, 400.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(360.*MPa, 400.) == DeformationType_lpo::OlivineCFabric);
+  CHECK(lpo.determine_deformation_type(380.*MPa, 400.) == DeformationType_lpo::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(480.*MPa, 400.) == DeformationType_lpo::OlivineBFabric);
 
-  CHECK(lpo.determine_deformation_type(20.*MPa, 600.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(100.*MPa, 600.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(200.*MPa, 600.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(340.*MPa, 600.) == DeformationType::OlivineCFabric);
-  CHECK(lpo.determine_deformation_type(360.*MPa, 600.) == DeformationType::OlivineBFabric);
-  CHECK(lpo.determine_deformation_type(380.*MPa, 600.) == DeformationType::OlivineBFabric);
-  CHECK(lpo.determine_deformation_type(480.*MPa, 600.) == DeformationType::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(20.*MPa, 600.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(100.*MPa, 600.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(200.*MPa, 600.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(340.*MPa, 600.) == DeformationType_lpo::OlivineCFabric);
+  CHECK(lpo.determine_deformation_type(360.*MPa, 600.) == DeformationType_lpo::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(380.*MPa, 600.) == DeformationType_lpo::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(480.*MPa, 600.) == DeformationType_lpo::OlivineBFabric);
 
-  CHECK(lpo.determine_deformation_type(20.*MPa, 800.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(100.*MPa, 800.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(200.*MPa, 800.) == DeformationType::OlivineCFabric);
-  CHECK(lpo.determine_deformation_type(340.*MPa, 800.) == DeformationType::OlivineCFabric);
-  CHECK(lpo.determine_deformation_type(360.*MPa, 800.) == DeformationType::OlivineBFabric);
-  CHECK(lpo.determine_deformation_type(380.*MPa, 800.) == DeformationType::OlivineBFabric);
-  CHECK(lpo.determine_deformation_type(480.*MPa, 800.) == DeformationType::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(20.*MPa, 800.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(100.*MPa, 800.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(200.*MPa, 800.) == DeformationType_lpo::OlivineCFabric);
+  CHECK(lpo.determine_deformation_type(340.*MPa, 800.) == DeformationType_lpo::OlivineCFabric);
+  CHECK(lpo.determine_deformation_type(360.*MPa, 800.) == DeformationType_lpo::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(380.*MPa, 800.) == DeformationType_lpo::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(480.*MPa, 800.) == DeformationType_lpo::OlivineBFabric);
 
-  CHECK(lpo.determine_deformation_type(20.*MPa, 1000.) == DeformationType::OlivineEFabric);
-  CHECK(lpo.determine_deformation_type(100.*MPa, 1000.) == DeformationType::OlivineCFabric);
-  CHECK(lpo.determine_deformation_type(200.*MPa, 1000.) == DeformationType::OlivineCFabric);
-  CHECK(lpo.determine_deformation_type(340.*MPa, 1000.) == DeformationType::OlivineBFabric);
-  CHECK(lpo.determine_deformation_type(360.*MPa, 1000.) == DeformationType::OlivineBFabric);
-  CHECK(lpo.determine_deformation_type(380.*MPa, 1000.) == DeformationType::OlivineBFabric);
-  CHECK(lpo.determine_deformation_type(480.*MPa, 1000.) == DeformationType::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(20.*MPa, 1000.) == DeformationType_lpo::OlivineEFabric);
+  CHECK(lpo.determine_deformation_type(100.*MPa, 1000.) == DeformationType_lpo::OlivineCFabric);
+  CHECK(lpo.determine_deformation_type(200.*MPa, 1000.) == DeformationType_lpo::OlivineCFabric);
+  CHECK(lpo.determine_deformation_type(340.*MPa, 1000.) == DeformationType_lpo::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(360.*MPa, 1000.) == DeformationType_lpo::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(380.*MPa, 1000.) == DeformationType_lpo::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(480.*MPa, 1000.) == DeformationType_lpo::OlivineBFabric);
 
-  CHECK(lpo.determine_deformation_type(20.*MPa, 1200.) == DeformationType::OlivineCFabric);
-  CHECK(lpo.determine_deformation_type(100.*MPa, 1200.) == DeformationType::OlivineCFabric);
-  CHECK(lpo.determine_deformation_type(200.*MPa, 1200.) == DeformationType::OlivineCFabric);
-  CHECK(lpo.determine_deformation_type(340.*MPa, 1200.) == DeformationType::OlivineBFabric);
-  CHECK(lpo.determine_deformation_type(360.*MPa, 1200.) == DeformationType::OlivineBFabric);
-  CHECK(lpo.determine_deformation_type(380.*MPa, 1200.) == DeformationType::OlivineBFabric);
-  CHECK(lpo.determine_deformation_type(480.*MPa, 1200.) == DeformationType::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(20.*MPa, 1200.) == DeformationType_lpo::OlivineCFabric);
+  CHECK(lpo.determine_deformation_type(100.*MPa, 1200.) == DeformationType_lpo::OlivineCFabric);
+  CHECK(lpo.determine_deformation_type(200.*MPa, 1200.) == DeformationType_lpo::OlivineCFabric);
+  CHECK(lpo.determine_deformation_type(340.*MPa, 1200.) == DeformationType_lpo::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(360.*MPa, 1200.) == DeformationType_lpo::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(380.*MPa, 1200.) == DeformationType_lpo::OlivineBFabric);
+  CHECK(lpo.determine_deformation_type(480.*MPa, 1200.) == DeformationType_lpo::OlivineBFabric);
 }
 
 TEST_CASE("Euler angle functions")
@@ -583,7 +583,7 @@ TEST_CASE("LPO")
     velocity_gradient_tensor_nondimensional[0][1] = 2.0* 0.5959;
     velocity_gradient_tensor_nondimensional[1][0] = 2.0* 0.5959;
 
-    //Particle::Property::DeformationType deformation_type = Particle::Property::DeformationType::OlivineAFabric;
+    //Particle::Property::DeformationType_lpo deformation_type = Particle::Property::DeformationType_lpo::OlivineAFabric;
     std::array<double,4> ref_resolved_shear_stress;
     ref_resolved_shear_stress[0] = 1;
     ref_resolved_shear_stress[1] = 2;
@@ -784,7 +784,7 @@ TEST_CASE("LPO")
     velocity_gradient_tensor_nondimensional[0][1] = 2.0* 0.5959;
     velocity_gradient_tensor_nondimensional[1][0] = 2.0* 0.5959;
 
-    //Particle::Property::DeformationType deformation_type = Particle::Property::DeformationType::OlivineAFabric;
+    //Particle::Property::DeformationType_lpo deformation_type = Particle::Property::DeformationType_lpo::OlivineAFabric;
     std::array<double,4> ref_resolved_shear_stress;
     ref_resolved_shear_stress[0] = 1;
     ref_resolved_shear_stress[1] = 2;
@@ -1001,7 +1001,7 @@ TEST_CASE("LPO")
     velocity_gradient_tensor_nondimensional[2][1] = 5.5;
     velocity_gradient_tensor_nondimensional[2][2] = 6;
 
-    //Particle::Property::DeformationType deformation_type = Particle::Property::DeformationType::OlivineAFabric;
+    //Particle::Property::DeformationType_lpo deformation_type = Particle::Property::DeformationType_lpo::OlivineAFabric;
     std::array<double,4> ref_resolved_shear_stress;
     ref_resolved_shear_stress[0] = 1;
     ref_resolved_shear_stress[1] = 2;
@@ -1567,8 +1567,8 @@ TEST_CASE("LPO elastic tensor")
   reference_elastic_tensor[5][4] = -0.69890743507815523;
   reference_elastic_tensor[5][5] = 80.599981331604567;
 
-  std::vector<unsigned int> deformation_types = {(unsigned int)aspect::Particle::Property::DeformationType::OlivineAFabric,
-                                                 (unsigned int)aspect::Particle::Property::DeformationType::Enstatite
+  std::vector<unsigned int> deformation_types = {(unsigned int)aspect::Particle::Property::DeformationType_lpo::OlivineAFabric,
+                                                 (unsigned int)aspect::Particle::Property::DeformationType_lpo::Enstatite
                                                 };
 
   aspect::Particle::Property::LpoElasticTensor<3> lpo_elastic_tensor;
