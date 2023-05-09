@@ -22,7 +22,7 @@
 #include <aspect/stokes_matrix_free.h>
 #include <aspect/citation_info.h>
 #include <aspect/melt.h>
-
+#include <aspect/geometry_model/ellipsoidal_chunk.h>
 #include <deal.II/dofs/dof_renumbering.h>
 #include <deal.II/dofs/dof_accessor.h>
 #include <deal.II/dofs/dof_tools.h>
