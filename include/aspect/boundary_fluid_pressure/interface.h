@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2013 - 2023 by the authors of the ASPECT code.
+  Copyright (C) 2015 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -19,37 +19,29 @@
 */
 
 
-#ifndef _aspect_boundary_composition_interface_h
-#define _aspect_boundary_composition_interface_h
+#ifndef _aspect_boundary_fluid_pressure_interface_h
+#define _aspect_boundary_fluid_pressure_interface_h
 
 #include <aspect/plugins.h>
-#include <aspect/geometry_model/interface.h>
-#include <aspect/utilities.h>
-#include <aspect/simulator_access.h>
-
-#include <deal.II/base/parameter_handler.h>
-#include <deal.II/distributed/tria.h>
-
-#include <boost/core/demangle.hpp>
-#include <typeinfo>
-
+#include <aspect/material_model/interface.h>
 
 namespace aspect
 {
   /**
    * A namespace for the definition of things that have to do with describing
-   * the boundary values for the composition.
+   * the boundary values for fluid pressure for computations with melt
+   * transport.
    *
-   * @ingroup BoundaryCompositions
+   * @ingroup BoundaryFluidPressures
    */
-  namespace BoundaryComposition
+  namespace BoundaryFluidPressure
   {
     using namespace dealii;
 
     /**
-     * Base class for classes that describe composition boundary values.
+     * Base class
      *
-     * @ingroup BoundaryCompositions
+     * @ingroup BoundaryFluidPressures
      */
     template <int dim>
     class Interface
@@ -63,42 +55,33 @@ namespace aspect
 
         /**
          * Initialization function. This function is called once at the
-         * beginning of the program after parse_parameters is run and after
-         * the SimulatorAccess (if applicable) is initialized.
+         * beginning of the program after parse_parameters is run and after the
+         * SimulatorAccess (if applicable) is initialized.
          */
         virtual void initialize ();
 
-        /**
-         * A function that is called at the beginning of each time step. The
-         * default implementation of the function does nothing, but derived
-         * classes that need more elaborate setups for a given time step may
-         * overload the function.
-         *
-         * The point of this function is to allow complex boundary composition
-         * models to do an initialization step once at the beginning of each
-         * time step. An example would be a model that needs to call an
-         * external program to compute composition changes at sides.
-         */
-        virtual
-        void
-        update ();
 
         /**
-         * Return the composition that is to hold at a particular position on
-         * the boundary of the domain.
+         * Compute the component of the gradient of the fluid pressure
+         * in the direction normal to a boundary for a list of quadrature
+         * points.
+         *
+         * The return value can typically contain @p material_model_outputs.fluid_densities[q]
+         * or @p material_model_outputs.densities[q], multiplied by the gravity vector
+         * and dotted with the normal.
+         * If the solid density is used, fluid is only flowing in or out due to differences in
+         * dynamic pressure, if the fluid density is used, melt flows in with the same velocity
+         * as inflowing solid material.
          *
          * @param boundary_indicator The boundary indicator of the part of the
          * boundary of the domain on which the point is located at which we
-         * are requesting the composition.
-         * @param position The position of the point at which we ask for the
-         * composition.
-         * @param compositional_field The index of the compositional field
-         * between 0 and @p parameters.n_compositional_fields.
-         * @return Boundary value of the compositional field @p
-         * compositional_field at the position @p position.
+         * are requesting the fluid pressure gradients.
+         * @param material_model_inputs The material property inputs.
+         * @param material_model_outputs The material property outputs.
+         * @param normal_vectors A normal vector for each point.
+         * @param fluid_pressure_gradient_outputs Result to be filled.
          */
         virtual
-<<<<<<< HEAD
         void fluid_pressure_gradient (
           const types::boundary_id boundary_indicator,
           const MaterialModel::MaterialModelInputs<dim> &material_model_inputs,
@@ -106,12 +89,6 @@ namespace aspect
           const std::vector<Tensor<1,dim>> &normal_vectors,
           std::vector<double> &fluid_pressure_gradient_outputs
         ) const = 0;
-=======
-        double
-        boundary_composition (const types::boundary_id boundary_indicator,
-                              const Point<dim> &position,
-                              const unsigned int compositional_field) const = 0;
->>>>>>> afa9f7bf4 (Get new modifications)
 
         /**
          * Declare the parameters this class takes through input files. The
@@ -134,283 +111,86 @@ namespace aspect
         parse_parameters (ParameterHandler &prm);
     };
 
+
     /**
-     * A class that manages all boundary composition objects.
+     * Register a fluid pressure boundary model so that it can be selected from
+     * the parameter file.
      *
-     * @ingroup BoundaryCompositions
+     * @param name A string that identifies the fluid pressure boundary model
+     * @param description A text description of what this model does and that
+     * will be listed in the documentation of the parameter file.
+     * @param declare_parameters_function A pointer to a function that can be
+     * used to declare the parameters that this fluid pressure boundary model
+     * wants to read from input files.
+     * @param factory_function A pointer to a function that can create an
+     * object of this fluid pressure boundary model.
+     *
+     * @ingroup BoundaryFluidPressures
      */
     template <int dim>
-<<<<<<< HEAD
     void
     register_boundary_fluid_pressure (const std::string &name,
                                       const std::string &description,
                                       void (*declare_parameters_function) (ParameterHandler &),
                                       std::unique_ptr<Interface<dim>> (*factory_function) ());
-=======
-    class Manager : public ::aspect::SimulatorAccess<dim>
-    {
-      public:
-        /**
-         * Destructor. Made virtual since this class has virtual member
-         * functions.
-         */
-        ~Manager () override;
 
-        /**
-         * A function that is called at the beginning of each time step and
-         * calls the corresponding functions of all created plugins.
-         *
-         * The point of this function is to allow complex boundary composition
-         * models to do an initialization step once at the beginning of each
-         * time step. An example would be a model that needs to call an
-         * external program to compute the composition change at a boundary.
-         */
-        virtual
-        void
-        update ();
-
-        /**
-         * Declare the parameters of all known boundary composition plugins, as
-         * well as the ones this class has itself.
-         */
-        static
-        void
-        declare_parameters (ParameterHandler &prm);
-
-        /**
-         * Read the parameters this class declares from the parameter file.
-         * This determines which boundary composition objects will be created;
-         * then let these objects read their parameters as well.
-         */
-        void
-        parse_parameters (ParameterHandler &prm);
-
-        /**
-         * A function that calls the boundary_composition functions of all the
-         * individual boundary composition objects and uses the stored operators
-         * to combine them.
-         */
-        double
-        boundary_composition (const types::boundary_id boundary_indicator,
-                              const Point<dim> &position,
-                              const unsigned int compositional_field) const;
-
-        /**
-         * A function that is used to register boundary composition objects in such
-         * a way that the Manager can deal with all of them without having to
-         * know them by name. This allows the files in which individual
-         * plugins are implemented to register these plugins, rather than also
-         * having to modify the Manager class by adding the new boundary
-         * composition plugin class.
-         *
-         * @param name A string that identifies the boundary composition model
-         * @param description A text description of what this model does and that
-         * will be listed in the documentation of the parameter file.
-         * @param declare_parameters_function A pointer to a function that can be
-         * used to declare the parameters that this boundary composition model
-         * wants to read from input files.
-         * @param factory_function A pointer to a function that can create an
-         * object of this boundary composition model.
-         */
-        static
-        void
-        register_boundary_composition (const std::string &name,
-                                       const std::string &description,
-                                       void (*declare_parameters_function) (ParameterHandler &),
-                                       std::unique_ptr<Interface<dim>> (*factory_function) ());
-
-
-        /**
-         * Return a list of names of all boundary composition models currently
-         * used in the computation, as specified in the input file.
-         */
-        const std::vector<std::string> &
-        get_active_boundary_composition_names () const;
-
-        /**
-         * Return a list of pointers to all boundary composition models
-         * currently used in the computation, as specified in the input file.
-         */
-        const std::vector<std::unique_ptr<Interface<dim>>> &
-        get_active_boundary_composition_conditions () const;
-
-        /**
-         * Go through the list of all boundary composition models that have been selected
-         * in the input file (and are consequently currently active) and return
-         * true if one of them has the desired type specified by the template
-         * argument.
-         */
-        template <typename BoundaryCompositionType>
-        bool
-        has_matching_boundary_composition_model () const;
-
-        /**
-         * Go through the list of all boundary composition models that have been selected
-         * in the input file (and are consequently currently active) and see
-         * if one of them has the type specified by the template
-         * argument or can be casted to that type. If so, return a reference
-         * to it. If no boundary composition model is active that matches the given type,
-         * throw an exception.
-         */
-        template <typename BoundaryCompositionType>
-        const BoundaryCompositionType &
-        get_matching_boundary_composition_model () const;
-
-        /*
-         * Return a set of boundary indicators for which boundary
-         * compositions are prescribed.
-         */
-        const std::set<types::boundary_id> &
-        get_fixed_composition_boundary_indicators() const;
-
-        /*
-         * Return whether Dirichlet boundary conditions will be applied
-         * on parts of the boundaries where material flows out.
-         */
-        bool
-        allows_fixed_composition_on_outflow_boundaries() const;
-
-        /**
-         * For the current plugin subsystem, write a connection graph of all of the
-         * plugins we know about, in the format that the
-         * programs dot and neato understand. This allows for a visualization of
-         * how all of the plugins that ASPECT knows about are interconnected, and
-         * connect to other parts of the ASPECT code.
-         *
-         * @param output_stream The stream to write the output to.
-         */
-        static
-        void
-        write_plugin_graph (std::ostream &output_stream);
-
-
-        /**
-         * Exception.
-         */
-        DeclException1 (ExcBoundaryCompositionNameNotFound,
-                        std::string,
-                        << "Could not find entry <"
-                        << arg1
-                        << "> among the names of registered boundary composition objects.");
-      private:
-        /**
-         * A list of boundary composition objects that have been requested in the
-         * parameter file.
-         */
-        std::vector<std::unique_ptr<Interface<dim>>> boundary_composition_objects;
-
-        /**
-         * A list of names of boundary composition objects that have been requested
-         * in the parameter file.
-         */
-        std::vector<std::string> model_names;
-
-        /**
-         * A list of enums of boundary composition operators that have been
-         * requested in the parameter file. Each name is associated
-         * with a model_name, and is used to modify the composition
-         * boundary with the values from the current plugin.
-         */
-        std::vector<aspect::Utilities::Operator> model_operators;
-
-        /**
-         * A set of boundary ids on which the boundary_composition_objects
-         * will be applied.
-         */
-        std::set<types::boundary_id> fixed_composition_boundary_indicators;
-
-        /**
-         * Whether we allow the composition to be fixed on parts of the boundary
-         * where material flows out of the domain.
-         */
-        bool allow_fixed_composition_on_outflow_boundaries;
-    };
-
-
->>>>>>> afa9f7bf4 (Get new modifications)
-
+    /**
+     * A function that given the name of a model returns a pointer to an
+     * object that describes it. Ownership of the pointer is transferred to
+     * the caller.
+     *
+     * The model object returned is not yet initialized and has not
+     * read its runtime parameters yet.
+     *
+     * @ingroup BoundaryFluidPressures
+     */
     template <int dim>
-<<<<<<< HEAD
     std::unique_ptr<Interface<dim>>
     create_boundary_fluid_pressure (ParameterHandler &prm);
-=======
-    template <typename BoundaryCompositionType>
-    inline
-    bool
-    Manager<dim>::has_matching_boundary_composition_model () const
-    {
-      for (const auto &p : boundary_composition_objects)
-        if (Plugins::plugin_type_matches<BoundaryCompositionType>(*p))
-          return true;
-
-      return false;
-    }
-
->>>>>>> afa9f7bf4 (Get new modifications)
-
-
-    template <int dim>
-    template <typename BoundaryCompositionType>
-    inline
-    const BoundaryCompositionType &
-    Manager<dim>::get_matching_boundary_composition_model () const
-    {
-      AssertThrow(has_matching_boundary_composition_model<BoundaryCompositionType> (),
-                  ExcMessage("You asked BoundaryComposition::Manager::get_boundary_composition_model() for a "
-                             "boundary composition model of type <" + boost::core::demangle(typeid(BoundaryCompositionType).name()) + "> "
-                             "that could not be found in the current model. Activate this "
-                             "boundary composition model in the input file."));
-
-      typename std::vector<std::unique_ptr<Interface<dim>>>::const_iterator boundary_composition_model;
-      for (typename std::vector<std::unique_ptr<Interface<dim>>>::const_iterator
-           p = boundary_composition_objects.begin();
-           p != boundary_composition_objects.end(); ++p)
-        if (Plugins::plugin_type_matches<BoundaryCompositionType>(*(*p)))
-          return Plugins::get_plugin_as_type<BoundaryCompositionType>(*(*p));
-
-      // We will never get here, because we had the Assert above. Just to avoid warnings.
-      return Plugins::get_plugin_as_type<BoundaryCompositionType>(*(*boundary_composition_model));
-    }
-
-
 
 
     /**
-     * Return a string that consists of the names of boundary composition models that can
-     * be selected. These names are separated by a vertical line '|' so
-     * that the string can be an input to the deal.II classes
-     * Patterns::Selection or Patterns::MultipleSelection.
+     * Declare the runtime parameters of the registered fluid pressure boundary
+     * models.
+     *
+     * @ingroup BoundaryFluidPressures
      */
     template <int dim>
-    std::string
-    get_valid_model_names_pattern ();
+    void
+    declare_parameters (ParameterHandler &prm);
+
+
+    /**
+     * For the current plugin subsystem, write a connection graph of all of the
+     * plugins we know about, in the format that the
+     * programs dot and neato understand. This allows for a visualization of
+     * how all of the plugins that ASPECT knows about are interconnected, and
+     * connect to other parts of the ASPECT code.
+     *
+     * @param output_stream The stream to write the output to.
+     */
+    template <int dim>
+    void
+    write_plugin_graph (std::ostream &output_stream);
 
 
     /**
      * Given a class name, a name, and a description for the parameter file
-     * for a boundary composition model, register it with the functions that
+     * for a fluid pressure boundary model, register it with the functions that
      * can declare their parameters and create these objects.
      *
-     * @ingroup BoundaryCompositions
+     * @ingroup BoundaryFluidPressures
      */
-#define ASPECT_REGISTER_BOUNDARY_COMPOSITION_MODEL(classname, name, description) \
+#define ASPECT_REGISTER_BOUNDARY_FLUID_PRESSURE_MODEL(classname, name, description) \
   template class classname<2>; \
   template class classname<3>; \
-  namespace ASPECT_REGISTER_BOUNDARY_COMPOSITION_MODEL_ ## classname \
+  namespace ASPECT_REGISTER_BOUNDARY_FLUID_PRESSURE_MODEL_ ## classname \
   { \
-<<<<<<< HEAD
     aspect::internal::Plugins::RegisterHelper<aspect::BoundaryFluidPressure::Interface<2>,classname<2>> \
     dummy_ ## classname ## _2d (&aspect::BoundaryFluidPressure::register_boundary_fluid_pressure<2>, \
                                 name, description); \
     aspect::internal::Plugins::RegisterHelper<aspect::BoundaryFluidPressure::Interface<3>,classname<3>> \
     dummy_ ## classname ## _3d (&aspect::BoundaryFluidPressure::register_boundary_fluid_pressure<3>, \
-=======
-    aspect::internal::Plugins::RegisterHelper<aspect::BoundaryComposition::Interface<2>,classname<2>> \
-    dummy_ ## classname ## _2d (&aspect::BoundaryComposition::Manager<2>::register_boundary_composition, \
-                                name, description); \
-    aspect::internal::Plugins::RegisterHelper<aspect::BoundaryComposition::Interface<3>,classname<3>> \
-    dummy_ ## classname ## _3d (&aspect::BoundaryComposition::Manager<3>::register_boundary_composition, \
->>>>>>> afa9f7bf4 (Get new modifications)
                                 name, description); \
   }
   }
