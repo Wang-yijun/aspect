@@ -121,7 +121,6 @@ namespace aspect
           {
             patches[i].vertices[0] = particle->get_location();
             patches[i].patch_index = i;
-
             patches[i].data.reinit(dataset_names.size(),1);
 
             patches[i].data(0,0) = particle->get_id();
