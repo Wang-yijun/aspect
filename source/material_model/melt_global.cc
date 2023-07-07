@@ -111,7 +111,10 @@ namespace aspect
           && this->get_timestep_number() > 0 && !this->get_parameters().use_operator_splitting)
         {
           // Prepare the field function
+<<<<<<< HEAD
 
+=======
+>>>>>>> 4955ee0fe (Trying to fix ShearHeatingOutputs problem)
           Functions::FEFieldFunction<dim, LinearAlgebra::BlockVector>
 
           fe_value(this->get_dof_handler(), this->get_old_solution(), this->get_mapping());
