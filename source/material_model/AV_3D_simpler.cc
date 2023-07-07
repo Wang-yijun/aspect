@@ -254,7 +254,7 @@ namespace aspect
       if (outputs.template get_additional_output<MaterialModel::AnisotropicViscosity<dim> >() == nullptr)
         {
           outputs.additional_outputs.push_back(
-            std_cxx14::make_unique<MaterialModel::AnisotropicViscosity<dim>> (n_points));
+            std::make_unique<MaterialModel::AnisotropicViscosity<dim>> (n_points));
         }
     }
 
@@ -354,14 +354,14 @@ namespace aspect
       if (outputs.template get_additional_output<MaterialModel::AnisotropicViscosity<dim> >() == nullptr)
         {
           outputs.additional_outputs.push_back(
-            std_cxx14::make_unique<MaterialModel::AnisotropicViscosity<dim>> (n_points));
+            std::make_unique<MaterialModel::AnisotropicViscosity<dim>> (n_points));
         }
 
       if (this->get_parameters().enable_additional_stokes_rhs
           && outputs.template get_additional_output<MaterialModel::AdditionalMaterialOutputsStokesRHS<dim> >() == nullptr)
         {
           outputs.additional_outputs.push_back(
-            std_cxx14::make_unique<MaterialModel::AdditionalMaterialOutputsStokesRHS<dim>> (n_points));
+            std::make_unique<MaterialModel::AdditionalMaterialOutputsStokesRHS<dim>> (n_points));
         }
       Assert(!this->get_parameters().enable_additional_stokes_rhs
              ||
@@ -410,8 +410,8 @@ namespace aspect
 
       // Some material models provide dislocation viscosities and boundary area work fractions
       // as additional material outputs. If they are attached, use them.
-      const MaterialModel::DislocationViscosityOutputs<dim> *disl_viscosities_out =
-        material_model_outputs.template get_additional_output<MaterialModel::DislocationViscosityOutputs<dim> >();
+      const HeatingModel::ShearHeatingOutputs<dim> *sh_out =
+        material_model_outputs.template get_additional_output<HeatingModel::ShearHeatingOutputs<dim> >();
 
       const MaterialModel::AnisotropicViscosity<dim> *anisotropic_viscosity =
         material_model_outputs.template get_additional_output<MaterialModel::AnisotropicViscosity<dim> >();
@@ -446,10 +446,10 @@ namespace aspect
 
           // If dislocation viscosities and boundary area work fractions are provided, reduce the
           // overall heating by this amount (which is assumed to increase surface energy)
-          if (disl_viscosities_out != 0)
+          if (sh_out != 0)
             {
-              heating_model_outputs.heating_source_terms[q] *= 1 - disl_viscosities_out->boundary_area_change_work_fractions[q] *
-                                                               material_model_outputs.viscosities[q] / disl_viscosities_out->dislocation_viscosities[q];
+              heating_model_outputs.heating_source_terms[q] *= 1 - sh_out->boundary_area_change_work_fractions[q] *
+                                                               material_model_outputs.viscosities[q] / sh_out->dislocation_viscosities[q];
             }
 
           heating_model_outputs.lhs_latent_heat_terms[q] = 0.0;
@@ -468,7 +468,7 @@ namespace aspect
       if (material_model_outputs.template get_additional_output<MaterialModel::AnisotropicViscosity<dim> >() == nullptr)
         {
           material_model_outputs.additional_outputs.push_back(
-            std_cxx14::make_unique<MaterialModel::AnisotropicViscosity<dim>> (n_points));
+            std::make_unique<MaterialModel::AnisotropicViscosity<dim>> (n_points));
         }
 
       this->get_material_model().create_additional_named_outputs(material_model_outputs);
@@ -491,13 +491,13 @@ namespace aspect
       for (unsigned int i=0; i<assemblers.stokes_preconditioner.size(); ++i)
         {
           if (Plugins::plugin_type_matches<Assemblers::StokesPreconditioner<dim>>(*(assemblers.stokes_preconditioner[i])))
-            assemblers.stokes_preconditioner[i] = std_cxx14::make_unique<Assemblers::StokesPreconditionerAnisotropicViscosity<dim> > ();
+            assemblers.stokes_preconditioner[i] = std::make_unique<Assemblers::StokesPreconditionerAnisotropicViscosity<dim> > ();
         }
 
       for (unsigned int i=0; i<assemblers.stokes_system.size(); ++i)
         {
           if (Plugins::plugin_type_matches<Assemblers::StokesIncompressibleTerms<dim>>(*(assemblers.stokes_system[i])))
-            assemblers.stokes_system[i] = std_cxx14::make_unique<Assemblers::StokesIncompressibleTermsAnisotropicViscosity<dim> > ();
+            assemblers.stokes_system[i] = std::make_unique<Assemblers::StokesIncompressibleTermsAnisotropicViscosity<dim> > ();
         }
     }
 
@@ -977,7 +977,7 @@ namespace aspect
         {
           const unsigned int n_points = out.n_evaluation_points();
           out.additional_outputs.push_back(
-            std_cxx14::make_unique<MaterialModel::AnisotropicViscosity<dim>> (n_points));
+            std::make_unique<MaterialModel::AnisotropicViscosity<dim>> (n_points));
         }
     }
   }

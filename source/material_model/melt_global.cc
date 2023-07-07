@@ -111,7 +111,6 @@ namespace aspect
           && this->get_timestep_number() > 0 && !this->get_parameters().use_operator_splitting)
         {
           // Prepare the field function
-#if DEAL_II_VERSION_GTE(9,4,0)
           Functions::FEFieldFunction<dim, LinearAlgebra::BlockVector>
           fe_value(this->get_dof_handler(), this->get_old_solution(), this->get_mapping());
 
