@@ -55,6 +55,7 @@
 
 #include <aspect/material_model/simple.h>
 #include <aspect/material_model/grain_size.h>
+#include <aspect/heating_model/shear_heating.h>
 #include <aspect/heating_model/interface.h>
 #include <aspect/gravity_model/interface.h>
 #include <aspect/simulator/assemblers/stokes.h>
@@ -410,8 +411,8 @@ namespace aspect
 
       // Some material models provide dislocation viscosities and boundary area work fractions
       // as additional material outputs. If they are attached, use them.
-      const HeatingModel::ShearHeatingOutputs<dim> *sh_out =
-        material_model_outputs.template get_additional_output<HeatingModel::ShearHeatingOutputs<dim> >();
+      const MaterialModel::DislocationViscosityOutputs<dim> *disl_viscosity_out =
+        material_model_outputs.template get_additional_output<MaterialModel::DislocationViscosityOutputs<dim> >();
 
       const MaterialModel::AnisotropicViscosity<dim> *anisotropic_viscosity =
         material_model_outputs.template get_additional_output<MaterialModel::AnisotropicViscosity<dim> >();
@@ -446,10 +447,10 @@ namespace aspect
 
           // If dislocation viscosities and boundary area work fractions are provided, reduce the
           // overall heating by this amount (which is assumed to increase surface energy)
-          if (sh_out != 0)
+          if (disl_viscosity_out != 0)
             {
-              heating_model_outputs.heating_source_terms[q] *= 1 - sh_out->boundary_area_change_work_fractions[q] *
-                                                               material_model_outputs.viscosities[q] / sh_out->dislocation_viscosities[q];
+              heating_model_outputs.heating_source_terms[q] *= 1 - disl_viscosity_out->boundary_area_change_work_fractions[q] *
+                                                               material_model_outputs.viscosities[q] / disl_viscosity_out->dislocation_viscosities[q];
             }
 
           heating_model_outputs.lhs_latent_heat_terms[q] = 0.0;

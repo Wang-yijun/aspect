@@ -432,10 +432,6 @@ namespace aspect
         Assert (particle_solution.block(b).l2_norm() == 0,
                 ExcInternalError());
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 48b28e9e8 (Interpolate all particle properties in one operation)
   }
 
 
