@@ -29,6 +29,9 @@
 #include <deal.II/particles/particle_handler.h>
 #include <deal.II/base/data_out_base.h>
 #include <tuple>
+DEAL_II_DISABLE_EXTRA_DIAGNOSTICS
+#include <boost/random.hpp>
+DEAL_II_ENABLE_EXTRA_DIAGNOSTICS
 
 namespace aspect
 {

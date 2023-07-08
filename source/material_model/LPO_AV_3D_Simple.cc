@@ -59,6 +59,7 @@
 
 #include <aspect/material_model/simple.h>
 #include <aspect/material_model/grain_size.h>
+#include <aspect/heating_model/shear_heating.h>
 #include <aspect/heating_model/interface.h>
 #include <aspect/gravity_model/interface.h>
 #include <aspect/simulator/assemblers/stokes.h>
@@ -414,8 +415,8 @@ namespace aspect
 
       // Some material models provide dislocation viscosities and boundary area work fractions
       // as additional material outputs. If they are attached, use them.
-      const ShearHeatingOutputs<dim> *shear_heating_out =
-        material_model_outputs.template get_additional_output<ShearHeatingOutputs<dim>>();
+      const MaterialModel::DislocationViscosityOutputs<dim> *disl_viscosity_out =
+        material_model_outputs.template get_additional_output<MaterialModel::DislocationViscosityOutputs<dim>>();
 
       const MaterialModel::AV<dim> *anisotropic_viscosity =
         material_model_outputs.template get_additional_output<MaterialModel::AV<dim> >();
@@ -450,10 +451,10 @@ namespace aspect
 
           // If dislocation viscosities and boundary area work fractions are provided, reduce the
           // overall heating by this amount (which is assumed to increase surface energy)
-          if (shear_heating_out != 0)
+          if (disl_viscosity_out != 0)
             {
-              heating_model_outputs.heating_source_terms[q] *= 1 - shear_heating_out->boundary_area_change_work_fractions[q] *
-                                                               material_model_outputs.viscosities[q] /shear_heating_out->dislocation_viscosities[q];
+              heating_model_outputs.heating_source_terms[q] *= 1 - disl_viscosity_out->boundary_area_change_work_fractions[q] *
+                                                               material_model_outputs.viscosities[q] /disl_viscosity_out->dislocation_viscosities[q];
             }
 
           heating_model_outputs.lhs_latent_heat_terms[q] = 0.0;
@@ -474,7 +475,7 @@ namespace aspect
           material_model_outputs.additional_outputs.push_back(
             std::make_unique<MaterialModel::AV<dim>> (n_points));
         }
-
+      
       this->get_material_model().create_additional_named_outputs(material_model_outputs);
     }
   }
