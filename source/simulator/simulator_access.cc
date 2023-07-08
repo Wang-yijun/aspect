@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2023 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2020 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -33,11 +33,15 @@ namespace aspect
   {}
 
 
-
   template <int dim>
   SimulatorAccess<dim>::SimulatorAccess (const Simulator<dim> &simulator_object)
     :
     simulator (&simulator_object)
+  {}
+
+
+  template <int dim>
+  SimulatorAccess<dim>::~SimulatorAccess ()
   {}
 
 
@@ -67,7 +71,6 @@ namespace aspect
   }
 
 
-
   template <int dim>
   SimulatorSignals<dim> &
   SimulatorAccess<dim>::get_signals() const
@@ -78,14 +81,12 @@ namespace aspect
   }
 
 
-
   template <int dim>
   const Introspection<dim> &
   SimulatorAccess<dim>::introspection () const
   {
     return simulator->introspection;
   }
-
 
 
   template <int dim>
@@ -95,16 +96,12 @@ namespace aspect
     return simulator->mpi_communicator;
   }
 
-
-
   template <int dim>
   TimerOutput &
   SimulatorAccess<dim>::get_computing_timer () const
   {
     return simulator->computing_timer;
   }
-
-
 
   template <int dim>
   const ConditionalOStream &
@@ -113,23 +110,17 @@ namespace aspect
     return simulator->pcout;
   }
 
-
-
   template <int dim>
   double SimulatorAccess<dim>::get_time () const
   {
     return simulator->time;
   }
 
-
-
   template <int dim>
   double SimulatorAccess<dim>::get_timestep () const
   {
     return simulator->time_step;
   }
-
-
 
   template <int dim>
   double SimulatorAccess<dim>::get_old_timestep () const
@@ -146,13 +137,11 @@ namespace aspect
   }
 
 
-
   template <int dim>
   unsigned int SimulatorAccess<dim>::get_nonlinear_iteration () const
   {
     return simulator->nonlinear_iteration;
   }
-
 
 
   template <int dim>
@@ -199,14 +188,12 @@ namespace aspect
   }
 
 
-
   template <int dim>
   unsigned int
   SimulatorAccess<dim>::get_pre_refinement_step () const
   {
     return simulator->pre_refinement_step;
   }
-
 
 
   template <int dim>
@@ -225,8 +212,6 @@ namespace aspect
     return simulator->heating_model_manager.adiabatic_heating_enabled();
   }
 
-
-
   template <int dim>
   bool
   SimulatorAccess<dim>::include_latent_heat () const
@@ -235,16 +220,12 @@ namespace aspect
     return (std::find(heating_models.begin(), heating_models.end(), "latent heat") != heating_models.end());
   }
 
-
-
   template <int dim>
   bool
   SimulatorAccess<dim>::include_melt_transport () const
   {
     return simulator->parameters.include_melt_transport;
   }
-
-
 
   template <int dim>
   int
@@ -253,16 +234,12 @@ namespace aspect
     return simulator->parameters.stokes_velocity_degree;
   }
 
-
-
   template <int dim>
   double
   SimulatorAccess<dim>::get_adiabatic_surface_temperature () const
   {
     return simulator->parameters.adiabatic_surface_temperature;
   }
-
-
 
   template <int dim>
   double
@@ -271,16 +248,12 @@ namespace aspect
     return simulator->parameters.surface_pressure;
   }
 
-
-
   template <int dim>
   void
   SimulatorAccess<dim>::get_refinement_criteria (Vector<float> &estimated_error_per_cell) const
   {
     simulator->mesh_refinement_manager.execute (estimated_error_per_cell);
   }
-
-
 
   template <int dim>
   void
@@ -291,8 +264,6 @@ namespace aspect
     simulator->get_artificial_viscosity(viscosity_per_cell, advection_field, skip_interior_cells);
   }
 
-
-
   template <int dim>
   void
   SimulatorAccess<dim>::get_artificial_viscosity_composition (Vector<float> &viscosity_per_cell,
@@ -302,16 +273,12 @@ namespace aspect
     simulator->get_artificial_viscosity(viscosity_per_cell, advection_field);
   }
 
-
-
   template <int dim>
   const LinearAlgebra::BlockVector &
   SimulatorAccess<dim>::get_current_linearization_point () const
   {
     return simulator->current_linearization_point;
   }
-
-
 
   template <int dim>
   const LinearAlgebra::BlockVector &
@@ -320,16 +287,12 @@ namespace aspect
     return simulator->solution;
   }
 
-
-
   template <int dim>
   const LinearAlgebra::BlockVector &
   SimulatorAccess<dim>::get_old_solution () const
   {
     return simulator->old_solution;
   }
-
-
 
   template <int dim>
   const LinearAlgebra::BlockVector &
@@ -338,16 +301,12 @@ namespace aspect
     return simulator->old_old_solution;
   }
 
-
-
   template <int dim>
   const LinearAlgebra::BlockVector &
   SimulatorAccess<dim>::get_reaction_vector () const
   {
     return simulator->operator_split_reaction_vector;
   }
-
-
 
   template <int dim>
   const LinearAlgebra::BlockVector &
@@ -357,7 +316,6 @@ namespace aspect
             ExcMessage("You cannot get the mesh velocity if mesh deformation is not enabled."));
     return simulator->mesh_deformation->mesh_velocity;
   }
-
 
 
   template <int dim>
@@ -373,10 +331,13 @@ namespace aspect
   const FiniteElement<dim> &
   SimulatorAccess<dim>::get_fe () const
   {
-    return simulator->finite_element;
+    Assert (simulator->dof_handler.n_dofs() > 0,
+            ExcMessage("You are trying to access the FiniteElement before the DOFs have been "
+                       "initialized. This may happen when accessing the Simulator from a plugin "
+                       "that gets executed early in some cases (like material models) or from "
+                       "an early point in the core code."));
+    return simulator->dof_handler.get_fe();
   }
-
-
 
   template <int dim>
   const LinearAlgebra::BlockSparseMatrix &
@@ -385,16 +346,12 @@ namespace aspect
     return simulator->system_matrix;
   }
 
-
-
   template <int dim>
   const LinearAlgebra::BlockSparseMatrix &
   SimulatorAccess<dim>::get_system_preconditioner_matrix () const
   {
     return simulator->system_preconditioner_matrix;
   }
-
-
 
   template <int dim>
   const MaterialModel::Interface<dim> &
@@ -406,9 +363,25 @@ namespace aspect
   }
 
 
+  template <int dim>
+  void
+  SimulatorAccess<dim>::compute_material_model_input_values (const LinearAlgebra::BlockVector                            &input_solution,
+                                                             const FEValuesBase<dim,dim>                                 &input_finite_element_values,
+                                                             const typename DoFHandler<dim>::active_cell_iterator        &cell,
+                                                             const bool                                                   compute_strainrate,
+                                                             MaterialModel::MaterialModelInputs<dim> &material_model_inputs) const
+  {
+    simulator->compute_material_model_input_values(input_solution,
+                                                   input_finite_element_values,
+                                                   cell,
+                                                   compute_strainrate,
+                                                   material_model_inputs);
+  }
+
+
 
   template <int dim>
-  const std::map<types::boundary_id,std::unique_ptr<BoundaryTraction::Interface<dim>>> &
+  const std::map<types::boundary_id,std::unique_ptr<BoundaryTraction::Interface<dim> > > &
   SimulatorAccess<dim>::get_boundary_traction () const
   {
     return simulator->boundary_traction;
@@ -421,6 +394,17 @@ namespace aspect
   SimulatorAccess<dim>::has_boundary_temperature () const
   {
     return (get_boundary_temperature_manager().get_fixed_temperature_boundary_indicators().size() > 0);
+  }
+
+
+
+  template <int dim>
+  const BoundaryTemperature::Interface<dim> &
+  SimulatorAccess<dim>::get_boundary_temperature () const
+  {
+    Assert (get_boundary_temperature_manager().get_active_boundary_temperature_conditions().size() == 1,
+            ExcMessage("You can only call this function if exactly one boundary temperature plugin is active."));
+    return *(get_boundary_temperature_manager().get_active_boundary_temperature_conditions().front());
   }
 
 
@@ -450,6 +434,17 @@ namespace aspect
   SimulatorAccess<dim>::has_boundary_composition () const
   {
     return (get_boundary_composition_manager().get_fixed_composition_boundary_indicators().size() > 0);
+  }
+
+
+
+  template <int dim>
+  const BoundaryComposition::Interface<dim> &
+  SimulatorAccess<dim>::get_boundary_composition () const
+  {
+    Assert (get_boundary_composition_manager().get_active_boundary_composition_conditions().size() == 1,
+            ExcMessage("You can only call this function if exactly one boundary composition plugin is active."));
+    return *(get_boundary_composition_manager().get_active_boundary_composition_conditions().front());
   }
 
 
@@ -547,85 +542,40 @@ namespace aspect
   }
 
 
-
   template <int dim>
-  std::shared_ptr<const InitialTemperature::Manager<dim>>
-  SimulatorAccess<dim>::get_initial_temperature_manager_pointer () const
+  const InitialTemperature::Interface<dim> &
+  SimulatorAccess<dim>::get_initial_temperature () const
   {
-    Assert (simulator->initial_temperature_manager,
-            ExcMessage ("You are trying to access the initial temperature manager "
-                        "object, but the Simulator object is no longer keeping "
-                        "track of it because the initial time has passed. If "
-                        "you need to access this object after the first time "
-                        "step, you need to copy the object returned by "
-                        "this function before or during the first time step "
-                        "into a std::shared_ptr that lives long enough to "
-                        "extend the lifetime of the object pointed to "
-                        "beyond the time frame that the Simulator object "
-                        "keeps track of it."));
-    return simulator->initial_temperature_manager;
+    Assert (get_initial_temperature_manager().get_active_initial_temperature_conditions().size() == 1,
+            ExcMessage("You can only call this function if exactly one initial temperature plugin is active."));
+    return *(get_initial_temperature_manager().get_active_initial_temperature_conditions().front());
   }
-
 
 
   template <int dim>
   const InitialTemperature::Manager<dim> &
   SimulatorAccess<dim>::get_initial_temperature_manager () const
   {
-    Assert (simulator->initial_temperature_manager,
-            ExcMessage ("You are trying to access the initial temperature manager "
-                        "object, but the Simulator object is no longer keeping "
-                        "track of it because the initial time has passed. If "
-                        "you need to access this object after the first time "
-                        "step, you need to copy the object returned by "
-                        "this function before or during the first time step "
-                        "into a std::shared_ptr that lives long enough to "
-                        "extend the lifetime of the object pointed to "
-                        "beyond the time frame that the Simulator object "
-                        "keeps track of it."));
-    return *simulator->initial_temperature_manager;
+    return simulator->initial_temperature_manager;
   }
-
 
 
   template <int dim>
-  std::shared_ptr<const InitialComposition::Manager<dim>>
-  SimulatorAccess<dim>::get_initial_composition_manager_pointer () const
+  const InitialComposition::Interface<dim> &
+  SimulatorAccess<dim>::get_initial_composition () const
   {
-    Assert (simulator->initial_composition_manager,
-            ExcMessage ("You are trying to access the initial composition manager "
-                        "object, but the Simulator object is no longer keeping "
-                        "track of it because the initial time has passed. If "
-                        "you need to access to this object after the first time "
-                        "step, you need to copy the object returned by "
-                        "this function before or during the first time step "
-                        "into a std::shared_ptr that lives long enough to "
-                        "extend the lifetime of the object pointed to "
-                        "beyond the timeframe that the Simulator object "
-                        "keeps track of it."));
-    return simulator->initial_composition_manager;
+    Assert (get_initial_composition_manager().get_active_initial_composition_conditions().size() == 1,
+            ExcMessage("You can only call this function if only one initial composition plugin is active."));
+    return *(get_initial_composition_manager().get_active_initial_composition_conditions().front());
   }
-
 
 
   template <int dim>
   const InitialComposition::Manager<dim> &
   SimulatorAccess<dim>::get_initial_composition_manager () const
   {
-    Assert (simulator->initial_composition_manager,
-            ExcMessage ("You are trying to access the initial composition manager "
-                        "object, but the Simulator object is no longer keeping "
-                        "track of it because the initial time has passed. If "
-                        "you need access to this object after the first time "
-                        "step, you need to copy the object returned by "
-                        "this function before or during the first time step "
-                        "into a std::shared_ptr that lives long enough to "
-                        "extend the lifetime of the object pointed to "
-                        "beyond the timeframe that the Simulator object "
-                        "keeps track of it."));
-    return *simulator->initial_composition_manager;
+    return simulator->initial_composition_manager;
   }
-
 
 
   template <int dim>
@@ -675,43 +625,10 @@ namespace aspect
   const WorldBuilder::World &
   SimulatorAccess<dim>::get_world_builder () const
   {
-    Assert (simulator->world_builder.get() != nullptr,
-            ExcMessage ("You are trying to access the WorldBuilder "
-                        "object, but the Simulator object is not currently storing "
-                        "a valid pointer to such an object. This is likely "
-                        "because the Simulator object is no longer keeping "
-                        "track of wht WorldBuilder object because "
-                        "the initial time has passed. If "
-                        "you need to access this object after the first time "
-                        "step, you need to copy the object returned by "
-                        "this function before or during the first time step "
-                        "into a std::shared_ptr that lives long enough to "
-                        "extend the lifetime of the object pointed to "
-                        "beyond the time frame that the Simulator object "
-                        "keeps track of it."));
-    return *simulator->world_builder;
-  }
-
-
-  template <int dim>
-  std::shared_ptr<const WorldBuilder::World>
-  SimulatorAccess<dim>::get_world_builder_pointer () const
-  {
-    Assert (simulator->world_builder.get() != nullptr,
-            ExcMessage ("You are trying to access the WorldBuilder "
-                        "object, but the Simulator object is not currently storing "
-                        "a valid pointer to such an object. This is likely "
-                        "because the Simulator object is no longer keeping "
-                        "track of wht WorldBuilder object because "
-                        "the initial time has passed. If "
-                        "you need to access this object after the first time "
-                        "step, you need to copy the object returned by "
-                        "this function before or during the first time step "
-                        "into a std::shared_ptr that lives long enough to "
-                        "extend the lifetime of the object pointed to "
-                        "beyond the time frame that the Simulator object "
-                        "keeps track of it."));
-    return simulator->world_builder;
+    AssertThrow (simulator->world_builder.get() != nullptr,
+                 ExcMessage("You can not call this function if the World Builder is not enabled. "
+                            "Enable it by providing a path to a world builder file."));
+    return *(simulator->world_builder);
   }
 #endif
 
@@ -728,7 +645,7 @@ namespace aspect
 
   template <int dim>
   void
-  SimulatorAccess<dim>::get_composition_values_at_q_point (const std::vector<std::vector<double>> &composition_values,
+  SimulatorAccess<dim>::get_composition_values_at_q_point (const std::vector<std::vector<double> > &composition_values,
                                                            const unsigned int                      q,
                                                            std::vector<double>                    &composition_values_at_q_point)
   {
