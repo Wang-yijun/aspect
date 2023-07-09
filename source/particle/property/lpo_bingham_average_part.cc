@@ -20,7 +20,6 @@
 
 //#include <cstdlib>
 #include <aspect/particle/property/lpo_bingham_average_part.h>
-#include <aspect/particle/property/lpo_bingham_average.h>
 #include <aspect/particle/property/lpo.h>
 #include <aspect/particle/world.h>
 
@@ -59,11 +58,11 @@ namespace aspect
         const auto &manager = this->get_particle_world().get_property_manager();
         AssertThrow(manager.plugin_name_exists("lpo"),
                     ExcMessage("No lpo property plugin found."));
-        Assert(manager.plugin_name_exists("lpo bingham average"),
+        Assert(manager.plugin_name_exists("lpo bingham average part"),
                ExcMessage("No bingham average property plugin found."));
 
-        AssertThrow(manager.check_plugin_order("lpo","lpo bingham average"),
-                    ExcMessage("To use the lpo bingham average plugin, the lpo plugin need to be defined before this plugin."));
+        AssertThrow(manager.check_plugin_order("lpo","lpo bingham average part"),
+                    ExcMessage("To use the lpo bingham average part plugin, the lpo plugin need to be defined before this plugin."));
 
         lpo_data_position = manager.get_data_info().get_position_by_plugin_index(manager.get_plugin_index_by_name("lpo"));
 
@@ -95,18 +94,15 @@ namespace aspect
 
         //std::cout << "bingham n_minerals = " << n_minerals << ", n_grains = " << n_grains << std::endl;
         //size_t counter = 0;
-        for (size_t mineral_i = 0; mineral_i < n_minerals; mineral_i++)
-          {
-            const std::vector<Tensor<2,3> > weighted_a_matrices = random_draw_volume_weighting(volume_fractions_grains[mineral_i], a_cosine_matrices_grains[mineral_i], n_samples);
-            std::array<std::array<double,5>,3> bingham_average = compute_bingham_average(weighted_a_matrices);
+        const std::vector<Tensor<2,3> > weighted_a_matrices = random_draw_volume_weighting(volume_fractions_grains[0], a_cosine_matrices_grains[0], n_samples);
+        std::array<std::array<double,5>,3> bingham_average = compute_bingham_average(weighted_a_matrices);
 
-            for (unsigned int i = 0; i < 3; i++)
-              for (unsigned int j = 0; j < 5; j++)
+        for (unsigned int i = 0; i < 3; i++)
+          for (unsigned int j = 0; j < 5; j++)
                 {
                   data.emplace_back(bingham_average[i][j]);
                   //std::cout << counter << ": " << bingham_average[i][j] << std::endl; counter++;
                 }
-          }
       }
 
       template <int dim>
@@ -133,19 +129,16 @@ namespace aspect
                                                          a_cosine_matrices_grains);
 
 
-        for (size_t mineral_i = 0; mineral_i < n_minerals; mineral_i++)
-          {
-            const std::vector<Tensor<2,3> > weighted_a_matrices = random_draw_volume_weighting(volume_fractions_grains[mineral_i], a_cosine_matrices_grains[mineral_i], n_samples);
-            std::array<std::array<double,5>,3> bingham_average = compute_bingham_average(weighted_a_matrices);
+        const std::vector<Tensor<2,3> > weighted_a_matrices = random_draw_volume_weighting(volume_fractions_grains[0], a_cosine_matrices_grains[0], n_samples);
+        std::array<std::array<double,5>,3> bingham_average = compute_bingham_average(weighted_a_matrices);
 
-            unsigned int counter = 0;
-            for (unsigned int i = 0; i < 3; i++)
-              for (unsigned int j = 0; j < 5; j++)
-                {
-                  data[data_position + mineral_i*9 + counter] = bingham_average[i][j];
-                  counter++;
-                }
-          }
+        unsigned int counter = 0;
+        for (unsigned int i = 0; i < 3; i++)
+          for (unsigned int j = 0; j < 5; j++)
+            {
+              data[data_position + counter] = bingham_average[i][j];
+              counter++;
+            }
       }
 
 
@@ -310,12 +303,9 @@ namespace aspect
       LpoBinghamAverage_part<dim>::get_property_information() const
       {
         std::vector<std::pair<std::string,unsigned int> > property_information;
-        for (size_t mineral_i = 0; mineral_i < n_minerals; mineral_i++)
-          {
-            property_information.push_back(std::make_pair("cpo mineral " + std::to_string(mineral_i) + " bingham average a axis",3));
-            property_information.push_back(std::make_pair("cpo mineral " + std::to_string(mineral_i) + " bingham average b axis",3));
-            property_information.push_back(std::make_pair("cpo mineral " + std::to_string(mineral_i) + " bingham average c axis",3));
-          }
+        property_information.push_back(std::make_pair("lpo_bingham_avg_a",5));
+        property_information.push_back(std::make_pair("lpo_bingham_avg_b",5));
+        property_information.push_back(std::make_pair("lpo_bingham_avg_c",5));
 
         //std::cout << "bingham property_information.size() = " << property_information.size() << std::endl;
 
