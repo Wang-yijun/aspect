@@ -521,21 +521,21 @@ namespace aspect
       AssertThrow((dim==3),
                   ExcMessage("Olivine has 3 independent slip systems, allowing for deformation in 3 independent directions, hence these models only work in 3D"));
 
-      LpoBinghamAverage_part1.push_back (this->introspection().compositional_index_for_name("eigvector_a1"));
-      LpoBinghamAverage_part1.push_back (this->introspection().compositional_index_for_name("eigvector_a2"));
-      LpoBinghamAverage_part1.push_back (this->introspection().compositional_index_for_name("eigvector_a3"));
-      LpoBinghamAverage_part1.push_back (this->introspection().compositional_index_for_name("eigvalue_a1"));
-      LpoBinghamAverage_part1.push_back (this->introspection().compositional_index_for_name("eigvalue_a2"));
-      LpoBinghamAverage_part2.push_back (this->introspection().compositional_index_for_name("eigvector_b1"));
-      LpoBinghamAverage_part2.push_back (this->introspection().compositional_index_for_name("eigvector_b2"));
-      LpoBinghamAverage_part2.push_back (this->introspection().compositional_index_for_name("eigvector_b3"));
-      LpoBinghamAverage_part2.push_back (this->introspection().compositional_index_for_name("eigvalue_b1"));
-      LpoBinghamAverage_part2.push_back (this->introspection().compositional_index_for_name("eigvalue_b2"));
-      LpoBinghamAverage_part3.push_back (this->introspection().compositional_index_for_name("eigvector_c1"));
-      LpoBinghamAverage_part3.push_back (this->introspection().compositional_index_for_name("eigvector_c2"));
-      LpoBinghamAverage_part3.push_back (this->introspection().compositional_index_for_name("eigvector_c3"));
-      LpoBinghamAverage_part3.push_back (this->introspection().compositional_index_for_name("eigvalue_c1"));
-      LpoBinghamAverage_part3.push_back (this->introspection().compositional_index_for_name("eigvalue_c2"));
+      lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvector_a1"));
+      lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvector_a2"));
+      lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvector_a3"));
+      lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a1"));
+      lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a2"));
+      lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b1"));
+      lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b2"));
+      lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b3"));
+      lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b1"));
+      lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b2"));
+      lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c1"));
+      lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c2"));
+      lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c3"));
+      lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c1"));
+      lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c2"));
 
 
     }
@@ -621,7 +621,7 @@ namespace aspect
           // calculate effective viscosity
           const std::vector<double> &composition = in.composition[q];
           const SymmetricTensor<2,dim> &strain_rate = in.strain_rate[q];
-          SymmetricTensor<2,dim> stress =
+          const SymmetricTensor<2,dim> stress =
             2 * out.viscosities[q] *
             (this->get_material_model().is_compressible()
              ?
@@ -637,27 +637,29 @@ namespace aspect
             {
               //Get rotation matrix from eigen vectors in compositional fields
               Tensor<2,3> R_CPO;
-              R_CPO[0][0] = composition[LpoBinghamAverage_part1[0]];
-              R_CPO[1][0] = composition[LpoBinghamAverage_part1[1]];
-              R_CPO[2][0] = composition[LpoBinghamAverage_part1[2]];
-              R_CPO[0][1] = composition[LpoBinghamAverage_part2[0]];
-              R_CPO[1][1] = composition[LpoBinghamAverage_part2[1]];
-              R_CPO[2][1] = composition[LpoBinghamAverage_part2[2]];
-              R_CPO[0][2] = composition[LpoBinghamAverage_part3[0]];
-              R_CPO[1][2] = composition[LpoBinghamAverage_part3[1]];
-              R_CPO[2][2] = composition[LpoBinghamAverage_part3[2]];
+              R_CPO[0][0] = composition[lpo_bingham_avg_a[0]];
+              R_CPO[1][0] = composition[lpo_bingham_avg_a[1]];
+              R_CPO[2][0] = composition[lpo_bingham_avg_a[2]];
+              R_CPO[0][1] = composition[lpo_bingham_avg_b[0]];
+              R_CPO[1][1] = composition[lpo_bingham_avg_b[1]];
+              R_CPO[2][1] = composition[lpo_bingham_avg_b[2]];
+              R_CPO[0][2] = composition[lpo_bingham_avg_c[0]];
+              R_CPO[1][2] = composition[lpo_bingham_avg_c[1]];
+              R_CPO[2][2] = composition[lpo_bingham_avg_c[2]];
+
               //Get eigen values from compositional fields
-              const double eigvalue_a1 = composition[LpoBinghamAverage_part1[3]];
-              const double eigvalue_b1 = composition[LpoBinghamAverage_part2[3]];
-              const double eigvalue_c1 = composition[LpoBinghamAverage_part3[3]];
-              const double eigvalue_a2 = composition[LpoBinghamAverage_part1[4]];
-              const double eigvalue_b2 = composition[LpoBinghamAverage_part2[4]];
-              const double eigvalue_c2 = composition[LpoBinghamAverage_part3[4]];
+              const double eigvalue_a1 = composition[lpo_bingham_avg_a[3]];
+              const double eigvalue_b1 = composition[lpo_bingham_avg_b[3]];
+              const double eigvalue_c1 = composition[lpo_bingham_avg_c[3]];
+              const double eigvalue_a2 = composition[lpo_bingham_avg_a[4]];
+              const double eigvalue_b2 = composition[lpo_bingham_avg_b[4]];
+              const double eigvalue_c2 = composition[lpo_bingham_avg_c[4]];
 
               //Convert rotation matrix to euler angles phi1, theta, phi2
               double theta = acos(R_CPO[2][2]);
               double phi1 = atan(R_CPO[2][0]/R_CPO[2][1]);
               double phi2 = -atan(R_CPO[0][2]/R_CPO[1][2]);
+              // std::cout << "acos " << acos(R_CPO[2][2]) << std::endl;
 
               //Compute Hill Parameters FGHLMN from first two largest eigenvalues of a,b,c axis
               double cF1,cF2,cF3,cF4,cF5,cF6,cG1,cG2,cG3,cG4,cG5,cG6;
@@ -677,8 +679,12 @@ namespace aspect
               double M = eigvalue_a1*cM1 + eigvalue_a2*cM2 + eigvalue_b1*cM3 + eigvalue_b2*cM4 + eigvalue_c1*cM5 + eigvalue_c2*cM6 + CnI_M[6];
               double N = eigvalue_a1*cN1 + eigvalue_a2*cN2 + eigvalue_b1*cN3 + eigvalue_b2*cN4 + eigvalue_c1*cN5 + eigvalue_c2*cN6 + CnI_N[6]; 
 
-              //Calculate the rotation matrix from the rotation matrix
-              Tensor<2,3> R = AV<dim>::euler_angles_to_rotation_matrix(phi1, theta, phi2);
+              //Calculate the rotation matrix from the euler angles ??? Why do we get from EA to RM th
+              Tensor<2,3> R = R_CPO;
+              // Tensor<2,3> R = AV<dim>::euler_angles_to_rotation_matrix(phi1, theta, phi2);
+              // std::cout << "phi1 " << phi1 << std::endl;
+              // std::cout << "theta " << theta << std::endl;
+              // std::cout << "phi2 " << phi2 << std::endl;
 
               //Build Rotation matrix
               Tensor<2,6> R_CPO_K;
@@ -726,9 +732,11 @@ namespace aspect
 
               //Calculate the fluidity tensor in the LPO frame
               Tensor<2,3> S_CPO=transpose(R)*stress*R;
-              // S_CPO.mmult(transpose(R),stress);
-              // S_CPO.mmult(S_CPO,R); //stress in the LPO frame
+              // std::cout << "R1 " << R[0][0] << std::endl;
+              
               double Jhill = F*pow((S_CPO[0][0]-S_CPO[1][1]),2)+G*pow((S_CPO[1][1]-S_CPO[2][2]),2)+H*pow((S_CPO[2][2]-S_CPO[0][0]),2)+2*L*pow(S_CPO[1][2],2)+2*M*pow(S_CPO[0][2],2)+2*N*pow(S_CPO[0][1],2);
+              // std::cout << "SCPO1 " << S_CPO[0][0] << std::endl;
+
               SymmetricTensor<2,6> A;
               A[0][0] = F+H;
               A[0][1] = -F;
@@ -742,9 +750,46 @@ namespace aspect
 
               Tensor<2,6> Fluidity_CPO;
               Fluidity_CPO = 2 * Gamma * std::pow(Jhill,(n-1)/2) * 2/3 * A;
+              // std::cout << "A1" << A[0][0] << std::endl;
+              // std::cout << "Gamma" << Gamma << std::endl;
+              // std::cout << "Jhill" << Jhill << std::endl;
 
               Tensor<2,6> FluidityTensor = R_CPO_K * Fluidity_CPO * transpose(R_CPO_K);
-              // FluidityTensor.mmult(FluidityTensor.mmult(R_CPO_K,Fluidity_CPO),transpose(R_CPO_K));
+              // std::cout << "FT1" << FluidityTensor[0][0] << std::endl;
+
+              SymmetricTensor<2,dim> strain_rate_new;
+              Tensor<1,6> stress_K, strain_rate_new_K;
+              stress_K[0] = stress[0][0];
+              stress_K[1] = stress[1][1];
+              stress_K[2] = stress[2][2];
+              stress_K[3] = stress[1][2]*sqrt(2);
+              stress_K[4] = stress[0][2]*sqrt(2);
+              stress_K[5] = stress[0][1]*sqrt(2);
+              strain_rate_new_K = FluidityTensor * stress_K;
+              strain_rate_new[0][0] = strain_rate_new_K[0];
+              strain_rate_new[1][1] = strain_rate_new_K[1];
+              strain_rate_new[2][2] = strain_rate_new_K[2];
+              strain_rate_new[1][2] = strain_rate_new_K[3]/sqrt(2);
+              strain_rate_new[0][2] = strain_rate_new_K[4]/sqrt(2);
+              strain_rate_new[0][1] = strain_rate_new_K[5]/sqrt(2);
+              // std::cout << "SR1 " << strain_rate_new_K[0] << std::endl;
+
+              // Overwrite the scalar viscosity with an effective viscosity
+              double stress_eq = std::sqrt(3.0*AV<dim>::J2_second_invariant(stress, min_strain_rate));
+              double strain_rate_new_eq = std::sqrt((4./3.)*AV<dim>::J2_second_invariant(strain_rate_new, min_strain_rate));
+              out.viscosities[q] = std::abs(stress_eq/strain_rate_new_eq);
+              // std::cout << "stress_eq " << stress_eq << std::endl;
+              // std::cout << "strainrate_eq " << strain_rate_new_eq << std::endl;
+              // std::cout << "Effective viscosity " << std::abs(stress_eq/strain_rate_new_eq) << std::endl;
+              AssertThrow(out.viscosities[q] != 0,
+                          ExcMessage("Viscosity should not be 0"));
+              AssertThrow(isfinite(out.viscosities[q]),
+                          ExcMessage("Viscosity should not be finite"));
+              // if (anisotropic_viscosity != nullptr)
+              //   {
+              //     anisotropic_viscosity->stress_strain_directors[q] = ViscoTensor_r4/(2.0*stress_eq/strain_rate_new_eq);
+
+              //   }
 
             }
 
@@ -809,23 +854,23 @@ namespace aspect
         prm.enter_subsection("AV Hill");
         {
           EquationOfState::LinearizedIncompressible<dim>::declare_parameters (prm);
-          prm.declare_entry ("Coefficients and intercept for F", "-0.46,-3.54,-0.45,-2.40,1.92,0.48,1.92",
-                             Patterns::List(Patterns::Double(0)),
+          prm.declare_entry ("Coefficients and intercept for F", "-0.46, -3.54, -0.45, -2.40, 1.92, 0.48, 1.92",
+                             Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter F.");
-          prm.declare_entry ("Coefficients and intercept for G", "-1.76,-0.07,-0.07,-0.81,1.06,0.68,0.80",
-                             Patterns::List(Patterns::Double(0)),
+          prm.declare_entry ("Coefficients and intercept for G", "-1.76, -0.07, -0.07, -0.81, 1.06, 0.68, 0.80",
+                             Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter G.");
-          prm.declare_entry ("Coefficients and intercept for H", "-0.46,-2.99,0.56,-1.98,1.17,0.81,1.41",
-                             Patterns::List(Patterns::Double(0)),
+          prm.declare_entry ("Coefficients and intercept for H", "-0.46, -2.99, 0.56, -1.98, 1.17, 0.81, 1.41",
+                             Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter H.");
-          prm.declare_entry ("Coefficients and intercept for L", "-1.21,-0.15,-0.13,0.58,-0.68,-0.23,2.06",
-                             Patterns::List(Patterns::Double(0)),
+          prm.declare_entry ("Coefficients and intercept for L", "-1.21, -0.15, -0.13, 0.58, -0.68, -0.23, 2.06",
+                             Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter L.");
-          prm.declare_entry ("Coefficients and intercept for M", "0.71,-1.08,1.79,-0.82,-1.85,-0.16,1.90",
-                             Patterns::List(Patterns::Double(0)),
+          prm.declare_entry ("Coefficients and intercept for M", "0.71, -1.08, 1.79, -0.82, -1.85, -0.16, 1.90",
+                             Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter M.");
-          prm.declare_entry ("Coefficients and intercept for N", "0.98,0.18,-1.90,0.06,1.59,0.07,1.11",
-                             Patterns::List(Patterns::Double(0)),
+          prm.declare_entry ("Coefficients and intercept for N", "0.98, 0.18, -1.90, 0.06, 1.59, 0.07, 1.11",
+                             Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter N.");
           prm.declare_entry ("Reference viscosity", "1e20",
                              Patterns::Double(),
