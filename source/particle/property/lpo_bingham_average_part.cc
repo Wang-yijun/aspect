@@ -20,6 +20,7 @@
 
 //#include <cstdlib>
 #include <aspect/particle/property/lpo_bingham_average_part.h>
+#include <aspect/particle/property/lpo_bingham_average.h>
 #include <aspect/particle/property/lpo.h>
 #include <aspect/particle/world.h>
 
