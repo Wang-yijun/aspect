@@ -139,7 +139,7 @@ namespace aspect
      * A class containing the functions to assemble the Stokes preconditioner.
      */
     template <int dim>
-    class StokesPreconditionerAV : public Assemblers::Interface<dim>,
+    class StokesPreconditionerAV_Simple : public Assemblers::Interface<dim>,
       public SimulatorAccess<dim>
     {
       public:
@@ -159,7 +159,7 @@ namespace aspect
      * Stokes equation for the current cell.
      */
     template <int dim>
-    class StokesIncompressibleTermsAV : public Assemblers::Interface<dim>,
+    class StokesIncompressibleTermsAV_Simple : public Assemblers::Interface<dim>,
       public SimulatorAccess<dim>
     {
       public:
@@ -178,7 +178,7 @@ namespace aspect
 
     template <int dim>
     void
-    StokesPreconditionerAV<dim>::
+    StokesPreconditionerAV_Simple<dim>::
     execute (internal::Assembly::Scratch::ScratchBase<dim>   &scratch_base,
              internal::Assembly::CopyData::CopyDataBase<dim> &data_base) const
     {
@@ -251,7 +251,7 @@ namespace aspect
 
     template <int dim>
     void
-    StokesPreconditionerAV<dim>::
+    StokesPreconditionerAV_Simple<dim>::
     create_additional_material_model_outputs(MaterialModel::MaterialModelOutputs<dim> &outputs) const
     {
       const unsigned int n_points = outputs.viscosities.size();
@@ -267,7 +267,7 @@ namespace aspect
 
     template <int dim>
     void
-    StokesIncompressibleTermsAV<dim>::
+    StokesIncompressibleTermsAV_Simple<dim>::
     execute (internal::Assembly::Scratch::ScratchBase<dim>   &scratch_base,
              internal::Assembly::CopyData::CopyDataBase<dim> &data_base) const
     {
@@ -351,7 +351,7 @@ namespace aspect
 
     template <int dim>
     void
-    StokesIncompressibleTermsAV<dim>::
+    StokesIncompressibleTermsAV_Simple<dim>::
     create_additional_material_model_outputs(MaterialModel::MaterialModelOutputs<dim> &outputs) const
     {
       const unsigned int n_points = outputs.viscosities.size();
@@ -378,7 +378,7 @@ namespace aspect
   namespace HeatingModel
   {
     template <int dim>
-    class ShearHeatingAV : public Interface<dim>, public ::aspect::SimulatorAccess<dim>
+    class ShearHeatingAV_Simple : public Interface<dim>, public ::aspect::SimulatorAccess<dim>
     {
       public:
         /**
@@ -402,7 +402,7 @@ namespace aspect
 
     template <int dim>
     void
-    ShearHeatingAV<dim>::
+    ShearHeatingAV_Simple<dim>::
     evaluate (const MaterialModel::MaterialModelInputs<dim> &material_model_inputs,
               const MaterialModel::MaterialModelOutputs<dim> &material_model_outputs,
               HeatingModel::HeatingModelOutputs &heating_model_outputs) const
@@ -465,7 +465,7 @@ namespace aspect
 
     template <int dim>
     void
-    ShearHeatingAV<dim>::
+    ShearHeatingAV_Simple<dim>::
     create_additional_material_model_outputs(MaterialModel::MaterialModelOutputs<dim> &material_model_outputs) const
     {
       const unsigned int n_points = material_model_outputs.viscosities.size();
@@ -498,13 +498,13 @@ namespace aspect
       for (unsigned int i=0; i<assemblers.stokes_preconditioner.size(); ++i)
         {
           if (Plugins::plugin_type_matches<Assemblers::StokesPreconditioner<dim>>(*(assemblers.stokes_preconditioner[i])))
-            assemblers.stokes_preconditioner[i] = std::make_unique<Assemblers::StokesPreconditionerAV<dim> > ();
+            assemblers.stokes_preconditioner[i] = std::make_unique<Assemblers::StokesPreconditionerAV_Simple<dim> > ();
         }
 
       for (unsigned int i=0; i<assemblers.stokes_system.size(); ++i)
         {
           if (Plugins::plugin_type_matches<Assemblers::StokesIncompressibleTerms<dim>>(*(assemblers.stokes_system[i])))
-            assemblers.stokes_system[i] = std::make_unique<Assemblers::StokesIncompressibleTermsAV<dim> > ();
+            assemblers.stokes_system[i] = std::make_unique<Assemblers::StokesIncompressibleTermsAV_Simple<dim> > ();
         }
     }
 
@@ -888,8 +888,8 @@ namespace aspect
   namespace Assemblers
   {
 #define INSTANTIATE(dim) \
-  template class StokesPreconditionerAV<dim>; \
-  template class StokesIncompressibleTermsAV<dim>; \
+  template class StokesPreconditionerAV_Simple<dim>; \
+  template class StokesIncompressibleTermsAV_Simple<dim>; \
   //template class StokesBoundaryTractionAV<dim>;
 
     ASPECT_INSTANTIATE(INSTANTIATE)
@@ -897,7 +897,7 @@ namespace aspect
 
   namespace HeatingModel
   {
-    ASPECT_REGISTER_HEATING_MODEL(ShearHeatingAV,
+    ASPECT_REGISTER_HEATING_MODEL(ShearHeatingAV_Simple,
                                   "LPO_AV_Simple anisotropic shear heating",
                                   "Implementation of a standard model for shear heating. "
                                   "Adds the term: "
