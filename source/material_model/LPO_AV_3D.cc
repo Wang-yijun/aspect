@@ -75,7 +75,6 @@ DEAL_II_ENABLE_EXTRA_DIAGNOSTICS
 #include <deal.II/base/signaling_nan.h>
 
 
-
 namespace aspect
 {
   namespace MaterialModel
@@ -522,6 +521,22 @@ namespace aspect
       AssertThrow((dim==3),
                   ExcMessage("Olivine has 3 independent slip systems, allowing for deformation in 3 independent directions, hence these models only work in 3D"));
 
+      LpoBinghamAverage_part1.push_back (this->introspection().compositional_index_for_name("eigvector_a1"));
+      LpoBinghamAverage_part1.push_back (this->introspection().compositional_index_for_name("eigvector_a2"));
+      LpoBinghamAverage_part1.push_back (this->introspection().compositional_index_for_name("eigvector_a3"));
+      LpoBinghamAverage_part1.push_back (this->introspection().compositional_index_for_name("eigvalue_a1"));
+      LpoBinghamAverage_part1.push_back (this->introspection().compositional_index_for_name("eigvalue_a2"));
+      LpoBinghamAverage_part2.push_back (this->introspection().compositional_index_for_name("eigvector_b1"));
+      LpoBinghamAverage_part2.push_back (this->introspection().compositional_index_for_name("eigvector_b2"));
+      LpoBinghamAverage_part2.push_back (this->introspection().compositional_index_for_name("eigvector_b3"));
+      LpoBinghamAverage_part2.push_back (this->introspection().compositional_index_for_name("eigvalue_b1"));
+      LpoBinghamAverage_part2.push_back (this->introspection().compositional_index_for_name("eigvalue_b2"));
+      LpoBinghamAverage_part3.push_back (this->introspection().compositional_index_for_name("eigvector_c1"));
+      LpoBinghamAverage_part3.push_back (this->introspection().compositional_index_for_name("eigvector_c2"));
+      LpoBinghamAverage_part3.push_back (this->introspection().compositional_index_for_name("eigvector_c3"));
+      LpoBinghamAverage_part3.push_back (this->introspection().compositional_index_for_name("eigvalue_c1"));
+      LpoBinghamAverage_part3.push_back (this->introspection().compositional_index_for_name("eigvalue_c2"));
+
 
     }
 
@@ -539,14 +554,14 @@ namespace aspect
 
     template<int dim>
     Tensor<2,3>
-    AnisotropicViscosity<dim>::euler_angles_to_rotation_matrix(double phi1_d, double theta_d, double phi2_d)
+    AV<dim>::euler_angles_to_rotation_matrix(double phi1_d, double theta_d, double phi2_d)
     {
       constexpr double const_pi = 3.141592653589793238462643383279502884;
       const double degree_to_rad = const_pi/180.0;
       const double phi1 = phi1_d * degree_to_rad;
       const double theta = theta_d * degree_to_rad;
       const double phi2 = phi2_d * degree_to_rad;
-      Tensor<2, 3> rot_matrix;
+      Tensor<2,3> rot_matrix;
 
       //R3*R2*R1 ZXZ rotation. Note it is not exactly the same as in utilities.cc
       rot_matrix[0][0] = cos(phi2)*cos(phi1) - cos(theta)*sin(phi1)*sin(phi2);
@@ -564,23 +579,25 @@ namespace aspect
     }
 
 
-    template <int dim>
+
+    template <>
     void
-    LPO_AV_3D<dim>::evaluate (const MaterialModel::MaterialModelInputs<dim> &in,
-                                     MaterialModel::MaterialModelOutputs<dim> &out) const
+    LPO_AV_3D<2>::evaluate (const MaterialModel::MaterialModelInputs<2> &,
+                                     MaterialModel::MaterialModelOutputs<2> &) const
     {
+      Assert (false, ExcNotImplemented());
+    }
+
+
+    template <>
+    void
+    LPO_AV_3D<3>::evaluate (const MaterialModel::MaterialModelInputs<3> &in,
+                                     MaterialModel::MaterialModelOutputs<3> &out) const
+    {
+      const int dim=3;
+
       MaterialModel::AV<dim> *anisotropic_viscosity;
       anisotropic_viscosity = out.template get_additional_output<MaterialModel::AV<dim> >();
-      //Create constant value to use for AV
-      const double A_o = 1.1e5*exp(-530000/(8.314*T));
-      const double n_Fo = 3.5;
-      // const double n = 3.5;
-      std::array<double,4> tau;
-      tau[0] = 0.3;
-      tau[1] = 0.27;
-      tau[2] = 1.29;
-      Tensor<1,3> A_ss_olivine = (1./tau).^n_Fo;
-      const double Gamme = (A_o/(grain_size^0.73));
 
       EquationOfStateOutputs<dim> eos_outputs (1);
       for (unsigned int q=0; q<in.n_evaluation_points(); ++q)
@@ -595,22 +612,22 @@ namespace aspect
           out.compressibilities[q] = 0.0;
           out.entropy_derivative_pressure[q] = 0.0;
           out.entropy_derivative_temperature[q] = 0.0;
+
+          //Create constant value to use for AV
+          const double A_o = 1.1e5*exp(-530000/(8.314*in.temperature[q]));
+          const double n = 3.5;          
+          const double Gamma = (A_o/(std::pow(grain_size,0.73)));
+
           // calculate effective viscosity
           const std::vector<double> &composition = in.composition[q];
-          const SymmetricTensor<2,dim> &directed_strain_rate = ((anisotropic_viscosity != nullptr)
-                                                                ?
-                                                                anisotropic_viscosity->stress_strain_directors[q]
-                                                                * in.strain_rate[q]
-                                                                :
-                                                                in.strain_rate[q]);
-
-          const SymmetricTensor<2,dim> stress =
-            2 * material_model_outputs.viscosities[q] *
+          const SymmetricTensor<2,dim> &strain_rate = in.strain_rate[q];
+          SymmetricTensor<2,dim> stress =
+            2 * out.viscosities[q] *
             (this->get_material_model().is_compressible()
              ?
-             directed_strain_rate - 1./3. * trace(directed_strain_rate) * unit_symmetric_tensor<dim>()
+             strain_rate - 1./3. * trace(strain_rate) * unit_symmetric_tensor<dim>()
              :
-             directed_strain_rate);
+             strain_rate);
 
 
 
@@ -619,24 +636,23 @@ namespace aspect
           if  ((this->simulator_is_past_initialization()) && (this->get_timestep_number() > 0) && (in.temperature[q]>1000))
             {
               //Get rotation matrix from eigen vectors in compositional fields
-              const std::array<std::array<double,4>,3> lpobh = composition.lpo_bingham_average_part;
-              Tensor<2,dim> R_CPO;
-              R_CPO[0][0] = lpobh[0][0];
-              R_CPO[1][0] = lpobh[0][1];
-              R_CPO[2][0] = lpobh[0][2];
-              R_CPO[0][1] = lpobh[1][0];
-              R_CPO[1][1] = lpobh[1][1];
-              R_CPO[2][1] = lpobh[1][2];
-              R_CPO[0][2] = lpobh[2][0];
-              R_CPO[1][2] = lpobh[2][1];
-              R_CPO[2][2] = lpobh[2][2];
+              Tensor<2,3> R_CPO;
+              R_CPO[0][0] = composition[LpoBinghamAverage_part1[0]];
+              R_CPO[1][0] = composition[LpoBinghamAverage_part1[1]];
+              R_CPO[2][0] = composition[LpoBinghamAverage_part1[2]];
+              R_CPO[0][1] = composition[LpoBinghamAverage_part2[0]];
+              R_CPO[1][1] = composition[LpoBinghamAverage_part2[1]];
+              R_CPO[2][1] = composition[LpoBinghamAverage_part2[2]];
+              R_CPO[0][2] = composition[LpoBinghamAverage_part3[0]];
+              R_CPO[1][2] = composition[LpoBinghamAverage_part3[1]];
+              R_CPO[2][2] = composition[LpoBinghamAverage_part3[2]];
               //Get eigen values from compositional fields
-              const double eigvalue_a1 = lpobh[0][3];
-              const double eigvalue_b1 = lpobh[1][3];
-              const double eigvalue_c1 = lpobh[2][3];
-              const double eigvalue_a1 = lpobh[0][4];
-              const double eigvalue_b1 = lpobh[1][4];
-              const double eigvalue_c1 = lpobh[2][4];
+              const double eigvalue_a1 = composition[LpoBinghamAverage_part1[3]];
+              const double eigvalue_b1 = composition[LpoBinghamAverage_part2[3]];
+              const double eigvalue_c1 = composition[LpoBinghamAverage_part3[3]];
+              const double eigvalue_a2 = composition[LpoBinghamAverage_part1[4]];
+              const double eigvalue_b2 = composition[LpoBinghamAverage_part2[4]];
+              const double eigvalue_c2 = composition[LpoBinghamAverage_part3[4]];
 
               //Convert rotation matrix to euler angles phi1, theta, phi2
               double theta = acos(R_CPO[2][2]);
@@ -644,48 +660,45 @@ namespace aspect
               double phi2 = -atan(R_CPO[0][2]/R_CPO[1][2]);
 
               //Compute Hill Parameters FGHLMN from first two largest eigenvalues of a,b,c axis
+              double cF1,cF2,cF3,cF4,cF5,cF6,cG1,cG2,cG3,cG4,cG5,cG6;
+              double cH1,cH2,cH3,cH4,cH5,cH6,cL1,cL2,cL3,cL4,cL5,cL6;
+              double cM1,cM2,cM3,cM4,cM5,cM6,cN1,cN2,cN3,cN4,cN5,cN6;
               cF1 = CnI_F[0]; cF2 = CnI_F[1]; cF3 = CnI_F[2]; cF4 = CnI_F[3]; cF5 = CnI_F[4]; cF6 = CnI_F[5];
-              Intercept_F = CnI_F[6];
               cG1 = CnI_G[0]; cG2 = CnI_G[1]; cG3 = CnI_G[2]; cG4 = CnI_G[3]; cG5 = CnI_G[4]; cG6 = CnI_G[5];
-              Intercept_G = CnI_G[6];
               cH1 = CnI_H[0]; cH2 = CnI_H[1]; cH3 = CnI_H[2]; cH4 = CnI_H[3]; cH5 = CnI_H[4]; cH6 = CnI_H[5];
-              Intercept_H = CnI_H[6];
               cL1 = CnI_L[0]; cL2 = CnI_L[1]; cL3 = CnI_L[2]; cL4 = CnI_L[3]; cL5 = CnI_L[4]; cL6 = CnI_L[5];
-              Intercept_L = CnI_L[6];
               cM1 = CnI_M[0]; cM2 = CnI_M[1]; cM3 = CnI_M[2]; cM4 = CnI_M[3]; cM5 = CnI_M[4]; cM6 = CnI_M[5];
-              Intercept_M = CnI_M[6];
               cN1 = CnI_N[0]; cN2 = CnI_N[1]; cN3 = CnI_N[2]; cN4 = CnI_N[3]; cN5 = CnI_N[4]; cN6 = CnI_N[5];
-              Intercept_N = CnI_N[6];
 
-              F = eigvalue_a1*cF1 + eigvalue_a2*cF2 + eigvalue_b1*cF3 + eigvalue_b2*cF4 + eigvalue_c1*cF5 + eigvalue_c2*cF6 + Intercept_F;
-              G = eigvalue_a1*cG1 + eigvalue_a2*cG2 + eigvalue_b1*cG3 + eigvalue_b2*cG4 + eigvalue_c1*cG5 + eigvalue_c2*cG6 + Intercept_G;
-              H = eigvalue_a1*cH1 + eigvalue_a2*cH2 + eigvalue_b1*cH3 + eigvalue_b2*cH4 + eigvalue_c1*cH5 + eigvalue_c2*cH6 + Intercept_H;
-              L = eigvalue_a1*cL1 + eigvalue_a2*cL2 + eigvalue_b1*cL3 + eigvalue_b2*cL4 + eigvalue_c1*cL5 + eigvalue_c2*cL6 + Intercept_L;
-              M = eigvalue_a1*cM1 + eigvalue_a2*cM2 + eigvalue_b1*cM3 + eigvalue_b2*cM4 + eigvalue_c1*cM5 + eigvalue_c2*cM6 + Intercept_M;
-              N = eigvalue_a1*cN1 + eigvalue_a2*cN2 + eigvalue_b1*cN3 + eigvalue_b2*cN4 + eigvalue_c1*cN5 + eigvalue_c2*cN6 + Intercept_N; 
+              double F = eigvalue_a1*cF1 + eigvalue_a2*cF2 + eigvalue_b1*cF3 + eigvalue_b2*cF4 + eigvalue_c1*cF5 + eigvalue_c2*cF6 + CnI_F[6];
+              double G = eigvalue_a1*cG1 + eigvalue_a2*cG2 + eigvalue_b1*cG3 + eigvalue_b2*cG4 + eigvalue_c1*cG5 + eigvalue_c2*cG6 + CnI_G[6];
+              double H = eigvalue_a1*cH1 + eigvalue_a2*cH2 + eigvalue_b1*cH3 + eigvalue_b2*cH4 + eigvalue_c1*cH5 + eigvalue_c2*cH6 + CnI_H[6];
+              double L = eigvalue_a1*cL1 + eigvalue_a2*cL2 + eigvalue_b1*cL3 + eigvalue_b2*cL4 + eigvalue_c1*cL5 + eigvalue_c2*cL6 + CnI_L[6];
+              double M = eigvalue_a1*cM1 + eigvalue_a2*cM2 + eigvalue_b1*cM3 + eigvalue_b2*cM4 + eigvalue_c1*cM5 + eigvalue_c2*cM6 + CnI_M[6];
+              double N = eigvalue_a1*cN1 + eigvalue_a2*cN2 + eigvalue_b1*cN3 + eigvalue_b2*cN4 + eigvalue_c1*cN5 + eigvalue_c2*cN6 + CnI_N[6]; 
 
               //Calculate the rotation matrix from the rotation matrix
-              Tensor<2,dim> R = euler_angles_to_rotation_matrix(phi1, theta, phi2);
+              Tensor<2,3> R = AV<dim>::euler_angles_to_rotation_matrix(phi1, theta, phi2);
 
               //Build Rotation matrix
               Tensor<2,6> R_CPO_K;
-              R_CPO_K[0][0] = R[0][0]^2;
-              R_CPO_K[0][1] = R[0][1]^2;
-              R_CPO_K[0][2] = R[0][2]^2;
+              R_CPO_K[0][0] = std::pow(R[0][0],2);
+              R_CPO_K[0][1] = std::pow(R[0][1],2);
+              R_CPO_K[0][2] = std::pow(R[0][2],2);
               R_CPO_K[0][3] = sqrt(2)*R[0][1]*R[0][2];
               R_CPO_K[0][4] = sqrt(2)*R[0][0]*R[0][2];
               R_CPO_K[0][5] = sqrt(2)*R[0][0]*R[0][1];
 
-              R_CPO_K[1][0] = R[1][0]^2;
-              R_CPO_K[1][1] = R[1][1]^2;
-              R_CPO_K[1][2] = R[1][2]^2;
+              R_CPO_K[1][0] = std::pow(R[1][0],2);
+              R_CPO_K[1][1] = std::pow(R[1][1],2);
+              R_CPO_K[1][2] = std::pow(R[1][2],2);
               R_CPO_K[1][3] = sqrt(2)*R[1][1]*R[1][2];
               R_CPO_K[1][4] = sqrt(2)*R[1][0]*R[1][2];
               R_CPO_K[1][5] = sqrt(2)*R[1][0]*R[1][1];
 
-              R_CPO_K[2][0] = R[2][0]^2;
-              R_CPO_K[2][1] = R[2][1]^2;
-              R_CPO_K[2][2] = R[2][2]^2;
+              R_CPO_K[2][0] = std::pow(R[2][0],2);
+              R_CPO_K[2][1] = std::pow(R[2][1],2);
+              R_CPO_K[2][2] = std::pow(R[2][2],2);
               R_CPO_K[2][3] = sqrt(2)*R[2][1]*R[2][2];
               R_CPO_K[2][4] = sqrt(2)*R[2][0]*R[2][2];
               R_CPO_K[2][5] = sqrt(2)*R[2][0]*R[2][1];
@@ -712,8 +725,10 @@ namespace aspect
               R_CPO_K[5][5] = R[0][0]*R[1][1]+R[0][1]*R[1][0];
 
               //Calculate the fluidity tensor in the LPO frame
-              S_CPO = R.T*stress*R;
-              Jhill = F*(S_CPO(1,1)-S_CPO(2,2))^2+G*(S_CPO(2,2)-S_CPO(3,3))^2+H*(S_CPO(3,3)-S_CPO(1,1))^2+2*L*S_CPO(2,3)^2+2*M*S_CPO(1,3)^2+2*N*S_CPO(1,2)^2;
+              Tensor<2,3> S_CPO=transpose(R)*stress*R;
+              // S_CPO.mmult(transpose(R),stress);
+              // S_CPO.mmult(S_CPO,R); //stress in the LPO frame
+              double Jhill = F*pow((S_CPO[0][0]-S_CPO[1][1]),2)+G*pow((S_CPO[1][1]-S_CPO[2][2]),2)+H*pow((S_CPO[2][2]-S_CPO[0][0]),2)+2*L*pow(S_CPO[1][2],2)+2*M*pow(S_CPO[0][2],2)+2*N*pow(S_CPO[0][1],2);
               SymmetricTensor<2,6> A;
               A[0][0] = F+H;
               A[0][1] = -F;
@@ -724,9 +739,12 @@ namespace aspect
               A[3][3] = L;
               A[4][4] = M;
               A[5][5] = N;
-              Fluidity_CPO = 2 * Gamma * Jhill.^((n-1)/2) * 2/3 * .A;
 
-              FluidityTensor=R_CPO_K*Fluidity_CPO*R_CPO_K.T;
+              Tensor<2,6> Fluidity_CPO;
+              Fluidity_CPO = 2 * Gamma * std::pow(Jhill,(n-1)/2) * 2/3 * A;
+
+              Tensor<2,6> FluidityTensor = R_CPO_K * Fluidity_CPO * transpose(R_CPO_K);
+              // FluidityTensor.mmult(FluidityTensor.mmult(R_CPO_K,Fluidity_CPO),transpose(R_CPO_K));
 
             }
 
@@ -767,18 +785,12 @@ namespace aspect
           eta = prm.get_double("Reference viscosity");
           min_strain_rate = prm.get_double("Minimum strain rate");
           grain_size = prm.get_double("Grain size");
-          std::array<double> CnI_F =
-            dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for F")));
-          std::array<double> CnI_G =
-            dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for G")));
-          std::array<double> CnI_H =
-            dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for H")));
-          std::array<double> CnI_L =
-            dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for L")));
-          std::array<double> CnI_M =
-            dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for M")));
-          std::array<double> CnI_N =
-            dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for N")));
+          CnI_F = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for F")));
+          CnI_G = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for G")));
+          CnI_H = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for H")));
+          CnI_L = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for L")));
+          CnI_M = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for M")));
+          CnI_N = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for N")));
           
         }
         prm.leave_subsection();

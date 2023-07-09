@@ -68,6 +68,8 @@ namespace aspect
          */
         std::vector<SymmetricTensor<4,dim> > stress_strain_directors;
 
+        static Tensor <2,3> euler_angles_to_rotation_matrix(double phi1_d, double theta_d, double phi2_d);
+
 
 
     };
@@ -75,7 +77,6 @@ namespace aspect
     /*template <int matrix_size>
     void check_eigenvalues_positive(const SymmetricTensor<2,matrix_size> &matrix);*/
 
-    static Tensor <2,3> euler_angles_to_rotation_matrix(double phi1_d, double theta_d, double phi2_d);
 
     template <int dim>
     class LPO_AV_3D : public MaterialModel::Simple<dim>
@@ -96,8 +97,9 @@ namespace aspect
          * which involves a division by the strain rate. Units: 1/s.
          */
         double min_strain_rate;
-        std::vector<unsigned int> c_idx_S, c_idx_s1, c_idx_s2, c_idx_s3, c_idx_s4, c_idx_s5;
-        //double grain_size;
+        std::vector<unsigned int> LpoBinghamAverage_part1,LpoBinghamAverage_part2,LpoBinghamAverage_part3;
+        double grain_size;
+        std::vector<double> CnI_F, CnI_G, CnI_H, CnI_L, CnI_M, CnI_N;
 
 
         EquationOfState::LinearizedIncompressible<dim> equation_of_state;

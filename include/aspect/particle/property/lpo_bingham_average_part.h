@@ -62,13 +62,13 @@ namespace aspect
        * @ingroup ParticleProperties
        */
       template <int dim>
-      class LpoBinghamAverage : public Interface<dim>, public ::aspect::SimulatorAccess<dim>
+      class LpoBinghamAverage_part : public Interface<dim>, public ::aspect::SimulatorAccess<dim>
       {
         public:
           /**
            * constructor
            */
-          LpoBinghamAverage();
+          LpoBinghamAverage_part();
 
           /**
            * Initialization function. This function is called once at the
@@ -152,7 +152,7 @@ namespace aspect
           /**
            * todo
            */
-          std::array<std::array<double,3>,3> compute_bingham_average(std::vector<Tensor<2,3> > matrices) const;
+          std::array<std::array<double,5>,3> compute_bingham_average(const std::vector<Tensor<2,3> > &matrices) const;
 
           /**
            * todo

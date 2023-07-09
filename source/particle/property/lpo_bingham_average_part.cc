@@ -20,6 +20,7 @@
 
 //#include <cstdlib>
 #include <aspect/particle/property/lpo_bingham_average_part.h>
+#include <aspect/particle/property/lpo_bingham_average.h>
 #include <aspect/particle/property/lpo.h>
 #include <aspect/particle/world.h>
 
@@ -34,7 +35,7 @@ namespace aspect
 
 
       template <int dim>
-      LpoBinghamAverage<dim>::LpoBinghamAverage ()
+      LpoBinghamAverage_part<dim>::LpoBinghamAverage_part ()
       {
         permutation_operator_3d[0][1][2]  = 1;
         permutation_operator_3d[1][2][0]  = 1;
@@ -46,7 +47,7 @@ namespace aspect
 
       template <int dim>
       void
-      LpoBinghamAverage<dim>::initialize ()
+      LpoBinghamAverage_part<dim>::initialize ()
       {
         // todo: check wheter this works correctly. Since the get_random_number function takes a reference
         // to the random_number_generator function, changing the function should mean that I have to update the
@@ -72,7 +73,7 @@ namespace aspect
 
       template <int dim>
       void
-      LpoBinghamAverage<dim>::initialize_one_particle_property(const Point<dim> &,
+      LpoBinghamAverage_part<dim>::initialize_one_particle_property(const Point<dim> &,
                                                                std::vector<double> &data) const
       {
 
@@ -97,10 +98,10 @@ namespace aspect
         for (size_t mineral_i = 0; mineral_i < n_minerals; mineral_i++)
           {
             const std::vector<Tensor<2,3> > weighted_a_matrices = random_draw_volume_weighting(volume_fractions_grains[mineral_i], a_cosine_matrices_grains[mineral_i], n_samples);
-            std::array<std::array<double,3>,3> bingham_average = compute_bingham_average(weighted_a_matrices);
+            std::array<std::array<double,5>,3> bingham_average = compute_bingham_average(weighted_a_matrices);
 
             for (unsigned int i = 0; i < 3; i++)
-              for (unsigned int j = 0; j < 3; j++)
+              for (unsigned int j = 0; j < 5; j++)
                 {
                   data.emplace_back(bingham_average[i][j]);
                   //std::cout << counter << ": " << bingham_average[i][j] << std::endl; counter++;
@@ -110,7 +111,7 @@ namespace aspect
 
       template <int dim>
       void
-      LpoBinghamAverage<dim>::update_one_particle_property(const unsigned int data_position,
+      LpoBinghamAverage_part<dim>::update_one_particle_property(const unsigned int data_position,
                                                            const Point<dim> &,
                                                            const Vector<double> &,
                                                            const std::vector<Tensor<1,dim> > &,
@@ -135,11 +136,11 @@ namespace aspect
         for (size_t mineral_i = 0; mineral_i < n_minerals; mineral_i++)
           {
             const std::vector<Tensor<2,3> > weighted_a_matrices = random_draw_volume_weighting(volume_fractions_grains[mineral_i], a_cosine_matrices_grains[mineral_i], n_samples);
-            std::array<std::array<double,3>,3> bingham_average = compute_bingham_average(weighted_a_matrices);
+            std::array<std::array<double,5>,3> bingham_average = compute_bingham_average(weighted_a_matrices);
 
             unsigned int counter = 0;
             for (unsigned int i = 0; i < 3; i++)
-              for (unsigned int j = 0; j < 3; j++)
+              for (unsigned int j = 0; j < 5; j++)
                 {
                   data[data_position + mineral_i*9 + counter] = bingham_average[i][j];
                   counter++;
@@ -150,7 +151,7 @@ namespace aspect
 
       template<int dim>
       std::array<std::array<double,5>,3>
-      LpoBinghamAverage<dim>::compute_bingham_average(std::vector<Tensor<2,3> > matrices) const
+      LpoBinghamAverage_part<dim>::compute_bingham_average(const std::vector<Tensor<2,3> > &matrices) const
       {
         SymmetricTensor< 2, 3, double > sum_matrix_a;
         SymmetricTensor< 2, 3, double > sum_matrix_b;
@@ -212,7 +213,7 @@ namespace aspect
 
       template<int dim>
       std::vector<Tensor<2,3> >
-      LpoBinghamAverage<dim>::random_draw_volume_weighting(std::vector<double> fv,
+      LpoBinghamAverage_part<dim>::random_draw_volume_weighting(std::vector<double> fv,
                                                            std::vector<Tensor<2,3>> matrices,
                                                            unsigned int n_output_grains) const
       {
@@ -292,21 +293,21 @@ namespace aspect
 
       template <int dim>
       UpdateTimeFlags
-      LpoBinghamAverage<dim>::need_update() const
+      LpoBinghamAverage_part<dim>::need_update() const
       {
         return update_output_step;
       }
 
       template <int dim>
       UpdateFlags
-      LpoBinghamAverage<dim>::get_needed_update_flags () const
+      LpoBinghamAverage_part<dim>::get_needed_update_flags () const
       {
         return update_default;
       }
 
       template <int dim>
       std::vector<std::pair<std::string, unsigned int> >
-      LpoBinghamAverage<dim>::get_property_information() const
+      LpoBinghamAverage_part<dim>::get_property_information() const
       {
         std::vector<std::pair<std::string,unsigned int> > property_information;
         for (size_t mineral_i = 0; mineral_i < n_minerals; mineral_i++)
@@ -323,13 +324,13 @@ namespace aspect
 
       template <int dim>
       void
-      LpoBinghamAverage<dim>::declare_parameters (ParameterHandler &prm)
+      LpoBinghamAverage_part<dim>::declare_parameters (ParameterHandler &prm)
       {
         prm.enter_subsection("Postprocess");
         {
           prm.enter_subsection("Particles");
           {
-            prm.enter_subsection("LpoBinghamAverage");
+            prm.enter_subsection("LpoBinghamAverage_part");
             {
               prm.declare_entry ("Random number seed", "1",
                                  Patterns::Integer (0),
@@ -354,14 +355,14 @@ namespace aspect
 
       template <int dim>
       void
-      LpoBinghamAverage<dim>::parse_parameters (ParameterHandler &prm)
+      LpoBinghamAverage_part<dim>::parse_parameters (ParameterHandler &prm)
       {
 
         prm.enter_subsection("Postprocess");
         {
           prm.enter_subsection("Particles");
           {
-            prm.enter_subsection("LpoBinghamAverage");
+            prm.enter_subsection("LpoBinghamAverage_part");
             {
 
               random_number_seed = prm.get_integer ("Random number seed"); // 2
@@ -390,7 +391,7 @@ namespace aspect
   {
     namespace Property
     {
-      ASPECT_REGISTER_PARTICLE_PROPERTY(LpoBinghamAverage,
+      ASPECT_REGISTER_PARTICLE_PROPERTY(LpoBinghamAverage_part,
                                         "lpo bingham average part",
                                         "A plugin in which the particle property matrix contains "
                                         "the largest eigen vectors  "
