@@ -630,7 +630,7 @@ namespace aspect
              strain_rate);
 
 
-
+          // std::cout << "q " << acos(q) << std::endl;
           // The computation of the viscosity tensor is only
           // necessary after the simulator has been initialized
           if  ((this->simulator_is_past_initialization()) && (this->get_timestep_number() > 0) && (in.temperature[q]>1000))
@@ -646,6 +646,7 @@ namespace aspect
               R_CPO[0][2] = composition[lpo_bingham_avg_c[0]];
               R_CPO[1][2] = composition[lpo_bingham_avg_c[1]];
               R_CPO[2][2] = composition[lpo_bingham_avg_c[2]];
+              // std::cout << "R_CPO " << R_CPO << std::endl;
 
               //Get eigen values from compositional fields
               const double eigvalue_a1 = composition[lpo_bingham_avg_a[3]];
@@ -680,8 +681,8 @@ namespace aspect
               double N = eigvalue_a1*cN1 + eigvalue_a2*cN2 + eigvalue_b1*cN3 + eigvalue_b2*cN4 + eigvalue_c1*cN5 + eigvalue_c2*cN6 + CnI_N[6]; 
 
               //Calculate the rotation matrix from the euler angles ??? Why do we get from EA to RM th
-              Tensor<2,3> R = R_CPO;
-              // Tensor<2,3> R = AV<dim>::euler_angles_to_rotation_matrix(phi1, theta, phi2);
+              // Tensor<2,3> R = R_CPO;
+              Tensor<2,3> R = AV<dim>::euler_angles_to_rotation_matrix(phi1, theta, phi2);
               // std::cout << "phi1 " << phi1 << std::endl;
               // std::cout << "theta " << theta << std::endl;
               // std::cout << "phi2 " << phi2 << std::endl;
@@ -732,64 +733,106 @@ namespace aspect
 
               //Calculate the fluidity tensor in the LPO frame
               Tensor<2,3> S_CPO=transpose(R)*stress*R;
-              // std::cout << "R1 " << R[0][0] << std::endl;
+              // std::cout << "eigvb1 " << R[0][1] << std::endl;
               
               double Jhill = F*pow((S_CPO[0][0]-S_CPO[1][1]),2)+G*pow((S_CPO[1][1]-S_CPO[2][2]),2)+H*pow((S_CPO[2][2]-S_CPO[0][0]),2)+2*L*pow(S_CPO[1][2],2)+2*M*pow(S_CPO[0][2],2)+2*N*pow(S_CPO[0][1],2);
-              // std::cout << "SCPO1 " << S_CPO[0][0] << std::endl;
+              // std::cout << "SCPO0 " << S_CPO[0][0] << std::endl;
+              // std::cout << "SCP11 " << S_CPO[1][1] << std::endl;
+              // std::cout << "SCP22 " << S_CPO[2][2] << std::endl;
 
-              SymmetricTensor<2,6> A;
-              A[0][0] = F+H;
-              A[0][1] = -F;
-              A[0][2] = -H;
-              A[1][1] = G+F;
-              A[1][2] = -G;
-              A[2][2] = H+G;
-              A[3][3] = L;
-              A[4][4] = M;
-              A[5][5] = N;
+              SymmetricTensor<2,6> invA;
+              invA[0][0] = (F+H)/(F*H+F*G+G*H);
+              invA[0][1] = (-2*G-F)/(F*H+F*G+G*H);
+              invA[0][2] = (-2*G-F)/(F*H+F*G+G*H);
+              invA[1][1] = (G+H)/(F*H+F*G+G*H);
+              invA[1][2] = G/(F*H+F*G+G*H);
+              invA[2][2] = (F+G)/(F*H+F*G+G*H);
+              invA[3][3] = 2/L;
+              invA[4][4] = 2/M;
+              invA[5][5] = 2/N;
 
-              Tensor<2,6> Fluidity_CPO;
-              Fluidity_CPO = 2 * Gamma * std::pow(Jhill,(n-1)/2) * 2/3 * A;
-              // std::cout << "A1" << A[0][0] << std::endl;
-              // std::cout << "Gamma" << Gamma << std::endl;
-              // std::cout << "Jhill" << Jhill << std::endl;
+              Tensor<2,6> Viscosity_CPO;
+              Viscosity_CPO = (1 / (Gamma * std::pow(Jhill,(n-1)/2))) * invA;
+              // std::cout << "A1 " << A[0][0] << std::endl;
+              // std::cout << "Gamma " << Gamma << std::endl;
+              // std::cout << "Jhill " << Jhill << std::endl;
 
-              Tensor<2,6> FluidityTensor = R_CPO_K * Fluidity_CPO * transpose(R_CPO_K);
-              // std::cout << "FT1" << FluidityTensor[0][0] << std::endl;
-
-              SymmetricTensor<2,dim> strain_rate_new;
-              Tensor<1,6> stress_K, strain_rate_new_K;
-              stress_K[0] = stress[0][0];
-              stress_K[1] = stress[1][1];
-              stress_K[2] = stress[2][2];
-              stress_K[3] = stress[1][2]*sqrt(2);
-              stress_K[4] = stress[0][2]*sqrt(2);
-              stress_K[5] = stress[0][1]*sqrt(2);
-              strain_rate_new_K = FluidityTensor * stress_K;
-              strain_rate_new[0][0] = strain_rate_new_K[0];
-              strain_rate_new[1][1] = strain_rate_new_K[1];
-              strain_rate_new[2][2] = strain_rate_new_K[2];
-              strain_rate_new[1][2] = strain_rate_new_K[3]/sqrt(2);
-              strain_rate_new[0][2] = strain_rate_new_K[4]/sqrt(2);
-              strain_rate_new[0][1] = strain_rate_new_K[5]/sqrt(2);
-              // std::cout << "SR1 " << strain_rate_new_K[0] << std::endl;
+              Tensor<2,6> V = R_CPO_K * Viscosity_CPO * transpose(R_CPO_K);
+              // std::cout << "FT1 " << FluidityTensor[0][0] << std::endl;
 
               // Overwrite the scalar viscosity with an effective viscosity
               double stress_eq = std::sqrt(3.0*AV<dim>::J2_second_invariant(stress, min_strain_rate));
-              double strain_rate_new_eq = std::sqrt((4./3.)*AV<dim>::J2_second_invariant(strain_rate_new, min_strain_rate));
-              out.viscosities[q] = std::abs(stress_eq/strain_rate_new_eq);
+              double strain_rate_eq = std::sqrt((4./3.)*AV<dim>::J2_second_invariant(strain_rate, min_strain_rate));
+              out.viscosities[q] = std::abs(stress_eq/strain_rate_eq);
               // std::cout << "stress_eq " << stress_eq << std::endl;
-              // std::cout << "strainrate_eq " << strain_rate_new_eq << std::endl;
+              // std::cout << "strainrate_eq " << strain_rate_eq << std::endl;
               // std::cout << "Effective viscosity " << std::abs(stress_eq/strain_rate_new_eq) << std::endl;
+              
               AssertThrow(out.viscosities[q] != 0,
                           ExcMessage("Viscosity should not be 0"));
               AssertThrow(isfinite(out.viscosities[q]),
                           ExcMessage("Viscosity should not be finite"));
-              // if (anisotropic_viscosity != nullptr)
-              //   {
-              //     anisotropic_viscosity->stress_strain_directors[q] = ViscoTensor_r4/(2.0*stress_eq/strain_rate_new_eq);
+              
+              // Compute Viscosity tensor as inverse of the fluidity tensor
+              SymmetricTensor<4,dim> V_r4, ViscoTensor_r4;
+              V_r4[0][0][0][0]=V[0][0];
+              V_r4[0][0][1][1]=V[0][1];
+              V_r4[1][1][0][0]=V[0][1];
+              V_r4[0][0][2][2]=V[0][2];
+              V_r4[2][2][0][0]=V[0][2];
+              V_r4[0][0][1][2]=V[0][3];
+              V_r4[1][2][0][0]=V[0][3];
+              V_r4[0][0][0][2]=V[0][4];
+              V_r4[0][2][0][0]=V[0][4];
+              V_r4[0][0][0][1]=V[0][5];
+              V_r4[0][1][0][0]=V[0][5];
+              V_r4[1][1][1][1]=V[1][1];
+              V_r4[1][1][2][2]=V[1][2];
+              V_r4[2][2][1][1]=V[1][2];
+              V_r4[1][1][1][2]=V[1][3];
+              V_r4[1][2][1][1]=V[1][3];
+              V_r4[1][1][0][2]=V[1][4];
+              V_r4[0][2][1][1]=V[1][4];
+              V_r4[1][1][0][1]=V[1][5];
+              V_r4[0][1][1][1]=V[1][5];
+              V_r4[2][2][2][2]=V[2][2];
+              V_r4[2][2][1][2]=V[2][3];
+              V_r4[1][2][2][2]=V[2][3];
+              V_r4[2][2][0][2]=V[2][4];
+              V_r4[0][2][2][2]=V[2][4];
+              V_r4[2][2][0][1]=V[2][5];
+              V_r4[0][1][2][2]=V[2][5];
+              V_r4[1][2][1][2]=V[3][3]/2.; //Need to change back later
+              V_r4[1][2][0][2]=V[3][4];
+              V_r4[0][2][1][2]=V[3][4];
+              V_r4[1][2][0][1]=V[3][5];
+              V_r4[0][1][1][2]=V[3][5];
+              V_r4[0][2][0][1]=V[4][4]/2.;//Need to change back later
+              V_r4[0][2][0][1]=V[4][5];
+              V_r4[0][1][0][2]=V[4][5];
+              V_r4[0][1][0][1]=V[5][5]/2.;//Need to change back later
 
-              //   }
+              for (int i = 0; i < dim; i++)
+                {
+                  for (int j = 0; j < dim; j++)
+                    {
+                      
+                      for (int k = 0; k<dim; k++)
+                        {
+                          for (int l = 0; l<dim; l++)
+                            {
+                              //std::cout<<"V"<<i+1<<j+1<<k+1<<l+1<<"is: "<<V[i][j][k][l]<<std::endl;
+                              ViscoTensor_r4[i][j][k][l]= V_r4[i][j][k][l];///std::pow(AV<dim>::J2_second_invariant(Stress, min_strain_rate),(1.25));
+                            }
+                        }
+                    }
+                }
+
+              if (anisotropic_viscosity != nullptr)
+                {
+                  anisotropic_viscosity->stress_strain_directors[q] = ViscoTensor_r4/(2.0*stress_eq/strain_rate_eq);
+
+                }
 
             }
 
@@ -854,22 +897,22 @@ namespace aspect
         prm.enter_subsection("AV Hill");
         {
           EquationOfState::LinearizedIncompressible<dim>::declare_parameters (prm);
-          prm.declare_entry ("Coefficients and intercept for F", "-0.46, -3.54, -0.45, -2.40, 1.92, 0.48, 1.92",
+          prm.declare_entry ("Coefficients and intercept for F", "-0.4602, -3.5366, -0.4521, -2.3999, 1.9207, 0.4799, 1.9214",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter F.");
-          prm.declare_entry ("Coefficients and intercept for G", "-1.76, -0.07, -0.07, -0.81, 1.06, 0.68, 0.80",
+          prm.declare_entry ("Coefficients and intercept for G", "-1.7559, -0.0666, -0.0677, -0.8096, 1.0592, 0.6844, 0.7957",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter G.");
-          prm.declare_entry ("Coefficients and intercept for H", "-0.46, -2.99, 0.56, -1.98, 1.17, 0.81, 1.41",
+          prm.declare_entry ("Coefficients and intercept for H", "-0.4608, -2.9948, 0.5591, -1.9798, 1.1741, 0.8055, 1.4096",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter H.");
-          prm.declare_entry ("Coefficients and intercept for L", "-1.21, -0.15, -0.13, 0.58, -0.68, -0.23, 2.06",
+          prm.declare_entry ("Coefficients and intercept for L", "-1.2098, -0.1456, -0.1280, 0.5754, -0.6839, -0.2313, 2.0596",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter L.");
-          prm.declare_entry ("Coefficients and intercept for M", "0.71, -1.08, 1.79, -0.82, -1.85, -0.16, 1.90",
+          prm.declare_entry ("Coefficients and intercept for M", "0.7074, -1.0832, 1.7936, -0.8183, -1.8465, -0.1618, 1.8901",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter M.");
-          prm.declare_entry ("Coefficients and intercept for N", "0.98, 0.18, -1.90, 0.06, 1.59, 0.07, 1.11",
+          prm.declare_entry ("Coefficients and intercept for N", "0.9814, 0.1760, -1.9047, 0.0574, 1.5909, 0.0667, 1.1061",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter N.");
           prm.declare_entry ("Reference viscosity", "1e20",

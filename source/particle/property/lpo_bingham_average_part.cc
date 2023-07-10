@@ -95,7 +95,7 @@ namespace aspect
         //std::cout << "bingham n_minerals = " << n_minerals << ", n_grains = " << n_grains << std::endl;
         //size_t counter = 0;
         const std::vector<Tensor<2,3> > weighted_a_matrices = random_draw_volume_weighting(volume_fractions_grains[0], a_cosine_matrices_grains[0], n_samples);
-        std::array<std::array<double,5>,3> bingham_average = compute_bingham_average(weighted_a_matrices);
+        const std::array<std::array<double,5>,3> bingham_average = compute_bingham_average(weighted_a_matrices);
 
         for (unsigned int i = 0; i < 3; i++)
           for (unsigned int j = 0; j < 5; j++)
@@ -130,7 +130,7 @@ namespace aspect
 
 
         const std::vector<Tensor<2,3> > weighted_a_matrices = random_draw_volume_weighting(volume_fractions_grains[0], a_cosine_matrices_grains[0], n_samples);
-        std::array<std::array<double,5>,3> bingham_average = compute_bingham_average(weighted_a_matrices);
+        const std::array<std::array<double,5>,3> bingham_average = compute_bingham_average(weighted_a_matrices);
 
         unsigned int counter = 0;
         for (unsigned int i = 0; i < 3; i++)
@@ -149,6 +149,8 @@ namespace aspect
         SymmetricTensor< 2, 3, double > sum_matrix_a;
         SymmetricTensor< 2, 3, double > sum_matrix_b;
         SymmetricTensor< 2, 3, double > sum_matrix_c;
+
+        //std::cout << "# of grains " << matrices.size() << std::endl;
 
         // extracting the a, b and c orientations from the olivine a matrix
         // see https://courses.eas.ualberta.ca/eas421/lecturepages/orientation.html
