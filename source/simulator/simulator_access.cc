@@ -859,4 +859,3 @@ namespace aspect
 
 #undef INSTANTIATE
 }
-}
