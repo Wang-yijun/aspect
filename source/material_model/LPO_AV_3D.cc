@@ -185,7 +185,7 @@ namespace aspect
       internal::Assembly::CopyData::StokesPreconditioner<dim> &data = dynamic_cast<internal::Assembly::CopyData::StokesPreconditioner<dim>& > (data_base);
 
       const MaterialModel::AV<dim> *anisotropic_viscosity =
-        scratch.material_model_outputs.template get_additional_output<MaterialModel::AV<dim> >();
+        scratch.material_model_outputs.template get_additional_output<MaterialModel::AV<dim>>();
 
       const Introspection<dim> &introspection = this->introspection();
       const FiniteElement<dim> &fe = this->get_fe();
@@ -255,7 +255,7 @@ namespace aspect
     {
       const unsigned int n_points = outputs.viscosities.size();
 
-      if (outputs.template get_additional_output<MaterialModel::AV<dim> >() == nullptr)
+      if (outputs.template get_additional_output<MaterialModel::AV<dim>>() == nullptr)
         {
           outputs.additional_outputs.push_back(
             std::make_unique<MaterialModel::AV<dim>> (n_points));
@@ -274,7 +274,7 @@ namespace aspect
       internal::Assembly::CopyData::StokesSystem<dim> &data = dynamic_cast<internal::Assembly::CopyData::StokesSystem<dim>& > (data_base);
 
       const MaterialModel::AV<dim> *anisotropic_viscosity =
-        scratch.material_model_outputs.template get_additional_output<MaterialModel::AV<dim> >();
+        scratch.material_model_outputs.template get_additional_output<MaterialModel::AV<dim>>();
 
       const Introspection<dim> &introspection = this->introspection();
       const FiniteElement<dim> &fe = this->get_fe();
@@ -283,7 +283,7 @@ namespace aspect
       const double pressure_scaling = this->get_pressure_scaling();
 
       const MaterialModel::AdditionalMaterialOutputsStokesRHS<dim>
-      *force = scratch.material_model_outputs.template get_additional_output<MaterialModel::AdditionalMaterialOutputsStokesRHS<dim> >();
+      *force = scratch.material_model_outputs.template get_additional_output<MaterialModel::AdditionalMaterialOutputsStokesRHS<dim>>();
 
       for (unsigned int q=0; q<n_q_points; ++q)
         {
@@ -355,21 +355,21 @@ namespace aspect
     {
       const unsigned int n_points = outputs.viscosities.size();
 
-      if (outputs.template get_additional_output<MaterialModel::AV<dim> >() == nullptr)
+      if (outputs.template get_additional_output<MaterialModel::AV<dim>>() == nullptr)
         {
           outputs.additional_outputs.push_back(
             std::make_unique<MaterialModel::AV<dim>> (n_points));
         }
 
       if (this->get_parameters().enable_additional_stokes_rhs
-          && outputs.template get_additional_output<MaterialModel::AdditionalMaterialOutputsStokesRHS<dim> >() == nullptr)
+          && outputs.template get_additional_output<MaterialModel::AdditionalMaterialOutputsStokesRHS<dim>>() == nullptr)
         {
           outputs.additional_outputs.push_back(
             std::make_unique<MaterialModel::AdditionalMaterialOutputsStokesRHS<dim>> (n_points));
         }
       Assert(!this->get_parameters().enable_additional_stokes_rhs
              ||
-             outputs.template get_additional_output<MaterialModel::AdditionalMaterialOutputsStokesRHS<dim> >()->rhs_u.size()
+             outputs.template get_additional_output<MaterialModel::AdditionalMaterialOutputsStokesRHS<dim>>()->rhs_u.size()
              == n_points, ExcInternalError());
     }
   }
@@ -418,7 +418,7 @@ namespace aspect
         material_model_outputs.template get_additional_output<MaterialModel::DislocationViscosityOutputs<dim>>();
 
       const MaterialModel::AV<dim> *anisotropic_viscosity =
-        material_model_outputs.template get_additional_output<MaterialModel::AV<dim> >();
+        material_model_outputs.template get_additional_output<MaterialModel::AV<dim>>();
 
       for (unsigned int q=0; q<heating_model_outputs.heating_source_terms.size(); ++q)
         {
@@ -469,12 +469,12 @@ namespace aspect
     {
       const unsigned int n_points = material_model_outputs.viscosities.size();
 
-      if (material_model_outputs.template get_additional_output<MaterialModel::AV<dim> >() == nullptr)
+      if (material_model_outputs.template get_additional_output<MaterialModel::AV<dim>>() == nullptr)
         {
           material_model_outputs.additional_outputs.push_back(
             std::make_unique<MaterialModel::AV<dim>> (n_points));
         }
-      
+
       this->get_material_model().create_additional_named_outputs(material_model_outputs);
     }
   }
@@ -487,23 +487,23 @@ namespace aspect
 //Next session is a more evolved implementation of anisotropic viscosity in the material model based on Hansen et al 2016 and Kiraly et al 2020
   namespace MaterialModel
   {
-    
+
 
     template <int dim>
     void
     LPO_AV_3D<dim>::set_assemblers(const SimulatorAccess<dim> &,
-                                          Assemblers::Manager<dim> &assemblers) const
+                                   Assemblers::Manager<dim> &assemblers) const
     {
       for (unsigned int i=0; i<assemblers.stokes_preconditioner.size(); ++i)
         {
           if (Plugins::plugin_type_matches<Assemblers::StokesPreconditioner<dim>>(*(assemblers.stokes_preconditioner[i])))
-            assemblers.stokes_preconditioner[i] = std::make_unique<Assemblers::StokesPreconditionerAV<dim> > ();
+            assemblers.stokes_preconditioner[i] = std::make_unique<Assemblers::StokesPreconditionerAV<dim>> ();
         }
 
       for (unsigned int i=0; i<assemblers.stokes_system.size(); ++i)
         {
           if (Plugins::plugin_type_matches<Assemblers::StokesIncompressibleTerms<dim>>(*(assemblers.stokes_system[i])))
-            assemblers.stokes_system[i] = std::make_unique<Assemblers::StokesIncompressibleTermsAV<dim> > ();
+            assemblers.stokes_system[i] = std::make_unique<Assemblers::StokesIncompressibleTermsAV<dim>> ();
         }
     }
 
@@ -583,7 +583,7 @@ namespace aspect
     template <>
     void
     LPO_AV_3D<2>::evaluate (const MaterialModel::MaterialModelInputs<2> &,
-                                     MaterialModel::MaterialModelOutputs<2> &) const
+                            MaterialModel::MaterialModelOutputs<2> &) const
     {
       Assert (false, ExcNotImplemented());
     }
@@ -592,12 +592,12 @@ namespace aspect
     template <>
     void
     LPO_AV_3D<3>::evaluate (const MaterialModel::MaterialModelInputs<3> &in,
-                                     MaterialModel::MaterialModelOutputs<3> &out) const
+                            MaterialModel::MaterialModelOutputs<3> &out) const
     {
       const int dim=3;
 
       MaterialModel::AV<dim> *anisotropic_viscosity;
-      anisotropic_viscosity = out.template get_additional_output<MaterialModel::AV<dim> >();
+      anisotropic_viscosity = out.template get_additional_output<MaterialModel::AV<dim>>();
 
       EquationOfStateOutputs<dim> eos_outputs (1);
       for (unsigned int q=0; q<in.n_evaluation_points(); ++q)
@@ -615,7 +615,7 @@ namespace aspect
 
           //Create constant value to use for AV
           const double A_o = 1.1e5*exp(-530000/(8.314*in.temperature[q]));
-          const double n = 3.5;          
+          const double n = 3.5;
           const double Gamma = (A_o/(std::pow(grain_size,0.73)));
 
           // calculate effective viscosity
@@ -666,19 +666,49 @@ namespace aspect
               double cF1,cF2,cF3,cF4,cF5,cF6,cG1,cG2,cG3,cG4,cG5,cG6;
               double cH1,cH2,cH3,cH4,cH5,cH6,cL1,cL2,cL3,cL4,cL5,cL6;
               double cM1,cM2,cM3,cM4,cM5,cM6,cN1,cN2,cN3,cN4,cN5,cN6;
-              cF1 = CnI_F[0]; cF2 = CnI_F[1]; cF3 = CnI_F[2]; cF4 = CnI_F[3]; cF5 = CnI_F[4]; cF6 = CnI_F[5];
-              cG1 = CnI_G[0]; cG2 = CnI_G[1]; cG3 = CnI_G[2]; cG4 = CnI_G[3]; cG5 = CnI_G[4]; cG6 = CnI_G[5];
-              cH1 = CnI_H[0]; cH2 = CnI_H[1]; cH3 = CnI_H[2]; cH4 = CnI_H[3]; cH5 = CnI_H[4]; cH6 = CnI_H[5];
-              cL1 = CnI_L[0]; cL2 = CnI_L[1]; cL3 = CnI_L[2]; cL4 = CnI_L[3]; cL5 = CnI_L[4]; cL6 = CnI_L[5];
-              cM1 = CnI_M[0]; cM2 = CnI_M[1]; cM3 = CnI_M[2]; cM4 = CnI_M[3]; cM5 = CnI_M[4]; cM6 = CnI_M[5];
-              cN1 = CnI_N[0]; cN2 = CnI_N[1]; cN3 = CnI_N[2]; cN4 = CnI_N[3]; cN5 = CnI_N[4]; cN6 = CnI_N[5];
+              cF1 = CnI_F[0];
+              cF2 = CnI_F[1];
+              cF3 = CnI_F[2];
+              cF4 = CnI_F[3];
+              cF5 = CnI_F[4];
+              cF6 = CnI_F[5];
+              cG1 = CnI_G[0];
+              cG2 = CnI_G[1];
+              cG3 = CnI_G[2];
+              cG4 = CnI_G[3];
+              cG5 = CnI_G[4];
+              cG6 = CnI_G[5];
+              cH1 = CnI_H[0];
+              cH2 = CnI_H[1];
+              cH3 = CnI_H[2];
+              cH4 = CnI_H[3];
+              cH5 = CnI_H[4];
+              cH6 = CnI_H[5];
+              cL1 = CnI_L[0];
+              cL2 = CnI_L[1];
+              cL3 = CnI_L[2];
+              cL4 = CnI_L[3];
+              cL5 = CnI_L[4];
+              cL6 = CnI_L[5];
+              cM1 = CnI_M[0];
+              cM2 = CnI_M[1];
+              cM3 = CnI_M[2];
+              cM4 = CnI_M[3];
+              cM5 = CnI_M[4];
+              cM6 = CnI_M[5];
+              cN1 = CnI_N[0];
+              cN2 = CnI_N[1];
+              cN3 = CnI_N[2];
+              cN4 = CnI_N[3];
+              cN5 = CnI_N[4];
+              cN6 = CnI_N[5];
 
               double F = eigvalue_a1*cF1 + eigvalue_a2*cF2 + eigvalue_b1*cF3 + eigvalue_b2*cF4 + eigvalue_c1*cF5 + eigvalue_c2*cF6 + CnI_F[6];
               double G = eigvalue_a1*cG1 + eigvalue_a2*cG2 + eigvalue_b1*cG3 + eigvalue_b2*cG4 + eigvalue_c1*cG5 + eigvalue_c2*cG6 + CnI_G[6];
               double H = eigvalue_a1*cH1 + eigvalue_a2*cH2 + eigvalue_b1*cH3 + eigvalue_b2*cH4 + eigvalue_c1*cH5 + eigvalue_c2*cH6 + CnI_H[6];
               double L = eigvalue_a1*cL1 + eigvalue_a2*cL2 + eigvalue_b1*cL3 + eigvalue_b2*cL4 + eigvalue_c1*cL5 + eigvalue_c2*cL6 + CnI_L[6];
               double M = eigvalue_a1*cM1 + eigvalue_a2*cM2 + eigvalue_b1*cM3 + eigvalue_b2*cM4 + eigvalue_c1*cM5 + eigvalue_c2*cM6 + CnI_M[6];
-              double N = eigvalue_a1*cN1 + eigvalue_a2*cN2 + eigvalue_b1*cN3 + eigvalue_b2*cN4 + eigvalue_c1*cN5 + eigvalue_c2*cN6 + CnI_N[6]; 
+              double N = eigvalue_a1*cN1 + eigvalue_a2*cN2 + eigvalue_b1*cN3 + eigvalue_b2*cN4 + eigvalue_c1*cN5 + eigvalue_c2*cN6 + CnI_N[6];
 
               //Calculate the rotation matrix from the euler angles ??? Why do we get from EA to RM th
               // Tensor<2,3> R = R_CPO;
@@ -734,7 +764,7 @@ namespace aspect
               //Calculate the fluidity tensor in the LPO frame
               Tensor<2,3> S_CPO=transpose(R)*stress*R;
               // std::cout << "eigvb1 " << R[0][1] << std::endl;
-              
+
               double Jhill = F*pow((S_CPO[0][0]-S_CPO[1][1]),2)+G*pow((S_CPO[1][1]-S_CPO[2][2]),2)+H*pow((S_CPO[2][2]-S_CPO[0][0]),2)+2*L*pow(S_CPO[1][2],2)+2*M*pow(S_CPO[0][2],2)+2*N*pow(S_CPO[0][1],2);
               // std::cout << "SCPO0 " << S_CPO[0][0] << std::endl;
               // std::cout << "SCP11 " << S_CPO[1][1] << std::endl;
@@ -767,12 +797,12 @@ namespace aspect
               // std::cout << "stress_eq " << stress_eq << std::endl;
               // std::cout << "strainrate_eq " << strain_rate_eq << std::endl;
               std::cout << "Effective viscosity " << std::abs(stress_eq/strain_rate_eq) << std::endl;
-              
+
               AssertThrow(out.viscosities[q] != 0,
                           ExcMessage("Viscosity should not be 0"));
               AssertThrow(isfinite(out.viscosities[q]),
                           ExcMessage("Viscosity should not be finite"));
-              
+
               // Compute Viscosity tensor as inverse of the fluidity tensor
               SymmetricTensor<4,dim> V_r4, ViscoTensor_r4;
               V_r4[0][0][0][0]=V[0][0];
@@ -816,7 +846,7 @@ namespace aspect
                 {
                   for (int j = 0; j < dim; j++)
                     {
-                      
+
                       for (int k = 0; k<dim; k++)
                         {
                           for (int l = 0; l<dim; l++)
@@ -879,7 +909,7 @@ namespace aspect
           CnI_L = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for L")));
           CnI_M = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for M")));
           CnI_N = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for N")));
-          
+
         }
         prm.leave_subsection();
       }
@@ -935,7 +965,7 @@ namespace aspect
     void
     LPO_AV_3D<dim>::create_additional_named_outputs(MaterialModel::MaterialModelOutputs<dim> &out) const
     {
-      if (out.template get_additional_output<AV<dim> >() == nullptr)
+      if (out.template get_additional_output<AV<dim>>() == nullptr)
         {
           const unsigned int n_points = out.n_evaluation_points();
           out.additional_outputs.push_back(

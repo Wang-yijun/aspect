@@ -186,7 +186,7 @@ namespace aspect
       internal::Assembly::CopyData::StokesPreconditioner<dim> &data = dynamic_cast<internal::Assembly::CopyData::StokesPreconditioner<dim>& > (data_base);
 
       const MaterialModel::AV<dim> *anisotropic_viscosity =
-        scratch.material_model_outputs.template get_additional_output<MaterialModel::AV<dim> >();
+        scratch.material_model_outputs.template get_additional_output<MaterialModel::AV<dim>>();
 
       const Introspection<dim> &introspection = this->introspection();
       const FiniteElement<dim> &fe = this->get_fe();
@@ -256,7 +256,7 @@ namespace aspect
     {
       const unsigned int n_points = outputs.viscosities.size();
 
-      if (outputs.template get_additional_output<MaterialModel::AV<dim> >() == nullptr)
+      if (outputs.template get_additional_output<MaterialModel::AV<dim>>() == nullptr)
         {
           outputs.additional_outputs.push_back(
             std::make_unique<MaterialModel::AV<dim>> (n_points));
@@ -275,7 +275,7 @@ namespace aspect
       internal::Assembly::CopyData::StokesSystem<dim> &data = dynamic_cast<internal::Assembly::CopyData::StokesSystem<dim>& > (data_base);
 
       const MaterialModel::AV<dim> *anisotropic_viscosity =
-        scratch.material_model_outputs.template get_additional_output<MaterialModel::AV<dim> >();
+        scratch.material_model_outputs.template get_additional_output<MaterialModel::AV<dim>>();
 
       const Introspection<dim> &introspection = this->introspection();
       const FiniteElement<dim> &fe = this->get_fe();
@@ -284,7 +284,7 @@ namespace aspect
       const double pressure_scaling = this->get_pressure_scaling();
 
       const MaterialModel::AdditionalMaterialOutputsStokesRHS<dim>
-      *force = scratch.material_model_outputs.template get_additional_output<MaterialModel::AdditionalMaterialOutputsStokesRHS<dim> >();
+      *force = scratch.material_model_outputs.template get_additional_output<MaterialModel::AdditionalMaterialOutputsStokesRHS<dim>>();
 
       for (unsigned int q=0; q<n_q_points; ++q)
         {
@@ -356,21 +356,21 @@ namespace aspect
     {
       const unsigned int n_points = outputs.viscosities.size();
 
-      if (outputs.template get_additional_output<MaterialModel::AV<dim> >() == nullptr)
+      if (outputs.template get_additional_output<MaterialModel::AV<dim>>() == nullptr)
         {
           outputs.additional_outputs.push_back(
             std::make_unique<MaterialModel::AV<dim>> (n_points));
         }
 
       if (this->get_parameters().enable_additional_stokes_rhs
-          && outputs.template get_additional_output<MaterialModel::AdditionalMaterialOutputsStokesRHS<dim> >() == nullptr)
+          && outputs.template get_additional_output<MaterialModel::AdditionalMaterialOutputsStokesRHS<dim>>() == nullptr)
         {
           outputs.additional_outputs.push_back(
             std::make_unique<MaterialModel::AdditionalMaterialOutputsStokesRHS<dim>> (n_points));
         }
       Assert(!this->get_parameters().enable_additional_stokes_rhs
              ||
-             outputs.template get_additional_output<MaterialModel::AdditionalMaterialOutputsStokesRHS<dim> >()->rhs_u.size()
+             outputs.template get_additional_output<MaterialModel::AdditionalMaterialOutputsStokesRHS<dim>>()->rhs_u.size()
              == n_points, ExcInternalError());
     }
   }
@@ -419,7 +419,7 @@ namespace aspect
         material_model_outputs.template get_additional_output<MaterialModel::DislocationViscosityOutputs<dim>>();
 
       const MaterialModel::AV<dim> *anisotropic_viscosity =
-        material_model_outputs.template get_additional_output<MaterialModel::AV<dim> >();
+        material_model_outputs.template get_additional_output<MaterialModel::AV<dim>>();
 
       for (unsigned int q=0; q<heating_model_outputs.heating_source_terms.size(); ++q)
         {
@@ -470,12 +470,12 @@ namespace aspect
     {
       const unsigned int n_points = material_model_outputs.viscosities.size();
 
-      if (material_model_outputs.template get_additional_output<MaterialModel::AV<dim> >() == nullptr)
+      if (material_model_outputs.template get_additional_output<MaterialModel::AV<dim>>() == nullptr)
         {
           material_model_outputs.additional_outputs.push_back(
             std::make_unique<MaterialModel::AV<dim>> (n_points));
         }
-      
+
       this->get_material_model().create_additional_named_outputs(material_model_outputs);
     }
   }
@@ -488,7 +488,7 @@ namespace aspect
 //Next session is a more evolved implementation of anisotropic viscosity in the material model based on Hansen et al 2016 and Kiraly et al 2020
   namespace MaterialModel
   {
-    
+
 
     template <int dim>
     void
@@ -498,13 +498,13 @@ namespace aspect
       for (unsigned int i=0; i<assemblers.stokes_preconditioner.size(); ++i)
         {
           if (Plugins::plugin_type_matches<Assemblers::StokesPreconditioner<dim>>(*(assemblers.stokes_preconditioner[i])))
-            assemblers.stokes_preconditioner[i] = std::make_unique<Assemblers::StokesPreconditionerAV_Simple<dim> > ();
+            assemblers.stokes_preconditioner[i] = std::make_unique<Assemblers::StokesPreconditionerAV_Simple<dim>> ();
         }
 
       for (unsigned int i=0; i<assemblers.stokes_system.size(); ++i)
         {
           if (Plugins::plugin_type_matches<Assemblers::StokesIncompressibleTerms<dim>>(*(assemblers.stokes_system[i])))
-            assemblers.stokes_system[i] = std::make_unique<Assemblers::StokesIncompressibleTermsAV_Simple<dim> > ();
+            assemblers.stokes_system[i] = std::make_unique<Assemblers::StokesIncompressibleTermsAV_Simple<dim>> ();
         }
     }
 
@@ -523,7 +523,7 @@ namespace aspect
                   ExcMessage("Olivine has 3 independent slip systems, allowing for deformation in 3 independent directions, hence these models only work in 3D"));
 
       //move c_idx_S part here (right?)
-      
+
       c_idx_S.push_back (this->introspection().compositional_index_for_name("S1"));
       c_idx_S.push_back (this->introspection().compositional_index_for_name("S2"));
       c_idx_S.push_back (this->introspection().compositional_index_for_name("S3"));
@@ -586,7 +586,7 @@ namespace aspect
                                      MaterialModel::MaterialModelOutputs<dim> &out) const
     {
       MaterialModel::AV<dim> *anisotropic_viscosity;
-      anisotropic_viscosity = out.template get_additional_output<MaterialModel::AV<dim> >();
+      anisotropic_viscosity = out.template get_additional_output<MaterialModel::AV<dim>>();
 
 
 
@@ -630,7 +630,7 @@ namespace aspect
               //std::cout<<"E_eq is:"<<E_eq<<std::endl;
               E=in.strain_rate[q];
               //std::cout<<"The strain rate is:"<< E << std::endl;
-              
+
 
               AssertThrow(isfinite(1/E.norm()),
                           ExcMessage("Strain rate should be finite"));
@@ -651,7 +651,7 @@ namespace aspect
                 }
               //std::cout<<"Svector is: "<<Sv<<std::endl;
               //std::cout<<"The stress is:"<< Stress << std::endl;
-              
+
 
               const double Stress_eq= std::sqrt(3.0*AV<dim>::J2_second_invariant(Stress, min_strain_rate));
               //std::cout<<"Stress eq is: "<<Stress_eq<<std::endl;
@@ -686,7 +686,7 @@ namespace aspect
 
               //Build the stress independent V tensor - change in 2022-12-12 to first calculate elements of the 6x6 symmetric matrix
               SymmetricTensor<2,6> V;
-              
+
               /*V[0][2]=((4.*s1[0][0]-s2[0][0])*(E[0][0]/3.*E_eq)+(s1[0][0]-s2[0][0])*(E[1][1]/3.*E_eq)+s3[0][0]+s4[0][0]+s5[0][0]-S[0][0])/2.*E[0][0];
               V[0][0]=(4.*s1[0][0]-s2[0][0])/(3*E_eq)-V[0][2];
               V[0][1]=(s1[0][0]-s2[0][0])/(3.*E_eq);
@@ -761,7 +761,7 @@ namespace aspect
                 {
                   for (int j = 0; j < dim; j++)
                     {
-                      
+
                       for (int k = 0; k<dim; k++)
                         {
                           for (int l = 0; l<dim; l++)
@@ -870,7 +870,7 @@ namespace aspect
     void
     LPO_AV_3D_Simple<dim>::create_additional_named_outputs(MaterialModel::MaterialModelOutputs<dim> &out) const
     {
-      if (out.template get_additional_output<AV<dim> >() == nullptr)
+      if (out.template get_additional_output<AV<dim>>() == nullptr)
         {
           const unsigned int n_points = out.n_evaluation_points();
           out.additional_outputs.push_back(

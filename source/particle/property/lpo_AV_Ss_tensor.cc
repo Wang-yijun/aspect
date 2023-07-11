@@ -117,7 +117,7 @@ namespace aspect
                                           const double grain_size,
                                           std::vector<double> volume_fraction_mineral,
                                           std::vector<std::vector<double>> volume_fractions_grains,
-                                          const std::vector<std::vector<Tensor<2,3> > > &a_cosine_matrices_grains,
+                                          const std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_grains,
                                           const std::vector<unsigned int> &deformation_type,
                                           const double &temperature) const
       {
@@ -127,7 +127,7 @@ namespace aspect
       SymmetricTensor<2,2>
       LpoSsTensor<2>::compute_S_tensor (const SymmetricTensor<2,2> &strain_rate,
                                           const double &grain_size,
-                                          const std::vector<std::vector<Tensor<2,3> > > &a_cosine_matrices_grains,
+                                          const std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_grains,
                                           const std::vector<unsigned int> &deformation_type,
                                           const double &temperature) const;
 
@@ -140,7 +140,7 @@ namespace aspect
                                         const double grain_size,
                                         std::vector<double> volume_fraction_mineral,
                                         std::vector<std::vector<double>> volume_fractions_grains,
-                                        const std::vector<std::vector<Tensor<2,3> > > &a_cosine_matrices_grains,
+                                        const std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_grains,
                                         const std::vector<unsigned int> &deformation_type,
                                         const double &temperature) const
 
@@ -170,7 +170,7 @@ namespace aspect
           {
             //std::cout<<"Def style: "<<deformation_type[mineral_i]<<std::endl;
             Tensor<1,3> A_ss; //A_ss is the invers of the minimum resolved stress on the slip systems on the nth power
-            //std::cout<<"Volume fractions minerals: "<< volume_fraction_mineral[mineral_i]<<  std::endl; 
+            //std::cout<<"Volume fractions minerals: "<< volume_fraction_mineral[mineral_i]<<  std::endl;
             if (deformation_type[mineral_i] == (unsigned int)DeformationTypeSelector::Enstatite)
               {
                 A_ss[0] = 1.;
@@ -191,7 +191,7 @@ namespace aspect
               {
                 //std::cout<<"strain rate: "<<strain_rate<<  "A_ss: "<<A_ss<<  std::endl;
                 //std::cout<<"A_ss: "<<A_ss<<  std::endl;
-                //std::cout<<"Volume fraction grains: "<< volume_fractions_grains[mineral_i][i]<<  std::endl; 
+                //std::cout<<"Volume fraction grains: "<< volume_fractions_grains[mineral_i][i]<<  std::endl;
                 Tensor<2,3> R = a_cosine_matrices_grains[mineral_i][i];
                 //std::cout<<"Rotation matrix: "<<R<<  std::endl;
                 SymmetricTensor<2,3> Rate_grain=symmetrize(R*strain_rate*transpose(R));
@@ -246,7 +246,7 @@ namespace aspect
                 tau_ss[0][0]= std::copysignf(1.0,r_ss[0][0])*std::pow(1.0/A_ss[0]*1.0/A0*std::pow(grain_size,0.73)*std::fabs(r_ss[0][0]/2),1.0/nFo);
                 tau_ss[1][0]= std::copysignf(1.0,r_ss[1][0])*std::pow(1.0/A_ss[1]*1.0/A0*std::pow(grain_size,0.73)*std::fabs(r_ss[1][0]/2),1.0/nFo);
                 tau_ss[2][0]= std::copysignf(1.0,r_ss[2][0])*std::pow(1.0/A_ss[2]*1.0/A0*std::pow(grain_size,0.73)*std::fabs(r_ss[2][0]/2),1.0/nFo);
-                
+
 
                 FullMatrix<double>  S_gc_v(6,1);
                 Schm.mmult(S_gc_v,tau_ss); //Voigt notation of the resolved stress on the grain
@@ -261,16 +261,16 @@ namespace aspect
                 SymmetricTensor<2,3> S_g= symmetrize(transpose(R)*S_gc*R); //Here instead of making a multidimensional array what I sum at the end, I create S_g and add it to S_sum
                 //SymmetricTensor<2,3> S_sum;
                 //std::cout<<"Stress on grain: "<<S_g<<  std::endl;
-                SymmetricTensor<2,3> S_g_contrib = S_g*volume_fraction_mineral[mineral_i]*volume_fractions_grains[mineral_i][i]; //Each particle has n grains that have multiple mineral fractions (with some volume fraction) 
+                SymmetricTensor<2,3> S_g_contrib = S_g*volume_fraction_mineral[mineral_i]*volume_fractions_grains[mineral_i][i]; //Each particle has n grains that have multiple mineral fractions (with some volume fraction)
                 //std::cout<<"gtains contribution of total stress MPa: "<<S_g_contrib<<  std::endl;
                 S_sum += S_g_contrib;
                 //std::cout<<"S_sum: "<<S_sum<<  std::endl;
 
               }
-            
+
 
           }
-        
+
         S_sum *= 1e6;
         //std::cout<<"S_sum final Pa: "<<S_sum<<  std::endl;
 
@@ -287,7 +287,7 @@ namespace aspect
         std::vector<unsigned int> deformation_type;
         std::vector<double> volume_fraction_mineral;
         std::vector<std::vector<double>> volume_fractions_grains;
-        std::vector<std::vector<Tensor<2,3> > > a_cosine_matrices_grains;
+        std::vector<std::vector<Tensor<2,3>>> a_cosine_matrices_grains;
 
         Particle::Property::LPO<dim>::load_particle_data(lpo_data_position,
                                                          data,
@@ -315,13 +315,13 @@ namespace aspect
       LpoSsTensor<dim>::update_one_particle_property(const unsigned int data_position,
                                                      const Point<dim> &,
                                                      const Vector<double> &solution,
-                                                     const std::vector<Tensor<1,dim> > &gradients,
+                                                     const std::vector<Tensor<1,dim>> &gradients,
                                                      const ArrayView<double> &data) const
       {
         std::vector<unsigned int> deformation_type;
         std::vector<double> volume_fraction_mineral;
         std::vector<std::vector<double>> volume_fractions_grains;
-        std::vector<std::vector<Tensor<2,3> > > a_cosine_matrices_grains;
+        std::vector<std::vector<Tensor<2,3>>> a_cosine_matrices_grains;
 
         Particle::Property::LPO<dim>::load_particle_data(lpo_data_position,
                                                          data,
@@ -456,10 +456,10 @@ namespace aspect
       }
 
       template <int dim>
-      std::vector<std::pair<std::string, unsigned int> >
+      std::vector<std::pair<std::string, unsigned int>>
       LpoSsTensor<dim>::get_property_information() const
       {
-        std::vector<std::pair<std::string,unsigned int> > property_information;
+        std::vector<std::pair<std::string,unsigned int>> property_information;
 
         property_information.push_back(std::make_pair("lpo_Ss_tensor",Tensor<2,6>::n_independent_components));
 

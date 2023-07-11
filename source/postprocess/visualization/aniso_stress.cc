@@ -43,7 +43,7 @@ namespace aspect
       void
       AnisoStress<dim>::
       evaluate_vector_field(const DataPostprocessorInputs::Vector<dim> &input_data,
-                            std::vector<Vector<double> > &computed_quantities) const
+                            std::vector<Vector<double>> &computed_quantities) const
       {
         const unsigned int n_quadrature_points = input_data.solution_values.size();
         Assert (computed_quantities.size() == n_quadrature_points,    ExcInternalError());
@@ -59,7 +59,7 @@ namespace aspect
 
         this->get_material_model().create_additional_named_outputs(out);
         const MaterialModel::AnisotropicViscosity<dim> *anisotropic_viscosity =
-          out.template get_additional_output<MaterialModel::AnisotropicViscosity<dim> >();
+          out.template get_additional_output<MaterialModel::AnisotropicViscosity<dim>>();
 
         this->get_material_model().evaluate(in, out);
 
@@ -94,7 +94,7 @@ namespace aspect
           }
 
         // average the values if requested
-        const auto &viz = this->get_postprocess_manager().template get_matching_postprocessor<Postprocess::Visualization<dim> >();
+        const auto &viz = this->get_postprocess_manager().template get_matching_postprocessor<Postprocess::Visualization<dim>>();
         if (!viz.output_pointwise_stress_and_strain())
           average_quantities(computed_quantities);
       }
