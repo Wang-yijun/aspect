@@ -69,7 +69,7 @@ namespace aspect
          * This leaves the isotropic constitutive law unchanged if the material
          * model does not explicitly assign a value.
          */
-        std::vector<SymmetricTensor<4,dim> > stress_strain_directors;
+        std::vector<SymmetricTensor<4,dim>> stress_strain_directors;
     };
     template <int dim>
     class AV_3D : public MaterialModel::Simple<dim>

@@ -49,8 +49,8 @@ namespace aspect
 
         static double J2_second_invariant(const SymmetricTensor<2,dim> t, const double min_strain_rate);
 
-        
-        
+
+
 
 
         virtual std::vector<double> get_nth_output(const unsigned int idx) const;
@@ -66,7 +66,7 @@ namespace aspect
          * This leaves the isotropic constitutive law unchanged if the material
          * model does not explicitly assign a value.
          */
-        std::vector<SymmetricTensor<4,dim> > stress_strain_directors;
+        std::vector<SymmetricTensor<4,dim>> stress_strain_directors;
 
         static Tensor <2,3> euler_angles_to_rotation_matrix(double phi1_d, double theta_d, double phi2_d);
 
