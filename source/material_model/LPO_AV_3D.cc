@@ -766,7 +766,7 @@ namespace aspect
               out.viscosities[q] = std::abs(stress_eq/strain_rate_eq);
               // std::cout << "stress_eq " << stress_eq << std::endl;
               // std::cout << "strainrate_eq " << strain_rate_eq << std::endl;
-              // std::cout << "Effective viscosity " << std::abs(stress_eq/strain_rate_new_eq) << std::endl;
+              std::cout << "Effective viscosity " << std::abs(stress_eq/strain_rate_eq) << std::endl;
               
               AssertThrow(out.viscosities[q] != 0,
                           ExcMessage("Viscosity should not be 0"));
