@@ -626,13 +626,22 @@ namespace aspect
           // calculate effective viscosity
           const std::vector<double> &composition = in.composition[q];
           const SymmetricTensor<2,dim> strain_rate = in.strain_rate[q];
-          const SymmetricTensor<2,dim> stress =
-            2 * out.viscosities[q] * anisotropic_viscosity->stress_strain_directors[q] *
-            (this->get_material_model().is_compressible()
+          const SymmetricTensor<2,dim> deviatoric_strain_rate
+            = (this->get_material_model().is_compressible()
               ?
               strain_rate - 1./3. * trace(strain_rate) * unit_symmetric_tensor<dim>()
               :
               strain_rate);
+          SymmetricTensor<2,dim> stress;
+          if (anisotropic_viscosity != nullptr)
+            {
+              std::cout << "Using Aisotropic Stress now!" << std::endl;
+              stress = 2 * out.viscosities[q] * anisotropic_viscosity->stress_strain_directors[q] * deviatoric_strain_rate;
+            }
+          else
+            {
+              stress = 2 * out.viscosities[q] * deviatoric_strain_rate;
+            }
 
 
           // std::cout << "q " << acos(q) << std::endl;
@@ -665,10 +674,9 @@ namespace aspect
               const double eigvalue_c3 = composition[lpo_bingham_avg_c[5]];
 
               //Convert rotation matrix to euler angles phi1, theta, phi2
-              double theta = acos(R_CPO[2][2]);
+              double theta = acos(fmod(R_CPO[2][2],1));
               double phi1 = atan(R_CPO[2][0]/R_CPO[2][1]);
               double phi2 = -atan(R_CPO[0][2]/R_CPO[1][2]);
-              // std::cout << "acos " << acos(R_CPO[2][2]) << std::endl;
 
               //Compute Hill Parameters FGHLMN from first two largest eigenvalues of a,b,c axis
               double F = eigvalue_a1*CnI_F[0] + eigvalue_a2*CnI_F[1] + eigvalue_a3*CnI_F[2] + eigvalue_b1*CnI_F[3] + eigvalue_b2*CnI_F[4] + eigvalue_b3*CnI_F[5] + eigvalue_c1*CnI_F[6] + eigvalue_c2*CnI_F[7] + eigvalue_c3*CnI_F[8] + CnI_F[9];
@@ -683,6 +691,12 @@ namespace aspect
               // std::cout << "phi1 " << phi1 << std::endl;
               // std::cout << "theta " << theta << std::endl;
               // std::cout << "phi2 " << phi2 << std::endl;
+              // std::cout << "R " << R << std::endl;
+              // if (R != R_CPO)
+              //   {
+              //     std::cout << "R is not the same as R_CPO, R_CPO: " << R_CPO << std::endl;
+              //     std::cout << "R: " << R << std::endl;
+              //   }
 
               //Build Rotation matrix
               Tensor<2,6> R_CPO_K;
