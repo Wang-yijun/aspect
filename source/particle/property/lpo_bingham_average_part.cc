@@ -95,7 +95,7 @@ namespace aspect
         //std::cout << "bingham n_minerals = " << n_minerals << ", n_grains = " << n_grains << std::endl;
         //size_t counter = 0;
         const std::vector<Tensor<2,3>> weighted_a_matrices = random_draw_volume_weighting(volume_fractions_grains[0], a_cosine_matrices_grains[0], n_samples);
-        const std::array<std::array<double,5>,3> bingham_average = compute_bingham_average(weighted_a_matrices);
+        const std::array<std::array<double,6>,3> bingham_average = compute_bingham_average(weighted_a_matrices);
 
         for (unsigned int i = 0; i < 3; i++)
           for (unsigned int j = 0; j < 5; j++)
@@ -130,7 +130,7 @@ namespace aspect
 
 
         const std::vector<Tensor<2,3>> weighted_a_matrices = random_draw_volume_weighting(volume_fractions_grains[0], a_cosine_matrices_grains[0], n_samples);
-        const std::array<std::array<double,5>,3> bingham_average = compute_bingham_average(weighted_a_matrices);
+        const std::array<std::array<double,6>,3> bingham_average = compute_bingham_average(weighted_a_matrices);
 
         unsigned int counter = 0;
         for (unsigned int i = 0; i < 3; i++)
@@ -143,7 +143,7 @@ namespace aspect
 
 
       template<int dim>
-      std::array<std::array<double,5>,3>
+      std::array<std::array<double,6>,3>
       LpoBinghamAverage_part<dim>::compute_bingham_average(const std::vector<Tensor<2,3>> &matrices) const
       {
         SymmetricTensor< 2, 3, double > sum_matrix_a;
@@ -189,19 +189,22 @@ namespace aspect
         const Tensor<1,3,double> eigenvector_b = eigenvectors_b[0].second;
         const Tensor<1,3,double> eigenvector_c = eigenvectors_c[0].second;
 
-        const double eigenvalue_a1 = eigenvectors_a[0].first;
-        const double eigenvalue_b1 = eigenvectors_b[0].first;
-        const double eigenvalue_c1 = eigenvectors_c[0].first;
-        const double eigenvalue_a2 = eigenvectors_a[1].first;
-        const double eigenvalue_b2 = eigenvectors_b[1].first;
-        const double eigenvalue_c2 = eigenvectors_c[1].first;
+        const double eigenvalue_a1 = eigenvectors_a[0].first/matrices.size();
+        const double eigenvalue_b1 = eigenvectors_b[0].first/matrices.size();
+        const double eigenvalue_c1 = eigenvectors_c[0].first/matrices.size();
+        const double eigenvalue_a2 = eigenvectors_a[1].first/matrices.size();
+        const double eigenvalue_b2 = eigenvectors_b[1].first/matrices.size();
+        const double eigenvalue_c2 = eigenvectors_c[1].first/matrices.size();
+        const double eigenvalue_a3 = eigenvectors_a[2].first/matrices.size();
+        const double eigenvalue_b3 = eigenvectors_b[2].first/matrices.size();
+        const double eigenvalue_c3 = eigenvectors_c[2].first/matrices.size();
 
         return
         {
           {
-            {{eigenvector_a[0],eigenvector_a[1],eigenvector_a[2],eigenvalue_a1,eigenvalue_a2}},
-            {{eigenvector_b[0],eigenvector_b[1],eigenvector_b[2],eigenvalue_b1,eigenvalue_b2}},
-            {{eigenvector_c[0],eigenvector_c[1],eigenvector_c[2],eigenvalue_c1,eigenvalue_c2}}
+            {{eigenvector_a[0],eigenvector_a[1],eigenvector_a[2],eigenvalue_a1,eigenvalue_a2,eigenvalue_a3}},
+            {{eigenvector_b[0],eigenvector_b[1],eigenvector_b[2],eigenvalue_b1,eigenvalue_b2,eigenvalue_b3}},
+            {{eigenvector_c[0],eigenvector_c[1],eigenvector_c[2],eigenvalue_c1,eigenvalue_c2,eigenvalue_c3}}
           }
         };
       }
@@ -386,8 +389,8 @@ namespace aspect
       ASPECT_REGISTER_PARTICLE_PROPERTY(LpoBinghamAverage_part,
                                         "lpo bingham average part",
                                         "A plugin in which the particle property matrix contains "
-                                        "the largest eigen vectors  "
-                                        "$\\mathbf F$ this particle has experienced. "
+                                        "the largest eigen vectors $\\mathbf F$  "
+                                        "and the three eigen values this particle has experienced. "
                                         "$\\mathbf F$ can be polar-decomposed into the left stretching tensor "
                                         "$\\mathbf L$ (the finite strain we are interested in), and the "
                                         "rotation tensor $\\mathbf Q$. See the corresponding cookbook in "
