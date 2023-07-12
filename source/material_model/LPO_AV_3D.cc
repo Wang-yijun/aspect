@@ -625,14 +625,14 @@ namespace aspect
 
           // calculate effective viscosity
           const std::vector<double> &composition = in.composition[q];
-          const SymmetricTensor<2,dim> &strain_rate = in.strain_rate[q];
+          const SymmetricTensor<2,dim> strain_rate = in.strain_rate[q];
           const SymmetricTensor<2,dim> stress =
-            2 * out.viscosities[q] *
+            2 * out.viscosities[q] * anisotropic_viscosity->stress_strain_directors[q] *
             (this->get_material_model().is_compressible()
-             ?
-             strain_rate - 1./3. * trace(strain_rate) * unit_symmetric_tensor<dim>()
-             :
-             strain_rate);
+              ?
+              strain_rate - 1./3. * trace(strain_rate) * unit_symmetric_tensor<dim>()
+              :
+              strain_rate);
 
 
           // std::cout << "q " << acos(q) << std::endl;
@@ -677,8 +677,8 @@ namespace aspect
               double L = eigvalue_a1*CnI_L[0] + eigvalue_a2*CnI_L[1] + eigvalue_a3*CnI_L[2] + eigvalue_b1*CnI_L[3] + eigvalue_b2*CnI_L[4] + eigvalue_b3*CnI_L[5] + eigvalue_c1*CnI_L[6] + eigvalue_c2*CnI_L[7] + eigvalue_c3*CnI_L[8] + CnI_L[9];
               double M = eigvalue_a1*CnI_M[0] + eigvalue_a2*CnI_M[1] + eigvalue_a3*CnI_M[2] + eigvalue_b1*CnI_M[3] + eigvalue_b2*CnI_M[4] + eigvalue_b3*CnI_M[5] + eigvalue_c1*CnI_M[6] + eigvalue_c2*CnI_M[7] + eigvalue_c3*CnI_M[8] + CnI_M[9];
               double N = eigvalue_a1*CnI_N[0] + eigvalue_a2*CnI_N[1] + eigvalue_a3*CnI_N[2] + eigvalue_b1*CnI_N[3] + eigvalue_b2*CnI_N[4] + eigvalue_b3*CnI_N[5] + eigvalue_c1*CnI_N[6] + eigvalue_c2*CnI_N[7] + eigvalue_c3*CnI_N[8] + CnI_N[9];
-              //Calculate the rotation matrix from the euler angles ??? Why do we get from EA to RM th
-              // Tensor<2,3> R = R_CPO;
+              
+              //Calculate the rotation matrix from the euler angles
               Tensor<2,3> R = AV<dim>::euler_angles_to_rotation_matrix(phi1, theta, phi2);
               // std::cout << "phi1 " << phi1 << std::endl;
               // std::cout << "theta " << theta << std::endl;
@@ -736,6 +736,8 @@ namespace aspect
               // std::cout << "SCPO0 " << S_CPO[0][0] << std::endl;
               // std::cout << "SCP11 " << S_CPO[1][1] << std::endl;
               // std::cout << "SCP22 " << S_CPO[2][2] << std::endl;
+              // std::cout << "Gamma " << Gamma << std::endl;
+              // std::cout << "Jhill " << Jhill << std::endl;
 
               SymmetricTensor<2,6> invA;
               invA[0][0] = (F+H)/(F*H+F*G+G*H);
@@ -748,22 +750,16 @@ namespace aspect
               invA[4][4] = 2/M;
               invA[5][5] = 2/N;
 
-              Tensor<2,6> Viscosity_CPO;
-              Viscosity_CPO = (1 / (Gamma * std::pow(Jhill,(n-1)/2))) * invA;
-              // std::cout << "A1 " << A[0][0] << std::endl;
-              // std::cout << "Gamma " << Gamma << std::endl;
-              // std::cout << "Jhill " << Jhill << std::endl;
-
-              Tensor<2,6> V = R_CPO_K * Viscosity_CPO * transpose(R_CPO_K);
+              Tensor<2,6> V = R_CPO_K * invA * transpose(R_CPO_K);
               // std::cout << "FT1 " << FluidityTensor[0][0] << std::endl;
 
               // Overwrite the scalar viscosity with an effective viscosity
-              double stress_eq = std::sqrt(3.0*AV<dim>::J2_second_invariant(stress, min_strain_rate));
-              double strain_rate_eq = std::sqrt((4./3.)*AV<dim>::J2_second_invariant(strain_rate, min_strain_rate));
-              out.viscosities[q] = std::abs(stress_eq/strain_rate_eq);
+              // double stress_eq = std::sqrt(3.0*AV<dim>::J2_second_invariant(stress, min_strain_rate));
+              // double strain_rate_eq = std::sqrt((4./3.)*AV<dim>::J2_second_invariant(strain_rate, min_strain_rate));
+              out.viscosities[q] = (1 / (Gamma * std::pow(Jhill,(n-1)/2)));
               // std::cout << "stress_eq " << stress_eq << std::endl;
               // std::cout << "strainrate_eq " << strain_rate_eq << std::endl;
-              std::cout << "Effective viscosity " << std::abs(stress_eq/strain_rate_eq) << std::endl;
+              // std::cout << "Effective viscosity " << std::abs(stress_eq/strain_rate_eq) << std::endl;
 
               AssertThrow(out.viscosities[q] != 0,
                           ExcMessage("Viscosity should not be 0"));
@@ -827,7 +823,7 @@ namespace aspect
 
               if (anisotropic_viscosity != nullptr)
                 {
-                  anisotropic_viscosity->stress_strain_directors[q] = ViscoTensor_r4/(2.0*stress_eq/strain_rate_eq);
+                  anisotropic_viscosity->stress_strain_directors[q] = ViscoTensor_r4;
 
                 }
 
