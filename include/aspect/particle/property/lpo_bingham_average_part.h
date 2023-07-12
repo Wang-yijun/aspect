@@ -152,7 +152,7 @@ namespace aspect
           /**
            * todo
            */
-          std::array<std::array<double,5>,3> compute_bingham_average(const std::vector<Tensor<2,3>> &matrices) const;
+          std::array<std::array<double,6>,3> compute_bingham_average(const std::vector<Tensor<2,3>> &matrices) const;
 
           /**
            * todo

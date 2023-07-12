@@ -526,16 +526,21 @@ namespace aspect
       lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvector_a3"));
       lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a1"));
       lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a2"));
+      lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a3"));
+
       lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b1"));
       lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b2"));
       lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b3"));
       lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b1"));
       lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b2"));
+      lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b3"));
+
       lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c1"));
       lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c2"));
       lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c3"));
       lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c1"));
       lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c2"));
+      lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c3"));
 
 
     }
@@ -655,6 +660,9 @@ namespace aspect
               const double eigvalue_a2 = composition[lpo_bingham_avg_a[4]];
               const double eigvalue_b2 = composition[lpo_bingham_avg_b[4]];
               const double eigvalue_c2 = composition[lpo_bingham_avg_c[4]];
+              const double eigvalue_a3 = composition[lpo_bingham_avg_a[5]];
+              const double eigvalue_b3 = composition[lpo_bingham_avg_b[5]];
+              const double eigvalue_c3 = composition[lpo_bingham_avg_c[5]];
 
               //Convert rotation matrix to euler angles phi1, theta, phi2
               double theta = acos(R_CPO[2][2]);
@@ -663,53 +671,12 @@ namespace aspect
               // std::cout << "acos " << acos(R_CPO[2][2]) << std::endl;
 
               //Compute Hill Parameters FGHLMN from first two largest eigenvalues of a,b,c axis
-              double cF1,cF2,cF3,cF4,cF5,cF6,cG1,cG2,cG3,cG4,cG5,cG6;
-              double cH1,cH2,cH3,cH4,cH5,cH6,cL1,cL2,cL3,cL4,cL5,cL6;
-              double cM1,cM2,cM3,cM4,cM5,cM6,cN1,cN2,cN3,cN4,cN5,cN6;
-              cF1 = CnI_F[0];
-              cF2 = CnI_F[1];
-              cF3 = CnI_F[2];
-              cF4 = CnI_F[3];
-              cF5 = CnI_F[4];
-              cF6 = CnI_F[5];
-              cG1 = CnI_G[0];
-              cG2 = CnI_G[1];
-              cG3 = CnI_G[2];
-              cG4 = CnI_G[3];
-              cG5 = CnI_G[4];
-              cG6 = CnI_G[5];
-              cH1 = CnI_H[0];
-              cH2 = CnI_H[1];
-              cH3 = CnI_H[2];
-              cH4 = CnI_H[3];
-              cH5 = CnI_H[4];
-              cH6 = CnI_H[5];
-              cL1 = CnI_L[0];
-              cL2 = CnI_L[1];
-              cL3 = CnI_L[2];
-              cL4 = CnI_L[3];
-              cL5 = CnI_L[4];
-              cL6 = CnI_L[5];
-              cM1 = CnI_M[0];
-              cM2 = CnI_M[1];
-              cM3 = CnI_M[2];
-              cM4 = CnI_M[3];
-              cM5 = CnI_M[4];
-              cM6 = CnI_M[5];
-              cN1 = CnI_N[0];
-              cN2 = CnI_N[1];
-              cN3 = CnI_N[2];
-              cN4 = CnI_N[3];
-              cN5 = CnI_N[4];
-              cN6 = CnI_N[5];
-
-              double F = eigvalue_a1*cF1 + eigvalue_a2*cF2 + eigvalue_b1*cF3 + eigvalue_b2*cF4 + eigvalue_c1*cF5 + eigvalue_c2*cF6 + CnI_F[6];
-              double G = eigvalue_a1*cG1 + eigvalue_a2*cG2 + eigvalue_b1*cG3 + eigvalue_b2*cG4 + eigvalue_c1*cG5 + eigvalue_c2*cG6 + CnI_G[6];
-              double H = eigvalue_a1*cH1 + eigvalue_a2*cH2 + eigvalue_b1*cH3 + eigvalue_b2*cH4 + eigvalue_c1*cH5 + eigvalue_c2*cH6 + CnI_H[6];
-              double L = eigvalue_a1*cL1 + eigvalue_a2*cL2 + eigvalue_b1*cL3 + eigvalue_b2*cL4 + eigvalue_c1*cL5 + eigvalue_c2*cL6 + CnI_L[6];
-              double M = eigvalue_a1*cM1 + eigvalue_a2*cM2 + eigvalue_b1*cM3 + eigvalue_b2*cM4 + eigvalue_c1*cM5 + eigvalue_c2*cM6 + CnI_M[6];
-              double N = eigvalue_a1*cN1 + eigvalue_a2*cN2 + eigvalue_b1*cN3 + eigvalue_b2*cN4 + eigvalue_c1*cN5 + eigvalue_c2*cN6 + CnI_N[6];
-
+              double F = eigvalue_a1*CnI_F[0] + eigvalue_a2*CnI_F[1] + eigvalue_a3*CnI_F[2] + eigvalue_b1*CnI_F[3] + eigvalue_b2*CnI_F[4] + eigvalue_b3*CnI_F[5] + eigvalue_c1*CnI_F[6] + eigvalue_c2*CnI_F[7] + eigvalue_c3*CnI_F[8] + CnI_F[9];
+              double G = eigvalue_a1*CnI_G[0] + eigvalue_a2*CnI_G[1] + eigvalue_a3*CnI_G[2] + eigvalue_b1*CnI_G[3] + eigvalue_b2*CnI_G[4] + eigvalue_b3*CnI_G[5] + eigvalue_c1*CnI_G[6] + eigvalue_c2*CnI_G[7] + eigvalue_c3*CnI_G[8] + CnI_G[9];
+              double H = eigvalue_a1*CnI_H[0] + eigvalue_a2*CnI_H[1] + eigvalue_a3*CnI_H[2] + eigvalue_b1*CnI_H[3] + eigvalue_b2*CnI_H[4] + eigvalue_b3*CnI_H[5] + eigvalue_c1*CnI_H[6] + eigvalue_c2*CnI_H[7] + eigvalue_c3*CnI_H[8] + CnI_H[9];
+              double L = eigvalue_a1*CnI_L[0] + eigvalue_a2*CnI_L[1] + eigvalue_a3*CnI_L[2] + eigvalue_b1*CnI_L[3] + eigvalue_b2*CnI_L[4] + eigvalue_b3*CnI_L[5] + eigvalue_c1*CnI_L[6] + eigvalue_c2*CnI_L[7] + eigvalue_c3*CnI_L[8] + CnI_L[9];
+              double M = eigvalue_a1*CnI_M[0] + eigvalue_a2*CnI_M[1] + eigvalue_a3*CnI_M[2] + eigvalue_b1*CnI_M[3] + eigvalue_b2*CnI_M[4] + eigvalue_b3*CnI_M[5] + eigvalue_c1*CnI_M[6] + eigvalue_c2*CnI_M[7] + eigvalue_c3*CnI_M[8] + CnI_M[9];
+              double N = eigvalue_a1*CnI_N[0] + eigvalue_a2*CnI_N[1] + eigvalue_a3*CnI_N[2] + eigvalue_b1*CnI_N[3] + eigvalue_b2*CnI_N[4] + eigvalue_b3*CnI_N[5] + eigvalue_c1*CnI_N[6] + eigvalue_c2*CnI_N[7] + eigvalue_c3*CnI_N[8] + CnI_N[9];
               //Calculate the rotation matrix from the euler angles ??? Why do we get from EA to RM th
               // Tensor<2,3> R = R_CPO;
               Tensor<2,3> R = AV<dim>::euler_angles_to_rotation_matrix(phi1, theta, phi2);
@@ -927,22 +894,22 @@ namespace aspect
         prm.enter_subsection("AV Hill");
         {
           EquationOfState::LinearizedIncompressible<dim>::declare_parameters (prm);
-          prm.declare_entry ("Coefficients and intercept for F", "-0.4602, -3.5366, -0.4521, -2.3999, 1.9207, 0.4799, 1.9214",
+          prm.declare_entry ("Coefficients and intercept for F", "-0.4602, -3.5366, 0, -0.4521, -2.3999, 0, 1.9207, 0.4799, 0, 1.9214",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter F.");
-          prm.declare_entry ("Coefficients and intercept for G", "-1.7559, -0.0666, -0.0677, -0.8096, 1.0592, 0.6844, 0.7957",
+          prm.declare_entry ("Coefficients and intercept for G", "-1.7559, -0.0666, 0, -0.0677, -0.8096, 0, 1.0592, 0.6844, 0, 0.7957",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter G.");
-          prm.declare_entry ("Coefficients and intercept for H", "-0.4608, -2.9948, 0.5591, -1.9798, 1.1741, 0.8055, 1.4096",
+          prm.declare_entry ("Coefficients and intercept for H", "-0.4608, -2.9948, 0, 0.5591, -1.9798, 0, 1.1741, 0.8055, 0, 1.4096",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter H.");
-          prm.declare_entry ("Coefficients and intercept for L", "-1.2098, -0.1456, -0.1280, 0.5754, -0.6839, -0.2313, 2.0596",
+          prm.declare_entry ("Coefficients and intercept for L", "-1.2098, -0.1456, 0, -0.1280, 0.5754, 0, -0.6839, -0.2313, 0, 2.0596",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter L.");
-          prm.declare_entry ("Coefficients and intercept for M", "0.7074, -1.0832, 1.7936, -0.8183, -1.8465, -0.1618, 1.8901",
+          prm.declare_entry ("Coefficients and intercept for M", "0.7074, -1.0832, 0, 1.7936, -0.8183, 0, -1.8465, -0.1618, 0, 1.8901",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter M.");
-          prm.declare_entry ("Coefficients and intercept for N", "0.9814, 0.1760, -1.9047, 0.0574, 1.5909, 0.0667, 1.1061",
+          prm.declare_entry ("Coefficients and intercept for N", "0.9814, 0.1760, 0, -1.9047, 0.0574, 0, 1.5909, 0.0667, 0, 1.1061",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter N.");
           prm.declare_entry ("Reference viscosity", "1e20",
