@@ -385,7 +385,7 @@ namespace aspect
             stress4=compute_S_tensor(e4, grain_size, volume_fraction_mineral, volume_fractions_grains, a_cosine_matrices_grains, deformation_type, temperature);
             stress5=compute_S_tensor(e5, grain_size, volume_fraction_mineral, volume_fractions_grains, a_cosine_matrices_grains, deformation_type, temperature);
             Stress =compute_S_tensor(E, grain_size, volume_fraction_mineral, volume_fractions_grains, a_cosine_matrices_grains, deformation_type, temperature);
-            std::cout << "Strain rate particle " << E << std::endl;
+            // std::cout << "Strain rate particle " << E << std::endl;
             //std::cout << "Stress tensor particle " << Stress << std::endl;
 
 

@@ -635,12 +635,13 @@ namespace aspect
           SymmetricTensor<2,dim> stress;
           if (anisotropic_viscosity != nullptr)
             {
-              std::cout << "Using Aisotropic Stress now!" << std::endl;
               stress = 2 * out.viscosities[q] * anisotropic_viscosity->stress_strain_directors[q] * deviatoric_strain_rate;
+              std::cout << "Anisotropic stress " << stress << std::endl;
             }
           else
             {
               stress = 2 * out.viscosities[q] * deviatoric_strain_rate;
+              std::cout << "Isotropic stress " << stress << std::endl;
             }
 
 
