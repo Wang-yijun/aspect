@@ -360,7 +360,6 @@ namespace aspect
           outputs.additional_outputs.push_back(
             std::make_unique<MaterialModel::AV<dim>> (n_points));
         }
-
       if (this->get_parameters().enable_additional_stokes_rhs
           && outputs.template get_additional_output<MaterialModel::AdditionalMaterialOutputsStokesRHS<dim>>() == nullptr)
         {
@@ -600,7 +599,6 @@ namespace aspect
                             MaterialModel::MaterialModelOutputs<3> &out) const
     {
       const int dim=3;
-
       MaterialModel::AV<dim> *anisotropic_viscosity;
       anisotropic_viscosity = out.template get_additional_output<MaterialModel::AV<dim>>();
 
@@ -636,12 +634,12 @@ namespace aspect
           if (anisotropic_viscosity != nullptr)
             {
               stress = 2 * out.viscosities[q] * anisotropic_viscosity->stress_strain_directors[q] * deviatoric_strain_rate;
-              std::cout << "Anisotropic stress " << stress << std::endl;
+              // std::cout << "Anisotropic stress using " << anisotropic_viscosity->stress_strain_directors[q] << std::endl;
             }
           else
             {
               stress = 2 * out.viscosities[q] * deviatoric_strain_rate;
-              std::cout << "Isotropic stress " << stress << std::endl;
+              // std::cout << "Isotropic stress " << stress << std::endl;
             }
 
 
@@ -675,9 +673,20 @@ namespace aspect
               const double eigvalue_c3 = composition[lpo_bingham_avg_c[5]];
 
               //Convert rotation matrix to euler angles phi1, theta, phi2
-              double theta = acos(fmod(R_CPO[2][2],1));
-              double phi1 = atan(R_CPO[2][0]/R_CPO[2][1]);
-              double phi2 = -atan(R_CPO[0][2]/R_CPO[1][2]);
+              Tensor<2,3> Rot = transpose(R_CPO);
+              double sy=sqrt(Rot[2][0]*Rot[2][0] + Rot[2][1]*Rot[2][1]);
+              double phi1, theta, phi2;
+              theta = atan2(sy, Rot[2][2]);
+              if (sy < 0)
+                {
+                  phi1 = 0;
+                  phi2 = atan2(-Rot[0][1], Rot[0][0]);
+                }
+              else
+                {
+                  phi1 = atan2(Rot[0][2], -Rot[1][2]);
+                  phi2 = atan2(Rot[2][0], Rot[2][1]);
+                }
 
               //Compute Hill Parameters FGHLMN from first two largest eigenvalues of a,b,c axis
               double F = eigvalue_a1*CnI_F[0] + eigvalue_a2*CnI_F[1] + eigvalue_a3*CnI_F[2] + eigvalue_b1*CnI_F[3] + eigvalue_b2*CnI_F[4] + eigvalue_b3*CnI_F[5] + eigvalue_c1*CnI_F[6] + eigvalue_c2*CnI_F[7] + eigvalue_c3*CnI_F[8] + CnI_F[9];
@@ -693,11 +702,6 @@ namespace aspect
               // std::cout << "theta " << theta << std::endl;
               // std::cout << "phi2 " << phi2 << std::endl;
               // std::cout << "R " << R << std::endl;
-              // if (R != R_CPO)
-              //   {
-              //     std::cout << "R is not the same as R_CPO, R_CPO: " << R_CPO << std::endl;
-              //     std::cout << "R: " << R << std::endl;
-              //   }
 
               //Build Rotation matrix
               Tensor<2,6> R_CPO_K;
@@ -769,12 +773,8 @@ namespace aspect
               // std::cout << "FT1 " << FluidityTensor[0][0] << std::endl;
 
               // Overwrite the scalar viscosity with an effective viscosity
-              // double stress_eq = std::sqrt(3.0*AV<dim>::J2_second_invariant(stress, min_strain_rate));
-              // double strain_rate_eq = std::sqrt((4./3.)*AV<dim>::J2_second_invariant(strain_rate, min_strain_rate));
               out.viscosities[q] = (1 / (Gamma * std::pow(Jhill,(n-1)/2)));
-              // std::cout << "stress_eq " << stress_eq << std::endl;
-              // std::cout << "strainrate_eq " << strain_rate_eq << std::endl;
-              // std::cout << "Effective viscosity " << std::abs(stress_eq/strain_rate_eq) << std::endl;
+              // std::cout << "Effective viscosity " << out.viscosities[q] << std::endl;
 
               AssertThrow(out.viscosities[q] != 0,
                           ExcMessage("Viscosity should not be 0"));
@@ -810,15 +810,15 @@ namespace aspect
               V_r4[0][2][2][2]=V[2][4];
               V_r4[2][2][0][1]=V[2][5];
               V_r4[0][1][2][2]=V[2][5];
-              V_r4[1][2][1][2]=V[3][3]/2.; //Need to change back later
+              V_r4[1][2][1][2]=V[3][3]/2.;
               V_r4[1][2][0][2]=V[3][4];
               V_r4[0][2][1][2]=V[3][4];
               V_r4[1][2][0][1]=V[3][5];
               V_r4[0][1][1][2]=V[3][5];
-              V_r4[0][2][0][1]=V[4][4]/2.;//Need to change back later
+              V_r4[0][2][0][1]=V[4][4]/2.;
               V_r4[0][2][0][1]=V[4][5];
               V_r4[0][1][0][2]=V[4][5];
-              V_r4[0][1][0][1]=V[5][5]/2.;//Need to change back later
+              V_r4[0][1][0][1]=V[5][5]/2.;
 
               for (int i = 0; i < dim; i++)
                 {
@@ -839,9 +839,13 @@ namespace aspect
               if (anisotropic_viscosity != nullptr)
                 {
                   anisotropic_viscosity->stress_strain_directors[q] = ViscoTensor_r4;
-
+                  // std::cout << "Store stress strain director " << ViscoTensor_r4 << std::endl;
                 }
-
+                
+              // Prescribe the stress strain directors to compositional field for access in this function
+              // if (PrescribedFieldOutputs<dim> *prescribed_field_out = out.template get_additional_output<PrescribedFieldOutputs<dim>>())
+              //   for (unsigned int i=0; i < in.n_evaluation_points(); ++i)
+              //     prescribed_field_out->prescribed_field_outputs[i][density_field_index] = out.densities[i];
             }
 
         }
@@ -949,6 +953,14 @@ namespace aspect
           out.additional_outputs.push_back(
             std::make_unique<MaterialModel::AV<dim>> (n_points));
         }
+
+      if (out.template get_additional_output<PrescribedFieldOutputs<dim>>() == NULL)
+        {
+          const unsigned int n_points = out.n_evaluation_points();
+          out.additional_outputs.push_back(
+            std::make_unique<MaterialModel::PrescribedFieldOutputs<dim>> (n_points,this->n_compositional_fields()));
+        }
+      std::cout << "Create additional named outputs " << std::endl;
     }
   }
 }
