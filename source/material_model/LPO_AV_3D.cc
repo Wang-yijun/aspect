@@ -599,9 +599,8 @@ namespace aspect
                             MaterialModel::MaterialModelOutputs<3> &out) const
     {
       const int dim=3;
-      MaterialModel::AV<dim> *anisotropic_viscosity;
-      anisotropic_viscosity = out.template get_additional_output<MaterialModel::AV<dim>>();
-
+      MaterialModel::AV<dim> *anisotropic_viscosity
+        = out.template get_additional_output<MaterialModel::AV<dim>>();
       EquationOfStateOutputs<dim> eos_outputs (1);
       for (unsigned int q=0; q<in.n_evaluation_points(); ++q)
         {
@@ -616,12 +615,19 @@ namespace aspect
           out.entropy_derivative_pressure[q] = 0.0;
           out.entropy_derivative_temperature[q] = 0.0;
 
+          //Get prescribed field nmes
+          std::vector<std::string> ssd_names;
+          for (unsigned int i = 0; i < SymmetricTensor<4,dim>::n_independent_components ; ++i)
+            { 
+              ssd_names.push_back("ssd"+std::to_string(i+1));
+            }
+
           //Create constant value to use for AV
           const double A_o = 1.1e5*exp(-530000/(8.314*in.temperature[q]));
           const double n = 3.5;
           const double Gamma = (A_o/(std::pow(grain_size,0.73)));
 
-          // calculate effective viscosity
+          //Calculate effective viscosity         
           const std::vector<double> &composition = in.composition[q];
           const SymmetricTensor<2,dim> strain_rate = in.strain_rate[q];
           const SymmetricTensor<2,dim> deviatoric_strain_rate
@@ -630,24 +636,32 @@ namespace aspect
               strain_rate - 1./3. * trace(strain_rate) * unit_symmetric_tensor<dim>()
               :
               strain_rate);
-          SymmetricTensor<2,dim> stress;
-          if (anisotropic_viscosity != nullptr)
-            {
-              stress = 2 * out.viscosities[q] * anisotropic_viscosity->stress_strain_directors[q] * deviatoric_strain_rate;
-              // std::cout << "Anisotropic stress using " << anisotropic_viscosity->stress_strain_directors[q] << std::endl;
-            }
-          else
-            {
-              stress = 2 * out.viscosities[q] * deviatoric_strain_rate;
-              // std::cout << "Isotropic stress " << stress << std::endl;
-            }
-
-
-          // std::cout << "q " << acos(q) << std::endl;
           // The computation of the viscosity tensor is only
           // necessary after the simulator has been initialized
           if  ((this->simulator_is_past_initialization()) && (this->get_timestep_number() > 0) && (in.temperature[q]>1000))
             {
+              SymmetricTensor<2,dim> stress;
+              std::cout << "TS > 0 " << std::endl;
+              if (PrescribedFieldOutputs<dim> *prescribed_field_out = out.template get_additional_output<PrescribedFieldOutputs<dim>>())
+                {
+                  SymmetricTensor<4,dim> old_stress_strain_director;
+                  std::vector<double> ssd_array(SymmetricTensor<4,dim>::n_independent_components);
+                  for (unsigned int i = 0; i < SymmetricTensor<4,dim>::n_independent_components ; ++i)
+                    {
+                      const unsigned int ind = this->introspection().compositional_index_for_name(ssd_names[i]);
+                      std::cout << "Getting pf " << ssd_names[i] << std::endl;
+                      ssd_array[i] = composition[ind];
+                    }
+                  std::copy(ssd_array.begin(), ssd_array.end(), old_stress_strain_director.begin_raw());
+                  stress = 2 * out.viscosities[q] * old_stress_strain_director * deviatoric_strain_rate;
+                  // std::cout << "Anisotropic stress using pf " << old_stress_strain_director << std::endl;
+                }
+              else
+                {
+                  stress = 2 * out.viscosities[q] * deviatoric_strain_rate;
+                  // std::cout << "Isotropic stress " << stress << std::endl;
+                }
+
               //Get rotation matrix from eigen vectors in compositional fields
               Tensor<2,3> R_CPO;
               R_CPO[0][0] = composition[lpo_bingham_avg_a[0]];
@@ -698,10 +712,6 @@ namespace aspect
               
               //Calculate the rotation matrix from the euler angles
               Tensor<2,3> R = AV<dim>::euler_angles_to_rotation_matrix(phi1, theta, phi2);
-              // std::cout << "phi1 " << phi1 << std::endl;
-              // std::cout << "theta " << theta << std::endl;
-              // std::cout << "phi2 " << phi2 << std::endl;
-              // std::cout << "R " << R << std::endl;
 
               //Build Rotation matrix
               Tensor<2,6> R_CPO_K;
@@ -749,12 +759,8 @@ namespace aspect
 
               //Calculate the fluidity tensor in the LPO frame
               Tensor<2,3> S_CPO=transpose(R)*stress*R;
-              // std::cout << "eigvb1 " << R[0][1] << std::endl;
-
               double Jhill = F*pow((S_CPO[0][0]-S_CPO[1][1]),2)+G*pow((S_CPO[1][1]-S_CPO[2][2]),2)+H*pow((S_CPO[2][2]-S_CPO[0][0]),2)+2*L*pow(S_CPO[1][2],2)+2*M*pow(S_CPO[0][2],2)+2*N*pow(S_CPO[0][1],2);
               // std::cout << "SCPO0 " << S_CPO[0][0] << std::endl;
-              // std::cout << "SCP11 " << S_CPO[1][1] << std::endl;
-              // std::cout << "SCP22 " << S_CPO[2][2] << std::endl;
               // std::cout << "Gamma " << Gamma << std::endl;
               // std::cout << "Jhill " << Jhill << std::endl;
 
@@ -779,7 +785,7 @@ namespace aspect
               AssertThrow(out.viscosities[q] != 0,
                           ExcMessage("Viscosity should not be 0"));
               AssertThrow(isfinite(out.viscosities[q]),
-                          ExcMessage("Viscosity should not be finite"));
+                          ExcMessage("Viscosity should be finite"));
 
               // Compute Viscosity tensor as inverse of the fluidity tensor
               SymmetricTensor<4,dim> V_r4, ViscoTensor_r4;
@@ -840,14 +846,42 @@ namespace aspect
                 {
                   anisotropic_viscosity->stress_strain_directors[q] = ViscoTensor_r4;
                   // std::cout << "Store stress strain director " << ViscoTensor_r4 << std::endl;
-                }
-                
-              // Prescribe the stress strain directors to compositional field for access in this function
-              // if (PrescribedFieldOutputs<dim> *prescribed_field_out = out.template get_additional_output<PrescribedFieldOutputs<dim>>())
-              //   for (unsigned int i=0; i < in.n_evaluation_points(); ++i)
-              //     prescribed_field_out->prescribed_field_outputs[i][density_field_index] = out.densities[i];
-            }
 
+                  // If stress_strain_directors are updated, prescribe the stress strain 
+                  // directors to compositional field for access in this function
+                  if (PrescribedFieldOutputs<dim> *prescribed_field_out = out.template get_additional_output<PrescribedFieldOutputs<dim>>())
+                    {
+                      std::vector<double> ViscoTensor_array(SymmetricTensor<4,dim>::n_independent_components);
+                      std::copy(ViscoTensor_r4.begin_raw(), ViscoTensor_r4.end_raw(), ViscoTensor_array.begin());
+                      for (unsigned int i = 0; i < SymmetricTensor<4,dim>::n_independent_components ; ++i)
+                        {
+                          const unsigned int ind = this->introspection().compositional_index_for_name(ssd_names[i]);
+                          std::cout << "Storing pf " << ssd_names[i] << std::endl;
+                          prescribed_field_out->prescribed_field_outputs[q][ind] = ViscoTensor_array[i];
+                        }
+                      // std::cout << "Saving VT_r4 for pf " << std::endl;
+                    }
+                }
+            }
+          else
+            {
+              if (anisotropic_viscosity != nullptr)
+                {
+                  anisotropic_viscosity->stress_strain_directors[q] = dealii::identity_tensor<dim> ();
+                  std::cout << "TS = 0 " << std::endl;
+                  PrescribedFieldOutputs<dim> *prescribed_field_out = out.template get_additional_output<PrescribedFieldOutputs<dim>>();
+                  std::vector<double> ViscoTensor_array(SymmetricTensor<4,dim>::n_independent_components);
+                  std::copy(anisotropic_viscosity->stress_strain_directors[q].begin_raw(), anisotropic_viscosity->stress_strain_directors[q].end_raw(), ViscoTensor_array.begin());
+                  std::cout << "Able to copy " << std::endl;
+                  for (unsigned int i = 0; i < SymmetricTensor<4,dim>::n_independent_components ; ++i)
+                    {
+                      const unsigned int ind = this->introspection().compositional_index_for_name(ssd_names[i]);
+                      std::cout << "Storing pf " << ssd_names[i] << std::endl;
+                      prescribed_field_out->prescribed_field_outputs[q][ind] = ViscoTensor_array[i];
+                    }
+                  // std::cout << "Saving VT_r4 for pf " << std::endl;
+                }
+            }
         }
     }
 
@@ -960,7 +994,7 @@ namespace aspect
           out.additional_outputs.push_back(
             std::make_unique<MaterialModel::PrescribedFieldOutputs<dim>> (n_points,this->n_compositional_fields()));
         }
-      std::cout << "Create additional named outputs " << std::endl;
+      // std::cout << "Create additional named outputs " << std::endl;
     }
   }
 }
