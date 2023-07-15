@@ -60,6 +60,8 @@ namespace aspect
         this->get_material_model().create_additional_named_outputs(out);
         const MaterialModel::AV<dim> *anisotropic_viscosity =
           out.template get_additional_output<MaterialModel::AV<dim>>();
+        const MaterialModel::AnisotropicViscosity<dim> *anisotropic_viscosity =
+          out.template get_additional_output<MaterialModel::AnisotropicViscosity<dim>>();
 
         this->get_material_model().evaluate(in, out);
 

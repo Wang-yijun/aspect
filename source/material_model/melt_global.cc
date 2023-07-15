@@ -112,7 +112,6 @@ namespace aspect
         {
           // Prepare the field function
           Functions::FEFieldFunction<dim, LinearAlgebra::BlockVector>
-
           fe_value(this->get_dof_handler(), this->get_old_solution(), this->get_mapping());
 
           const unsigned int porosity_idx = this->introspection().compositional_index_for_name("porosity");
