@@ -300,8 +300,6 @@ namespace aspect
         //Do I need to assign values to it at the initializing phase?
         Tensor<2,6> Ss_tensor; //The Ss tensor is a compilation of the stresses needed for the calculation of the viscosity tensor
 
-        Tensor<2,6> Ss_tensor; //The Ss tensor is a compilation of the stresses needed for the calculation of the viscosity tensor
-
         // There is a bug up to dealii 9.3.0, so we have to work around it.
         for (unsigned int i = 0; i < Tensor<2,6>::n_independent_components ; ++i)
 

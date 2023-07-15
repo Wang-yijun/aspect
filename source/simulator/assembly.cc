@@ -146,29 +146,51 @@ namespace aspect
   Simulator<dim>::
   set_advection_assemblers()
   {
-    assemblers->advection_system.push_back(
-      std::make_unique<aspect::Assemblers::AdvectionSystem<dim>>());
-
-    // add the diffusion assemblers if we have fields that use this method
-    if (std::find(parameters.compositional_field_methods.begin(), parameters.compositional_field_methods.end(),
-                  Parameters<dim>::AdvectionFieldMethod::prescribed_field_with_diffusion) != parameters.compositional_field_methods.end()
-        || parameters.temperature_method == Parameters<dim>::AdvectionFieldMethod::prescribed_field_with_diffusion)
-      assemblers->advection_system.push_back(
-        std::make_unique<aspect::Assemblers::DiffusionSystem<dim>>());
-
-    // add the darcy assemblers if we have fields that use this method
-    if (std::find(parameters.compositional_field_methods.begin(), parameters.compositional_field_methods.end(),
-                  Parameters<dim>::AdvectionFieldMethod::fem_darcy_field) != parameters.compositional_field_methods.end())
-      assemblers->advection_system.push_back(
-        std::make_unique<aspect::Assemblers::DarcySystem<dim>>());
-
-    if (parameters.use_discontinuous_temperature_discretization ||
-        parameters.use_discontinuous_composition_discretization)
+    // Loop over all advection fields and add the assemblers that each field uses. i=0 is the temperature.
+    for (unsigned int i=0; i<1+introspection.n_compositional_fields; ++i)
       {
-        const bool no_field_method = std::find(parameters.compositional_field_methods.begin(),
-                                               parameters.compositional_field_methods.end(),
-                                               Parameters<dim>::AdvectionFieldMethod::fem_field)
-                                     == parameters.compositional_field_methods.end();
+        if ((i==0 && parameters.temperature_method == Parameters<dim>::AdvectionFieldMethod::fem_field)
+            ||
+            (i>0 && parameters.compositional_field_methods[i-1] == Parameters<dim>::AdvectionFieldMethod::fem_field))
+          assemblers->advection_system[i].push_back(
+            std::make_unique<aspect::Assemblers::AdvectionSystem<dim>>());
+
+        // Only add the diffusion assembler if advection field i uses the prescribed_field_with_diffusion method.
+        if ((i==0 && parameters.temperature_method == Parameters<dim>::AdvectionFieldMethod::prescribed_field_with_diffusion)
+            ||
+            (i>0 && parameters.compositional_field_methods[i-1] == Parameters<dim>::AdvectionFieldMethod::prescribed_field_with_diffusion))
+          assemblers->advection_system[i].push_back(
+            std::make_unique<aspect::Assemblers::DiffusionSystem<dim>>());
+
+        // Add the darcy assemblers if we have fields that use this method
+        if (i>0 && parameters.compositional_field_methods[i-1] == Parameters<dim>::AdvectionFieldMethod::fem_darcy_field)
+          assemblers->advection_system[i].push_back(
+            std::make_unique<aspect::Assemblers::DarcySystem<dim>>());
+
+        if ((i==0 && parameters.use_discontinuous_temperature_discretization
+             && parameters.temperature_method == Parameters<dim>::AdvectionFieldMethod::fem_field)
+            ||
+            (i>0 && parameters.use_discontinuous_composition_discretization
+             && parameters.compositional_field_methods[i-1] == Parameters<dim>::AdvectionFieldMethod::fem_field))
+          {
+            assemblers->advection_system_on_boundary_face[i].push_back(
+              std::make_unique<aspect::Assemblers::AdvectionSystemBoundaryFace<dim>>());
+
+            assemblers->advection_system_on_interior_face[i].push_back(
+              std::make_unique<aspect::Assemblers::AdvectionSystemInteriorFace<dim>>());
+          }
+
+        if (parameters.use_discontinuous_temperature_discretization ||
+            parameters.use_discontinuous_composition_discretization)
+          {
+            const bool dc_temperature = parameters.use_discontinuous_temperature_discretization
+                                        && parameters.temperature_method == Parameters<dim>::AdvectionFieldMethod::fem_field;
+            const bool dc_composition = parameters.use_discontinuous_composition_discretization
+                                        && std::find(parameters.compositional_field_methods.begin(),
+                                                     parameters.compositional_field_methods.end(),
+                                                     Parameters<dim>::AdvectionFieldMethod::fem_field)
+                                        != parameters.compositional_field_methods.end();
+            const bool no_field_method = !(dc_temperature || dc_composition);
 
             // TODO: This currently does not work in parallel, because the sparsity
             // pattern of the matrix does not seem to know about flux terms
@@ -182,18 +204,13 @@ namespace aspect
                                    "adaptive mesh refinement in parallel models is currently not supported. "
                                    "Please switch off any of those options or run on a single process."));
 
-        assemblers->advection_system_on_boundary_face.push_back(
-          std::make_unique<aspect::Assemblers::AdvectionSystemBoundaryFace<dim>>());
+          }
 
-        assemblers->advection_system_on_interior_face.push_back(
-          std::make_unique<aspect::Assemblers::AdvectionSystemInteriorFace<dim>>());
-      }
-
-    if (parameters.fixed_heat_flux_boundary_indicators.size() != 0)
-      {
-        assemblers->advection_system_on_boundary_face.push_back(
-          std::make_unique<aspect::Assemblers::AdvectionSystemBoundaryHeatFlux<dim>>());
-      }
+        if (i==0 && parameters.fixed_heat_flux_boundary_indicators.size() != 0)
+          {
+            assemblers->advection_system_on_boundary_face[i].push_back(
+              std::make_unique<aspect::Assemblers::AdvectionSystemBoundaryHeatFlux<dim>>());
+          }
 
         if (parameters.use_discontinuous_temperature_discretization
             || parameters.fixed_heat_flux_boundary_indicators.size() != 0)
@@ -295,12 +312,11 @@ namespace aspect
     scratch.material_model_inputs.reinit  (scratch.finite_element_values,
                                            cell,
                                            this->introspection,
-                                           current_linearization_point,
-                                           true);
+                                           current_linearization_point);
 
     for (unsigned int i=0; i<assemblers->stokes_preconditioner.size(); ++i)
       assemblers->stokes_preconditioner[i]->create_additional_material_model_outputs(scratch.material_model_outputs);
-    
+
     material_model->evaluate(scratch.material_model_inputs,
                              scratch.material_model_outputs);
     MaterialModel::MaterialAveraging::average (parameters.material_averaging,
@@ -538,8 +554,7 @@ namespace aspect
     scratch.material_model_inputs.reinit  (scratch.finite_element_values,
                                            cell,
                                            this->introspection,
-                                           current_linearization_point,
-                                           need_viscosity);
+                                           current_linearization_point);
     scratch.material_model_inputs.requested_properties
       =
         MaterialModel::MaterialProperties::equation_of_state_properties |
@@ -600,11 +615,16 @@ namespace aspect
                   scratch.face_material_model_inputs.reinit  (scratch.face_finite_element_values,
                                                               cell,
                                                               this->introspection,
-                                                              current_linearization_point,
-                                                              need_viscosity);
+                                                              current_linearization_point);
 
                   for (unsigned int i=0; i<assemblers->stokes_system_on_boundary_face.size(); ++i)
                     assemblers->stokes_system_on_boundary_face[i]->create_additional_material_model_outputs(scratch.face_material_model_outputs);
+
+                  scratch.face_material_model_inputs.requested_properties
+                    = (MaterialModel::MaterialProperties::equation_of_state_properties |
+                       MaterialModel::MaterialProperties::additional_outputs |
+                       (need_viscosity ? MaterialModel::MaterialProperties::viscosity : MaterialModel::MaterialProperties::uninitialized));
+
 
                   material_model->evaluate(scratch.face_material_model_inputs,
                                            scratch.face_material_model_outputs);
@@ -886,8 +906,7 @@ namespace aspect
     scratch.material_model_inputs.reinit  (scratch.finite_element_values,
                                            cell,
                                            this->introspection,
-                                           current_linearization_point,
-                                           true);
+                                           current_linearization_point);
 
     for (unsigned int i=0; i<1+introspection.n_compositional_fields; ++i)
       for (unsigned int j=0; j<assemblers->advection_system[i].size(); ++j)
@@ -1001,8 +1020,7 @@ namespace aspect
                 scratch.face_material_model_inputs.reinit  (*scratch.face_finite_element_values,
                                                             cell,
                                                             this->introspection,
-                                                            current_linearization_point,
-                                                            true);
+                                                            current_linearization_point);
 
                 for (unsigned int i=0; i<assemblers->advection_system_on_boundary_face[advection_field.field_index()].size(); ++i)
                   assemblers->advection_system_on_boundary_face[advection_field.field_index()][i]->create_additional_material_model_outputs(scratch.face_material_model_outputs);
