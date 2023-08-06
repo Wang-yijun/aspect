@@ -558,27 +558,23 @@ namespace aspect
 
     template<int dim>
     Tensor<2,3>
-    AV<dim>::euler_angles_to_rotation_matrix(double phi1_d, double theta_d, double phi2_d)
+    AV<dim>::euler_angles_to_rotation_matrix(double phi1, double theta, double phi2)
     {
-      constexpr double const_pi = 3.141592653589793238462643383279502884;
-      const double degree_to_rad = const_pi/180.0;
-      const double phi1 = phi1_d * degree_to_rad;
-      const double theta = theta_d * degree_to_rad;
-      const double phi2 = phi2_d * degree_to_rad;
       Tensor<2,3> rot_matrix;
 
       //R3*R2*R1 ZXZ rotation. Note it is not exactly the same as in utilities.cc
       rot_matrix[0][0] = cos(phi2)*cos(phi1) - cos(theta)*sin(phi1)*sin(phi2);
-      rot_matrix[0][1] = -cos(phi2)*sin(phi1) - cos(theta)*cos(phi1)*sin(phi2);
+      rot_matrix[0][1] = cos(phi2)*sin(phi1) + cos(theta)*cos(phi1)*sin(phi2);
       rot_matrix[0][2] = sin(phi2)*sin(theta);
 
-      rot_matrix[1][0] = sin(phi2)*cos(phi1) + cos(theta)*sin(phi1)*cos(phi2);
+      rot_matrix[1][0] = -sin(phi2)*cos(phi1) - cos(theta)*sin(phi1)*cos(phi2);
       rot_matrix[1][1] = -sin(phi2)*sin(phi1) + cos(theta)*cos(phi1)*cos(phi2);
-      rot_matrix[1][2] = -cos(phi2)*sin(theta);
+      rot_matrix[1][2] = cos(phi2)*sin(theta);
 
       rot_matrix[2][0] = sin(theta)*sin(phi1);
-      rot_matrix[2][1] = sin(theta)*cos(phi1);
+      rot_matrix[2][1] = -sin(theta)*cos(phi1);
       rot_matrix[2][2] = cos(theta);
+      AssertThrow(rot_matrix[2][2] <= 1.0, ExcMessage("rot_matrix[2][2] > 1.0"));
       return rot_matrix;
     }
 
@@ -653,12 +649,16 @@ namespace aspect
                     }
                   std::copy(ssd_array.begin(), ssd_array.end(), old_stress_strain_director.begin_raw());
                   stress = 2 * out.viscosities[q] * old_stress_strain_director * deviatoric_strain_rate;
-                  // std::cout << "Anisotropic stress using pf " << old_stress_strain_director << std::endl;
+                  // std::cout << "old out.vis " << out.viscosities[q] <<std::endl;
+                  // std::cout << "strain rate " << deviatoric_strain_rate <<std::endl;                  
+                  // std::cout << "Anisotropic stress using pf " << std::endl;
                 }
               else
                 {
                   stress = 2 * out.viscosities[q] * deviatoric_strain_rate;
-                  // std::cout << "Isotropic stress " << stress << std::endl;
+                  // std::cout << "old out.vis " << out.viscosities[q] <<std::endl;
+                  // std::cout << "strain rate " << deviatoric_strain_rate <<std::endl;                  
+                  // std::cout << "Isotropic stress " << std::endl;
                 }
 
               //Get rotation matrix from eigen vectors in compositional fields
@@ -672,6 +672,13 @@ namespace aspect
               R_CPO[0][2] = composition[lpo_bingham_avg_c[0]];
               R_CPO[1][2] = composition[lpo_bingham_avg_c[1]];
               R_CPO[2][2] = composition[lpo_bingham_avg_c[2]];
+              // if (R_CPO[0][0]==0 && R_CPO[0][1]==0 && R_CPO[0][2]==0 && R_CPO[1][0]==0 && R_CPO[1][1]==0 && R_CPO[1][2]==0 && R_CPO[2][0]==0 && R_CPO[2][1]==0 && R_CPO[2][2]==0)
+              //   {
+              //     R_CPO[0][0] = 1;
+              //     R_CPO[1][1] = 1;
+              //     R_CPO[2][2] = 1;
+              //   }
+              std::cout << "R_CPO " << R_CPO <<std::endl;
 
               //Get eigen values from compositional fields
               const double eigvalue_a1 = composition[lpo_bingham_avg_a[3]];
@@ -699,6 +706,9 @@ namespace aspect
                   phi1 = atan2(Rot[0][2], -Rot[1][2]);
                   phi2 = atan2(Rot[2][0], Rot[2][1]);
                 }
+              std::cout << "phi1 " << phi1 <<std::endl;
+              std::cout << "theta " << theta <<std::endl;
+              std::cout << "phi2 " << phi2 <<std::endl;
 
               //Compute Hill Parameters FGHLMN from the eigenvalues of a,b,c axis
               double F = eigvalue_a1*CnI_F[0] + eigvalue_a2*CnI_F[1] + eigvalue_a3*CnI_F[2] + eigvalue_b1*CnI_F[3] + eigvalue_b2*CnI_F[4] + eigvalue_b3*CnI_F[5] + eigvalue_c1*CnI_F[6] + eigvalue_c2*CnI_F[7] + eigvalue_c3*CnI_F[8] + CnI_F[9];
@@ -709,7 +719,8 @@ namespace aspect
               double N = eigvalue_a1*CnI_N[0] + eigvalue_a2*CnI_N[1] + eigvalue_a3*CnI_N[2] + eigvalue_b1*CnI_N[3] + eigvalue_b2*CnI_N[4] + eigvalue_b3*CnI_N[5] + eigvalue_c1*CnI_N[6] + eigvalue_c2*CnI_N[7] + eigvalue_c3*CnI_N[8] + CnI_N[9];
               
               //Calculate the rotation matrix from the euler angles
-              Tensor<2,3> R = AV<dim>::euler_angles_to_rotation_matrix(phi1, theta, phi2);
+              Tensor<2,3> R = transpose(AV<dim>::euler_angles_to_rotation_matrix(phi1, theta, phi2));
+              std::cout << "R " << R <<std::endl;
 
               //Compute Rotation matrix
               Tensor<2,6> R_CPO_K;
@@ -756,7 +767,18 @@ namespace aspect
               R_CPO_K[5][5] = R[0][0]*R[1][1]+R[0][1]*R[1][0];
 
               Tensor<2,3> S_CPO=transpose(R)*stress*R;
-              double Jhill = F*pow((S_CPO[0][0]-S_CPO[1][1]),2)+G*pow((S_CPO[1][1]-S_CPO[2][2]),2)+H*pow((S_CPO[2][2]-S_CPO[0][0]),2)+2*L*pow(S_CPO[1][2],2)+2*M*pow(S_CPO[0][2],2)+2*N*pow(S_CPO[0][1],2);
+              // std::cout << "S_CPO " << S_CPO <<std::endl;
+              double Jhill = F*pow((S_CPO[0][0]-S_CPO[1][1]),2) + G*pow((S_CPO[1][1]-S_CPO[2][2]),2) + H*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);
+              // std::cout << "Jhill part1 " << F*pow((S_CPO[0][0]-S_CPO[1][1]),2) <<std::endl;
+              // std::cout << "Jhill part2 " << G*pow((S_CPO[1][1]-S_CPO[2][2]),2) <<std::endl;
+              // std::cout << "Jhill part3 " << H*pow((S_CPO[2][2]-S_CPO[0][0]),2) <<std::endl;
+              // std::cout << "Jhill part4 " << 2*L*pow(S_CPO[1][2],2) <<std::endl;
+              // std::cout << "Jhill part5 " << 2*M*pow(S_CPO[0][2],2) <<std::endl;
+              // std::cout << "Jhill part6 " << 2*N*pow(S_CPO[0][1],2) <<std::endl;
+              // std::cout << "Jhill " << Jhill <<std::endl;
+
+              AssertThrow(Jhill >= 0,
+                          ExcMessage("Jhill should not be negative"));
 
               SymmetricTensor<2,6> invA;
               invA[0][0] = (F+H)/(F*H+F*G+G*H);
@@ -781,7 +803,7 @@ namespace aspect
                           ExcMessage("Viscosity should be finite"));
 
               //Convert rank 2 viscosity tensor to rank 4
-              SymmetricTensor<4,dim> V_r4, ViscoTensor_r4;
+              SymmetricTensor<4,dim> V_r4;
               V_r4[0][0][0][0]=V[0][0];
               V_r4[0][0][1][1]=V[0][1];
               V_r4[1][1][0][0]=V[0][1];
@@ -819,28 +841,9 @@ namespace aspect
               V_r4[0][1][0][2]=V[4][5];
               V_r4[0][1][0][1]=V[5][5]/2.;
 
-              for (int i = 0; i < dim; i++)
-                {
-                  for (int j = 0; j < dim; j++)
-                    {
-
-                      for (int k = 0; k<dim; k++)
-                        {
-                          for (int l = 0; l<dim; l++)
-                            {
-                              //std::cout<<"V"<<i+1<<j+1<<k+1<<l+1<<"is: "<<V[i][j][k][l]<<std::endl;
-                              ViscoTensor_r4[i][j][k][l]= V_r4[i][j][k][l];///std::pow(AV<dim>::J2_second_invariant(Stress, min_strain_rate),(1.25));
-                            }
-                        }
-                    }
-                }
-
-              if (ViscoTensor_r4 != V_r4)
-                std::cout << "VT_r4 is not V_r4 " << std::endl;
-
               if (anisotropic_viscosity != nullptr)
                 {
-                  anisotropic_viscosity->stress_strain_directors[q] = ViscoTensor_r4;
+                  anisotropic_viscosity->stress_strain_directors[q] = V_r4;
                   // std::cout << "Store stress strain director " << ViscoTensor_r4 << std::endl;
                 }
             }

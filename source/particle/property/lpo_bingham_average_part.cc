@@ -188,6 +188,12 @@ namespace aspect
         const Tensor<1,3,double> eigenvector_a = eigenvectors_a[0].second;
         const Tensor<1,3,double> eigenvector_b = eigenvectors_b[0].second;
         const Tensor<1,3,double> eigenvector_c = eigenvectors_c[0].second;
+        // std::cout << "eigenvectors_a[0].first " << eigenvectors_a[0].first <<std::endl;
+        // std::cout << "eigenvectors_a[0].second " << eigenvectors_a[0].second <<std::endl;
+        // std::cout << "eigenvectors_a[1].first " << eigenvectors_a[1].first <<std::endl;
+        // std::cout << "eigenvectors_a[1].second " << eigenvectors_a[1].second <<std::endl;
+        // std::cout << "eigenvectors_a[2].first " << eigenvectors_a[2].first <<std::endl;
+        // std::cout << "eigenvectors_a[2].second " << eigenvectors_a[2].second <<std::endl;
 
         const double eigenvalue_a1 = eigenvectors_a[0].first/matrices.size();
         const double eigenvalue_b1 = eigenvectors_b[0].first/matrices.size();
