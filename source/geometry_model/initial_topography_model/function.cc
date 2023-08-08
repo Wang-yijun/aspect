@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2020 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2021 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -47,7 +47,7 @@ namespace aspect
     value (const Point<dim-1> &surface_point) const
     {
       Point<dim> global_point;
-      if (Plugins::plugin_type_matches<GeometryModel::Box<dim> >(this->get_geometry_model()) ||
+      if (Plugins::plugin_type_matches<GeometryModel::Box<dim>>(this->get_geometry_model()) ||
           Plugins::plugin_type_matches<const GeometryModel::TwoMergedBoxes<dim>> (this->get_geometry_model()))
         {
           // No need to set the vertical coordinate correctly,
@@ -55,9 +55,9 @@ namespace aspect
           for (unsigned int d=0; d<dim-1; d++)
             global_point[d] = surface_point[d];
         }
-      else if (Plugins::plugin_type_matches<GeometryModel::Sphere<dim> >(this->get_geometry_model()) ||
-               Plugins::plugin_type_matches<GeometryModel::SphericalShell<dim> >(this->get_geometry_model()) ||
-               Plugins::plugin_type_matches<GeometryModel::Chunk<dim> >(this->get_geometry_model()) )
+      else if (Plugins::plugin_type_matches<GeometryModel::Sphere<dim>>(this->get_geometry_model()) ||
+               Plugins::plugin_type_matches<GeometryModel::SphericalShell<dim>>(this->get_geometry_model()) ||
+               Plugins::plugin_type_matches<GeometryModel::Chunk<dim>>(this->get_geometry_model()) )
         {
           // No need to set the radial coordinate correctly,
           // because it will be thrown away in get_data_component anyway
@@ -105,7 +105,7 @@ namespace aspect
                                "A selection that determines the assumed coordinate "
                                "system for the function variables. Allowed values "
                                "are `cartesian' and `spherical'. `spherical' coordinates "
-                               "are interpreted as r,phi or r,phi,theta in 2D/3D "
+                               "are interpreted as r,phi or r,phi,theta in 2d/3d "
                                "respectively with theta being the polar angle. ");
 
             Functions::ParsedFunction<dim>::declare_parameters (prm, 1);

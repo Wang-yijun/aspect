@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2019 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -75,8 +75,7 @@ namespace aspect
          * Destructor. Does nothing but is virtual so that derived classes
          * destructors are also virtual.
          */
-        virtual
-        ~Interface ();
+        virtual ~Interface () = default;
 
         /**
          * Initialize function.
@@ -154,7 +153,8 @@ namespace aspect
          * we can ensure using the current function). To do so, a postprocessor
          * of course needs to be able to access these other postprocessors.
          * This can be done by deriving your postprocessor from
-         * SimulatorAccess, and then using the SimulatorAccess::find_postprocessor()
+         * SimulatorAccess, and then using the
+         * SimulatorAccess::get_postprocess_manager::get_matching_postprocessor
          * function.
          */
         virtual
@@ -226,23 +226,8 @@ namespace aspect
          * The function returns a concatenation of the text returned by the
          * individual postprocessors.
          */
-        std::list<std::pair<std::string,std::string> >
+        std::list<std::pair<std::string,std::string>>
         execute (TableHandler &statistics);
-
-        /**
-         * Go through the list of all postprocessors that have been selected
-         * in the input file (and are consequently currently active) and see
-         * if one of them has the desired type specified by the template
-         * argument. If so, return a pointer to it. If no postprocessor is
-         * active that matches the given type, return a nullptr.
-         *
-         * @deprecated Use has_matching_postprocessor() and
-         * get_matching_postprocessor() instead.
-         */
-        template <typename PostprocessorType>
-        DEAL_II_DEPRECATED
-        PostprocessorType *
-        find_postprocessor () const;
 
         /**
          * Go through the list of all postprocessors that have been selected
@@ -323,7 +308,7 @@ namespace aspect
         register_postprocessor (const std::string &name,
                                 const std::string &description,
                                 void (*declare_parameters_function) (ParameterHandler &),
-                                Interface<dim> *(*factory_function) ());
+                                std::unique_ptr<Interface<dim>> (*factory_function) ());
 
         /**
          * For the current plugin subsystem, write a connection graph of all of the
@@ -351,7 +336,7 @@ namespace aspect
          * A list of postprocessor objects that have been requested in the
          * parameter file.
          */
-        std::vector<std::unique_ptr<Interface<dim> > > postprocessors;
+        std::vector<std::unique_ptr<Interface<dim>>> postprocessors;
     };
 
 
@@ -393,20 +378,6 @@ namespace aspect
     template <int dim>
     template <typename PostprocessorType>
     inline
-    PostprocessorType *
-    Manager<dim>::find_postprocessor () const
-    {
-      for (auto &p : postprocessors)
-        if (PostprocessorType *x = dynamic_cast<PostprocessorType *> ( p.get()) )
-          return x;
-      return nullptr;
-    }
-
-
-
-    template <int dim>
-    template <typename PostprocessorType>
-    inline
     bool
     Manager<dim>::has_matching_postprocessor () const
     {
@@ -431,7 +402,7 @@ namespace aspect
                              "that could not be found in the current model. Activate this "
                              "postprocessor in the input file."));
 
-      typename std::vector<std::unique_ptr<Interface<dim> > >::const_iterator postprocessor;
+      typename std::vector<std::unique_ptr<Interface<dim>>>::const_iterator postprocessor;
       for (const auto &p : postprocessors)
         if (Plugins::plugin_type_matches<PostprocessorType>(*p))
           return Plugins::get_plugin_as_type<PostprocessorType>(*p);
@@ -453,10 +424,10 @@ namespace aspect
   template class classname<3>; \
   namespace ASPECT_REGISTER_POSTPROCESSOR_ ## classname \
   { \
-    aspect::internal::Plugins::RegisterHelper<aspect::Postprocess::Interface<2>,classname<2> > \
+    aspect::internal::Plugins::RegisterHelper<aspect::Postprocess::Interface<2>,classname<2>> \
     dummy_ ## classname ## _2d (&aspect::Postprocess::Manager<2>::register_postprocessor, \
                                 name, description); \
-    aspect::internal::Plugins::RegisterHelper<aspect::Postprocess::Interface<3>,classname<3> > \
+    aspect::internal::Plugins::RegisterHelper<aspect::Postprocess::Interface<3>,classname<3>> \
     dummy_ ## classname ## _3d (&aspect::Postprocess::Manager<3>::register_postprocessor, \
                                 name, description); \
   }

@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2021 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -96,7 +96,7 @@ namespace aspect
             }
           else
             {
-              EquationOfStateOutputs<dim> eos_outputs_all_phases (this->n_compositional_fields()+1+phase_function.n_phase_transitions());
+              EquationOfStateOutputs<dim> eos_outputs_all_phases (phase_function.n_phases());
               equation_of_state.evaluate(in, 0, eos_outputs_all_phases);
               reference_density = eos_outputs_all_phases.densities[0];
             }
@@ -137,7 +137,7 @@ namespace aspect
       const ComponentMask volumetric_compositions = rheology->get_volumetric_composition_mask();
 
       EquationOfStateOutputs<dim> eos_outputs (this->n_compositional_fields()+1);
-      EquationOfStateOutputs<dim> eos_outputs_all_phases (this->n_compositional_fields()+1+phase_function.n_phase_transitions());
+      EquationOfStateOutputs<dim> eos_outputs_all_phases (phase_function.n_phases());
 
       std::vector<double> average_elastic_shear_moduli (in.n_evaluation_points());
 
@@ -219,13 +219,14 @@ namespace aspect
 
           // Compute the effective viscosity if requested and retrieve whether the material is plastically yielding
           bool plastic_yielding = false;
+          IsostrainViscosities isostrain_viscosities;
           if (in.requests_property(MaterialProperties::viscosity))
             {
               // Currently, the viscosities for each of the compositional fields are calculated assuming
               // isostrain amongst all compositions, allowing calculation of the viscosity ratio.
               // TODO: This is only consistent with viscosity averaging if the arithmetic averaging
               // scheme is chosen. It would be useful to have a function to calculate isostress viscosities.
-              const IsostrainViscosities isostrain_viscosities =
+              isostrain_viscosities =
                 rheology->calculate_isostrain_viscosities(in, i, volume_fractions, phase_function_values, phase_function.n_phase_transitions_for_each_composition());
 
               // The isostrain condition implies that the viscosity averaging should be arithmetic (see above).
@@ -238,12 +239,12 @@ namespace aspect
               // This avoids for example division by zero for harmonic averaging (as plastic_yielding
               // holds values that are either 0 or 1), but might not be consistent with the viscosity
               // averaging chosen.
-              std::vector<double>::const_iterator max_composition = std::max_element(volume_fractions.begin(),volume_fractions.end());
-              plastic_yielding = isostrain_viscosities.composition_yielding[std::distance(volume_fractions.begin(),max_composition)];
+              std::vector<double>::const_iterator max_composition = std::max_element(volume_fractions.begin(), volume_fractions.end());
+              plastic_yielding = isostrain_viscosities.composition_yielding[std::distance(volume_fractions.begin(), max_composition)];
 
               // Compute viscosity derivatives if they are requested
               if (MaterialModel::MaterialModelDerivatives<dim> *derivatives =
-                    out.template get_additional_output<MaterialModel::MaterialModelDerivatives<dim> >())
+                    out.template get_additional_output<MaterialModel::MaterialModelDerivatives<dim>>())
                 rheology->compute_viscosity_derivatives(i, volume_fractions, isostrain_viscosities.composition_viscosities, in, out, phase_function_values, phase_function.n_phase_transitions_for_each_composition());
             }
 
@@ -255,7 +256,12 @@ namespace aspect
           rheology->strain_rheology.fill_reaction_outputs(in, i, rheology->min_strain_rate, plastic_yielding, out);
 
           // Fill plastic outputs if they exist.
-          rheology->fill_plastic_outputs(i,volume_fractions,plastic_yielding,in,out);
+          // The values in isostrain_viscosities only make sense when the calculate_isostrain_viscosities function
+          // has been called. TODO check here for in.requests_property(MaterialProperties::viscosity) or
+          // in fill_plastic_outputs as is done now?
+          // TODO do we even need a separate function? We could compute the PlasticAdditionalOutputs here like
+          // the ElasticAdditionalOutputs.
+          rheology->fill_plastic_outputs(i, volume_fractions, plastic_yielding, in, out, isostrain_viscosities);
 
           if (rheology->use_elasticity)
             {
@@ -265,7 +271,7 @@ namespace aspect
                                                                                  rheology->viscosity_averaging);
 
               // Fill the material properties that are part of the elastic additional outputs
-              if (ElasticAdditionalOutputs<dim> *elastic_out = out.template get_additional_output<ElasticAdditionalOutputs<dim> >())
+              if (ElasticAdditionalOutputs<dim> *elastic_out = out.template get_additional_output<ElasticAdditionalOutputs<dim>>())
                 {
                   elastic_out->elastic_shear_moduli[i] = average_elastic_shear_moduli[i];
                 }
@@ -280,16 +286,6 @@ namespace aspect
           rheology->elastic_rheology.fill_elastic_force_outputs(in, average_elastic_shear_moduli, out);
           rheology->elastic_rheology.fill_reaction_outputs(in, average_elastic_shear_moduli, out);
         }
-    }
-
-
-
-    template <int dim>
-    double
-    ViscoPlastic<dim>::
-    reference_viscosity () const
-    {
-      return rheology->ref_visc;
     }
 
 
@@ -357,9 +353,6 @@ namespace aspect
     void
     ViscoPlastic<dim>::parse_parameters (ParameterHandler &prm)
     {
-      // increment by one for background:
-      const unsigned int n_fields = this->n_compositional_fields() + 1;
-
       prm.enter_subsection("Material model");
       {
         prm.enter_subsection ("Visco Plastic");
@@ -368,34 +361,33 @@ namespace aspect
           phase_function.initialize_simulator (this->get_simulator());
           phase_function.parse_parameters (prm);
 
-          std::vector<unsigned int> n_phase_transitions_for_each_composition
-          (phase_function.n_phase_transitions_for_each_composition());
-
-          // We require one more entry for density, etc as there are phase transitions
-          // (for the low-pressure phase before any transition).
-          for (unsigned int &n : n_phase_transitions_for_each_composition)
-            n += 1;
-
           // Equation of state parameters
           equation_of_state.initialize_simulator (this->get_simulator());
           equation_of_state.parse_parameters (prm,
-                                              std::make_shared<std::vector<unsigned int>>(n_phase_transitions_for_each_composition));
+                                              std::make_unique<std::vector<unsigned int>>(phase_function.n_phases_for_each_composition()));
 
 
-          thermal_diffusivities = Utilities::possibly_extend_from_1_to_N (Utilities::string_to_double(Utilities::split_string_list(prm.get("Thermal diffusivities"))),
-                                                                          n_fields,
-                                                                          "Thermal diffusivities");
+          // Retrieve the list of composition names
+          const std::vector<std::string> list_of_composition_names = this->introspection().get_composition_names();
+
+          // Establish that a background field is required here
+          const bool has_background_field = true;
+
+          thermal_diffusivities = Utilities::parse_map_to_double_array (prm.get("Thermal diffusivities"),
+                                                                        list_of_composition_names,
+                                                                        has_background_field,
+                                                                        "Thermal diffusivities");
 
           define_conductivities = prm.get_bool ("Define thermal conductivities");
 
-          thermal_conductivities = Utilities::possibly_extend_from_1_to_N (Utilities::string_to_double(Utilities::split_string_list(prm.get("Thermal conductivities"))),
-                                                                           n_fields,
-                                                                           "Thermal conductivities");
+          thermal_conductivities = Utilities::parse_map_to_double_array (prm.get("Thermal conductivities"),
+                                                                         list_of_composition_names,
+                                                                         has_background_field,
+                                                                         "Thermal conductivities");
 
-          rheology = std_cxx14::make_unique<Rheology::ViscoPlastic<dim>>();
+          rheology = std::make_unique<Rheology::ViscoPlastic<dim>>();
           rheology->initialize_simulator (this->get_simulator());
-          rheology->parse_parameters(prm, std::make_shared<std::vector<unsigned int>>(n_phase_transitions_for_each_composition));
-
+          rheology->parse_parameters(prm, std::make_unique<std::vector<unsigned int>>(phase_function.n_phases_for_each_composition()));
         }
         prm.leave_subsection();
       }
@@ -472,13 +464,13 @@ namespace aspect
                                    "Viscosity is limited through one of two different `yielding' mechanisms. "
                                    "\n\n"
                                    "The first plasticity mechanism limits viscous stress through a "
-                                   "Drucker Prager yield criterion, where the yield stress in 3D is  "
+                                   "Drucker Prager yield criterion, where the yield stress in 3d is  "
                                    "$\\sigma_y = \\frac{6C\\cos(\\phi) + 2P\\sin(\\phi)} "
                                    "{\\sqrt{3}(3+\\sin(\\phi))}$ "
                                    "and "
                                    "$\\sigma_y = C\\cos(\\phi) + P\\sin(\\phi)$ "
-                                   "in 2D. Above, $C$ is cohesion and $\\phi$  is the angle of "
-                                   "internal friction.  Note that the 2D form is equivalent to the "
+                                   "in 2d. Above, $C$ is cohesion and $\\phi$  is the angle of "
+                                   "internal friction.  Note that the 2d form is equivalent to the "
                                    "Mohr Coulomb yield surface.  If $\\phi$ is 0, the yield stress "
                                    "is fixed and equal to the cohesion (Von Mises yield criterion). "
                                    "When the viscous stress ($2v{\\varepsilon}_{ii}$) exceeds "
@@ -500,13 +492,13 @@ namespace aspect
                                    "full strain tensor $F$, the finite strain magnitude is derived from the "
                                    "second invariant of the symmetric stretching tensor $L$, where "
                                    "$L = F [F]^T$. The user must specify a single compositional "
-                                   "field for the finite strain invariant or multiple fields (4 in 2D, 9 in 3D) "
+                                   "field for the finite strain invariant or multiple fields (4 in 2d, 9 in 3d) "
                                    "for the finite strain tensor. These field(s) must be the first listed "
                                    "compositional fields in the parameter file. Note that one or more of the finite strain "
                                    "tensor components must be assigned a non-zero value initially. This value can be "
                                    "be quite small (e.g., 1.e-8), but still non-zero. While the option to track and use "
                                    "the full finite strain tensor exists, tracking the associated compositional fields "
-                                   "is computationally expensive in 3D. Similarly, the finite strain magnitudes "
+                                   "is computationally expensive in 3d. Similarly, the finite strain magnitudes "
                                    "may in fact decrease if the orientation of the deformation field switches "
                                    "through time. Consequently, the ideal solution is track the finite strain "
                                    "invariant (single compositional) field within the material and track "
@@ -541,13 +533,13 @@ namespace aspect
                                    "model is incompressible and allows specifying an arbitrary number "
                                    "of compositional fields, where each field represents a different "
                                    "rock type or component of the viscoelastic stress tensor. The stress "
-                                   "tensor in 2D and 3D, respectively, contains 3 or 6 components. The "
+                                   "tensor in 2d and 3d, respectively, contains 3 or 6 components. The "
                                    "compositional fields representing these components must be named "
                                    "and listed in a very specific format, which is designed to minimize "
                                    "mislabeling stress tensor components as distinct 'compositional "
-                                   "rock types' (or vice versa). For 2D models, the first three "
+                                   "rock types' (or vice versa). For 2d models, the first three "
                                    "compositional fields must be labeled 'stress\\_xx', 'stress\\_yy' and 'stress\\_xy'. "
-                                   "In 3D, the first six compositional fields must be labeled 'stress\\_xx', "
+                                   "In 3d, the first six compositional fields must be labeled 'stress\\_xx', "
                                    "'stress\\_yy', 'stress\\_zz', 'stress\\_xy', 'stress\\_xz', 'stress\\_yz'. "
                                    "\n\n "
                                    "Combining this viscoelasticity implementation with non-linear viscous flow "

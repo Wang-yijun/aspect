@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2020 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -37,38 +37,25 @@ namespace aspect
   namespace BoundaryComposition
   {
     template <int dim>
-    Interface<dim>::~Interface ()
-    {}
-
-    template <int dim>
     void
     Interface<dim>::update ()
     {}
+
+
 
     template <int dim>
     void
     Interface<dim>::initialize ()
     {}
 
-    template <int dim>
-    double
-    Interface<dim>::boundary_composition (const types::boundary_id /*boundary_indicator*/,
-                                          const Point<dim>        &/*position*/,
-                                          const unsigned int       /*compositional_field*/) const
-    {
-      AssertThrow(false,
-                  ExcMessage("The boundary composition plugin has to implement a function called `composition' "
-                             "with four arguments or a function `boundary_composition' with three arguments. "
-                             "The function with four arguments is deprecated and will "
-                             "be removed in a later version of ASPECT."));
-      return numbers::signaling_nan<double>();
-    }
+
 
     template <int dim>
     void
     Interface<dim>::
     declare_parameters (dealii::ParameterHandler &)
     {}
+
 
 
     template <int dim>
@@ -85,7 +72,7 @@ namespace aspect
 
     template <int dim>
     Manager<dim>::~Manager()
-    {}
+      = default;
 
 
 
@@ -106,8 +93,8 @@ namespace aspect
       std::tuple
       <void *,
       void *,
-      aspect::internal::Plugins::PluginList<Interface<2> >,
-      aspect::internal::Plugins::PluginList<Interface<3> > > registered_plugins;
+      aspect::internal::Plugins::PluginList<Interface<2>>,
+      aspect::internal::Plugins::PluginList<Interface<3>>> registered_plugins;
     }
 
 
@@ -116,7 +103,7 @@ namespace aspect
     Manager<dim>::register_boundary_composition (const std::string &name,
                                                  const std::string &description,
                                                  void (*declare_parameters_function) (ParameterHandler &),
-                                                 Interface<dim> *(*factory_function) ())
+                                                 std::unique_ptr<Interface<dim>> (*factory_function) ())
     {
       std::get<dim>(registered_plugins).register_plugin (name,
                                                          description,
@@ -201,7 +188,7 @@ namespace aspect
       for (auto &model_name : model_names)
         {
           // create boundary composition objects
-          boundary_composition_objects.push_back (std::unique_ptr<Interface<dim> >
+          boundary_composition_objects.push_back (std::unique_ptr<Interface<dim>>
                                                   (std::get<dim>(registered_plugins)
                                                    .create_plugin (model_name,
                                                                    "Boundary composition::Model names")));
@@ -244,7 +231,7 @@ namespace aspect
 
 
     template <int dim>
-    const std::vector<std::unique_ptr<Interface<dim> > > &
+    const std::vector<std::unique_ptr<Interface<dim>>> &
     Manager<dim>::get_active_boundary_composition_conditions () const
     {
       return boundary_composition_objects;
@@ -359,7 +346,9 @@ namespace aspect
                            "the one one obtains from the finite element method, it is possible "
                            "to also prescribe values on outflow boundaries, even though this may "
                            "make no physical sense. This would then correspond to the ``true'' "
-                           "setting of this parameter."
+                           "setting of this parameter. Note however that this parameter is only "
+                           "taken into account for the continuous field method and is not "
+                           "applied to the Discontinuous Galerkin (DG) field method. "
                            "\n\n"
                            "A warning for models with melt transport: In models with fluid flow, "
                            "some compositional fields (in particular the porosity) might be "
@@ -397,11 +386,11 @@ namespace aspect
     namespace Plugins
     {
       template <>
-      std::list<internal::Plugins::PluginList<BoundaryComposition::Interface<2> >::PluginInfo> *
-      internal::Plugins::PluginList<BoundaryComposition::Interface<2> >::plugins = nullptr;
+      std::list<internal::Plugins::PluginList<BoundaryComposition::Interface<2>>::PluginInfo> *
+      internal::Plugins::PluginList<BoundaryComposition::Interface<2>>::plugins = nullptr;
       template <>
-      std::list<internal::Plugins::PluginList<BoundaryComposition::Interface<3> >::PluginInfo> *
-      internal::Plugins::PluginList<BoundaryComposition::Interface<3> >::plugins = nullptr;
+      std::list<internal::Plugins::PluginList<BoundaryComposition::Interface<3>>::PluginInfo> *
+      internal::Plugins::PluginList<BoundaryComposition::Interface<3>>::plugins = nullptr;
     }
   }
 

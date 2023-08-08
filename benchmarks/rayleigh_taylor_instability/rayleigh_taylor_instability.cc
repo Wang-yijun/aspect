@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2021 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -53,8 +53,8 @@ namespace aspect
          * @name Physical parameters used in the basic equations
          * @{
          */
-        virtual void evaluate(const MaterialModel::MaterialModelInputs<dim> &in,
-                              MaterialModel::MaterialModelOutputs<dim> &out) const
+        void evaluate(const MaterialModel::MaterialModelInputs<dim> &in,
+                      MaterialModel::MaterialModelOutputs<dim> &out) const override
         {
           for (unsigned int i=0; i < in.n_evaluation_points(); ++i)
             {
@@ -94,7 +94,7 @@ namespace aspect
          * (compressible Stokes) or as $\nabla \cdot \mathbf{u}=0$
          * (incompressible Stokes).
          */
-        virtual bool is_compressible () const;
+        bool is_compressible () const override;
         /**
          * @}
          */
@@ -136,9 +136,8 @@ namespace aspect
         /**
          * Read the parameters this class declares from the parameter file.
          */
-        virtual
         void
-        parse_parameters (ParameterHandler &prm)
+        parse_parameters (ParameterHandler &prm) override
         {
           prm.enter_subsection("Material model");
           {
@@ -163,15 +162,6 @@ namespace aspect
           this->model_dependence.thermal_conductivity = MaterialModel::NonlinearDependence::none;
         }
 
-        /**
-         * @name Reference quantities
-         * @{
-         */
-        virtual double reference_viscosity () const;
-        /**
-         * @}
-         */
-
       private:
         double eta1;
         double eta2;
@@ -181,15 +171,6 @@ namespace aspect
         double lambda;
 
     };
-
-
-    template <int dim>
-    double
-    RTinstabilityMaterial<dim>::
-    reference_viscosity () const
-    {
-      return 1.e21;
-    }
 
 
     template <int dim>

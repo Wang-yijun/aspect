@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2015 - 2020 by the authors of the ASPECT code.
+  Copyright (C) 2015 - 2022 by the authors of the ASPECT code.
 
  This file is part of ASPECT.
 
@@ -31,14 +31,14 @@ namespace aspect
     {
       template <int dim>
       void
-      UniformRadial<dim>::generate_particles(std::multimap<Particles::internal::LevelInd, Particle<dim> > &particles)
+      UniformRadial<dim>::generate_particles(Particles::ParticleHandler<dim> &particle_handler)
       {
         // Create the array of shell to deal with
         const double radial_spacing = (P_max[0] - P_min[0]) / fmax(radial_layers-1,1);
 
         // Calculate number of particles per shell.
         // The number of particles depend on the fraction of the area
-        // (or length in 2D) that this shell occupies compared to the total domain
+        // (or length in 2d) that this shell occupies compared to the total domain
         std::vector<unsigned int> particles_per_layer(radial_layers);
         if (dim == 2)
           {
@@ -80,16 +80,8 @@ namespace aspect
                   {
                     spherical_coordinates[1] = P_min[1] + j * phi_spacing;
                     const Point<dim> particle_position = Utilities::Coordinates::spherical_to_cartesian_coordinates<dim>(spherical_coordinates) + P_center;
-
-                    // Try to add the particle. If it is not in this domain, do not
-                    // worry about it and move on to next point.
-                    try
-                      {
-                        particles.insert(this->generate_particle(particle_position,particle_index));
-                      }
-                    catch (ExcParticlePointNotInDomain &)
-                      {}
-                    particle_index++;
+                    this->insert_particle_at_position(particle_position, particle_index, particle_handler);
+                    ++particle_index;
                   }
               }
             else if (dim == 3)
@@ -114,22 +106,14 @@ namespace aspect
                       {
                         spherical_coordinates[1] = P_min[1] + k * phi_spacing;
                         const Point<dim> particle_position = Utilities::Coordinates::spherical_to_cartesian_coordinates<dim>(spherical_coordinates) + P_center;
-
-                        // Try to add the particle. If it is not in this domain, do not
-                        // worry about it and move on to next point.
-                        try
-                          {
-                            particles.insert(this->generate_particle(particle_position,particle_index));
-                          }
-                        catch (ExcParticlePointNotInDomain &)
-                          {}
-                        particle_index++;
+                        this->insert_particle_at_position(particle_position, particle_index, particle_handler);
+                        ++particle_index;
                       }
                   }
               }
-            else
-              ExcNotImplemented();
           }
+
+        particle_handler.update_cached_numbers();
       }
 
 
@@ -224,8 +208,8 @@ namespace aspect
 
                 P_min[0] = prm.get_double ("Minimum radius");
                 P_max[0] = prm.get_double ("Maximum radius");
-                P_min[1] = prm.get_double ("Minimum longitude") * numbers::PI / 180.0;
-                P_max[1] = prm.get_double ("Maximum longitude") * numbers::PI / 180.0;
+                P_min[1] = prm.get_double ("Minimum longitude") * constants::degree_to_radians;
+                P_max[1] = prm.get_double ("Maximum longitude") * constants::degree_to_radians;
 
                 AssertThrow(P_max[1] > P_min[1],
                             ExcMessage("The maximum longitude you prescribed in the uniform radial"
@@ -239,8 +223,8 @@ namespace aspect
                   {
                     P_center[2] = prm.get_double ("Center z");
 
-                    P_min[2]    = prm.get_double ("Minimum latitude") * numbers::PI / 180.0;
-                    P_max[2]    = prm.get_double ("Maximum latitude") * numbers::PI / 180.0;
+                    P_min[2]    = prm.get_double ("Minimum latitude") * constants::degree_to_radians;
+                    P_max[2]    = prm.get_double ("Maximum latitude") * constants::degree_to_radians;
 
                     AssertThrow(P_max[2] > P_min[2],
                                 ExcMessage("The maximum latitude you prescribed in the uniform radial"
@@ -272,7 +256,7 @@ namespace aspect
       ASPECT_REGISTER_PARTICLE_GENERATOR(UniformRadial,
                                          "uniform radial",
                                          "Generate a uniform distribution of particles "
-                                         "over a spherical domain in 2D or 3D. Uniform here means "
+                                         "over a spherical domain in 2d or 3d. Uniform here means "
                                          "the particles will be generated with an equal spacing in "
                                          "each spherical spatial dimension, i.e., the particles are "
                                          "created at positions that increase linearly with equal "

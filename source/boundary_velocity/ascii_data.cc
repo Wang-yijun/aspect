@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2019 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -31,7 +31,7 @@ namespace aspect
   {
     template <int dim>
     AsciiData<dim>::AsciiData ()
-    {}
+      = default;
 
 
     template <int dim>
@@ -96,7 +96,7 @@ namespace aspect
                              Patterns::Bool (),
                              "Specify velocity as r, phi, and theta components "
                              "instead of x, y, and z. Positive velocities point up, east, "
-                             "and north (in 3D) or out and clockwise (in 2D). "
+                             "and north (in 3d) or out and clockwise (in 2d). "
                              "This setting only makes sense for spherical geometries."
                             );
         }

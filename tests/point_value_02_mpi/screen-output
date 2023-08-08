@@ -16,7 +16,7 @@ Number of degrees of freedom: 4,645 (2,178+289+1,089+1,089)
    Skipping temperature solve because RHS is zero.
    Solving C_1 system ... 19 iterations.
    Rebuilding Stokes preconditioner...
-   Solving Stokes system... 45+0 iterations.
+   Solving Stokes system... 46+0 iterations.
 
    Postprocessing:
      Writing graphical output: output-point_value_02_mpi/solution/solution-00001
@@ -421,14 +421,13 @@ Number of degrees of freedom: 349 (162+25+81+81)
      Writing graphical output: output-point_value_02_mpi/solution/solution-00040
      Writing point values:     output-point_value_02_mpi/point_values.txt
 
-Number of active cells: 16 (on 3 levels)
-Number of degrees of freedom: 349 (162+25+81+81)
+Skipping mesh refinement, because the mesh did not change.
 
 *** Timestep 41:  t=0.000235535 years, dt=8.85454e-06 years
    Skipping temperature solve because RHS is zero.
    Solving C_1 system ... 12 iterations.
    Rebuilding Stokes preconditioner...
-   Solving Stokes system... 26+0 iterations.
+   Solving Stokes system... 25+0 iterations.
 
    Postprocessing:
      Writing graphical output: output-point_value_02_mpi/solution/solution-00041
@@ -504,7 +503,7 @@ Number of degrees of freedom: 349 (162+25+81+81)
      Writing graphical output: output-point_value_02_mpi/solution/solution-00048
      Writing point values:     output-point_value_02_mpi/point_values.txt
 
-*** Timestep 49:  t=0.000532865 years, dt=9.04613e-05 years
+*** Timestep 49:  t=0.000532865 years, dt=9.04612e-05 years
    Skipping temperature solve because RHS is zero.
    Solving C_1 system ... 96 iterations.
    Rebuilding Stokes preconditioner...
@@ -514,7 +513,7 @@ Number of degrees of freedom: 349 (162+25+81+81)
      Writing graphical output: output-point_value_02_mpi/solution/solution-00049
      Writing point values:     output-point_value_02_mpi/point_values.txt
 
-*** Timestep 50:  t=0.000541622 years, dt=8.75663e-06 years
+*** Timestep 50:  t=0.000541622 years, dt=8.75662e-06 years
    Skipping temperature solve because RHS is zero.
    Solving C_1 system ... 19 iterations.
    Rebuilding Stokes preconditioner...
@@ -524,8 +523,7 @@ Number of degrees of freedom: 349 (162+25+81+81)
      Writing graphical output: output-point_value_02_mpi/solution/solution-00050
      Writing point values:     output-point_value_02_mpi/point_values.txt
 
-Number of active cells: 16 (on 3 levels)
-Number of degrees of freedom: 349 (162+25+81+81)
+Skipping mesh refinement, because the mesh did not change.
 
 *** Timestep 51:  t=0.000554775 years, dt=1.31536e-05 years
    Skipping temperature solve because RHS is zero.
@@ -547,7 +545,7 @@ Number of degrees of freedom: 349 (162+25+81+81)
      Writing graphical output: output-point_value_02_mpi/solution/solution-00052
      Writing point values:     output-point_value_02_mpi/point_values.txt
 
-*** Timestep 53:  t=0.000604134 years, dt=3.04313e-05 years
+*** Timestep 53:  t=0.000604133 years, dt=3.04313e-05 years
    Skipping temperature solve because RHS is zero.
    Solving C_1 system ... 11 iterations.
    Rebuilding Stokes preconditioner...
@@ -567,7 +565,7 @@ Number of degrees of freedom: 349 (162+25+81+81)
      Writing graphical output: output-point_value_02_mpi/solution/solution-00054
      Writing point values:     output-point_value_02_mpi/point_values.txt
 
-*** Timestep 55:  t=0.000732038 years, dt=7.7077e-05 years
+*** Timestep 55:  t=0.000732038 years, dt=7.70772e-05 years
    Skipping temperature solve because RHS is zero.
    Solving C_1 system ... 11 iterations.
    Rebuilding Stokes preconditioner...

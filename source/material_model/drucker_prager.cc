@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2015 - 2020 by the authors of the ASPECT code.
+  Copyright (C) 2015 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -37,7 +37,7 @@ namespace aspect
     {
       // set up additional output for the derivatives
       MaterialModel::MaterialModelDerivatives<dim> *derivatives;
-      derivatives = out.template get_additional_output<MaterialModel::MaterialModelDerivatives<dim> >();
+      derivatives = out.template get_additional_output<MaterialModel::MaterialModelDerivatives<dim>>();
 
       EquationOfStateOutputs<dim> eos_outputs (1);
 
@@ -50,6 +50,9 @@ namespace aspect
           // calculate effective viscosity
           if (in.requests_property(MaterialProperties::viscosity))
             {
+              Assert(std::isfinite(in.strain_rate[i].norm()),
+                     ExcMessage("Invalid strain_rate in the MaterialModelInputs. This is likely because it was "
+                                "not filled by the caller."));
               const SymmetricTensor<2,dim> strain_rate_deviator = deviator(in.strain_rate[i]);
 
               // For the very first time this function is called
@@ -165,16 +168,6 @@ namespace aspect
 
 
     template <int dim>
-    double
-    DruckerPrager<dim>::
-    reference_viscosity () const
-    {
-      return reference_eta;
-    }
-
-
-
-    template <int dim>
     bool
     DruckerPrager<dim>::
     is_compressible () const
@@ -198,28 +191,6 @@ namespace aspect
                              Patterns::Double (0.),
                              "The reference temperature $T_0$. The reference temperature is used "
                              "in the density calculation. Units: \\si{\\kelvin}.");
-          prm.declare_entry ("Reference viscosity", "1e22",
-                             Patterns::Double (0.),
-                             "The reference viscosity that is used for pressure scaling. "
-                             "To understand how pressure scaling works, take a look at "
-                             "\\cite{KHB12}. In particular, the value of this parameter "
-                             "would not affect the solution computed by \\aspect{} if "
-                             "we could do arithmetic exactly; however, computers do "
-                             "arithmetic in finite precision, and consequently we need to "
-                             "scale quantities in ways so that their magnitudes are "
-                             "roughly the same. As explained in \\cite{KHB12}, we scale "
-                             "the pressure during some computations (never visible by "
-                             "users) by a factor that involves a reference viscosity. This "
-                             "parameter describes this reference viscosity."
-                             "\n\n"
-                             "For problems with a constant viscosity, you will generally want "
-                             "to choose the reference viscosity equal to the actual viscosity. "
-                             "For problems with a variable viscosity, the reference viscosity "
-                             "should be a value that adequately represents the order of "
-                             "magnitude of the viscosities that appear, such as an average "
-                             "value or the value one would use to compute a Rayleigh number."
-                             "\n\n"
-                             "Units: \\si{\\pascal\\second}.");
           prm.declare_entry ("Thermal conductivity", "4.7",
                              Patterns::Double (0.),
                              "The value of the thermal conductivity $k$. "
@@ -240,7 +211,7 @@ namespace aspect
             prm.declare_entry ("Angle of internal friction", "0.",
                                Patterns::Double (0.),
                                "The value of the angle of internal friction $\\phi$. "
-                               "For a value of zero, in 2D the von Mises "
+                               "For a value of zero, in 2d the von Mises "
                                "criterion is retrieved. Angles higher than 30 degrees are "
                                "harder to solve numerically. Units: degrees.");
             prm.declare_entry ("Cohesion", "2e7",
@@ -267,7 +238,6 @@ namespace aspect
           equation_of_state.parse_parameters (prm);
 
           reference_T                = prm.get_double ("Reference temperature");
-          reference_eta              = prm.get_double ("Reference viscosity");
           thermal_conductivities     = prm.get_double ("Thermal conductivity");
           prm.enter_subsection ("Viscosity");
           {
@@ -275,7 +245,7 @@ namespace aspect
             maximum_viscosity          = prm.get_double ("Maximum viscosity");
             reference_strain_rate      = prm.get_double ("Reference strain rate");
             // Convert degrees to radians
-            angle_of_internal_friction = prm.get_double ("Angle of internal friction") * numbers::PI/180.0;
+            angle_of_internal_friction = prm.get_double ("Angle of internal friction") * constants::degree_to_radians;
             cohesion                   = prm.get_double ("Cohesion");
           }
           prm.leave_subsection();
@@ -316,18 +286,18 @@ namespace aspect
                                    "\n\n"
                                    "The viscosity is computed according to the Drucker Prager frictional "
                                    "plasticity criterion (non-associative) based on a user-defined "
-                                   "internal friction angle $\\phi$ and cohesion $C$. In 3D: "
-                                   " $\\sigma_y = \\frac{6 C \\cos(\\phi)}{\\sqrt(3) (3+\\sin(\\phi))} + "
-                                   "\\frac{2 P \\sin(\\phi)}{\\sqrt(3) (3+\\sin(\\phi))}$, "
+                                   "internal friction angle $\\phi$ and cohesion $C$. In 3d: "
+                                   " $\\sigma_y = \\frac{6 C \\cos(\\phi)}{\\sqrt{3} (3+\\sin(\\phi))} + "
+                                   "\\frac{6 P \\sin(\\phi)}{\\sqrt{3} (3+\\sin(\\phi))}$, "
                                    "where $P$ is the pressure. "
                                    "See for example Zienkiewicz, O. C., Humpheson, C. and Lewis, R. W. (1975), "
                                    "G\\'{e}otechnique 25, No. 4, 671-689. "
                                    "With this formulation we circumscribe instead of inscribe the Mohr Coulomb "
                                    "yield surface. "
-                                   "In 2D the Drucker Prager yield surface is the same "
+                                   "In 2d the Drucker Prager yield surface is the same "
                                    "as the Mohr Coulomb surface: "
                                    " $\\sigma_y = P \\sin(\\phi) + C \\cos(\\phi)$. "
-                                   "Note that in 2D for $\\phi=0$, these criteria "
+                                   "Note that in 2d for $\\phi=0$, these criteria "
                                    "revert to the von Mises criterion (no pressure dependence). "
                                    "See for example Thieulot, C. (2011), PEPI 188, 47-68. "
                                    "\n\n"

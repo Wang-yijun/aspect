@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2021 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -25,8 +25,6 @@
 #include <aspect/simulator_access.h>
 #include <aspect/initial_composition/interface.h>
 #include <aspect/material_model/interface.h>
-#include <fstream>
-#include <iostream>
 #include <array>
 
 #include <boost/lexical_cast.hpp>
@@ -162,11 +160,11 @@ namespace aspect
     SAVANIPerturbation<dim>::initialize()
     {
       spherical_harmonics_lookup
-        = std_cxx14::make_unique<internal::SAVANI::SphericalHarmonicsLookup>(data_directory+harmonics_coeffs_file_name,
-                                                                             this->get_mpi_communicator());
-      spline_depths_lookup
-        = std_cxx14::make_unique<internal::SAVANI::SplineDepthsLookup>(data_directory+spline_depth_file_name,
+        = std::make_unique<internal::SAVANI::SphericalHarmonicsLookup>(data_directory+harmonics_coeffs_file_name,
                                                                        this->get_mpi_communicator());
+      spline_depths_lookup
+        = std::make_unique<internal::SAVANI::SplineDepthsLookup>(data_directory+spline_depth_file_name,
+                                                                 this->get_mpi_communicator());
 
       if (vs_to_density_method == file)
         {
@@ -235,8 +233,8 @@ namespace aspect
 
       // Evaluate the spherical harmonics at this position. Since they are the
       // same for all depth splines, do it once to avoid multiple evaluations.
-      std::vector<std::vector<double> > cosine_components(max_degree+1, std::vector<double>(max_degree+1, 0.0));
-      std::vector<std::vector<double> > sine_components(max_degree+1, std::vector<double>(max_degree+1, 0.0));
+      std::vector<std::vector<double>> cosine_components(max_degree+1, std::vector<double>(max_degree+1, 0.0));
+      std::vector<std::vector<double>> sine_components(max_degree+1, std::vector<double>(max_degree+1, 0.0));
 
       for (unsigned int degree_l = 0; degree_l < max_degree+1; ++degree_l)
         {
@@ -337,7 +335,7 @@ namespace aspect
               in.velocity[0] = Tensor<1,3> ();
               for (unsigned int c=0; c<this->n_compositional_fields(); ++c)
                 in.composition[0][c] = this->get_initial_composition_manager().initial_composition(position, c);
-              in.strain_rate.resize(0);
+              in.requested_properties = MaterialModel::MaterialProperties::thermal_expansion_coefficient;
 
               this->get_material_model().evaluate(in, out);
 

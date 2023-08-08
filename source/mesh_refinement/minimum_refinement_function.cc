@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2020 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -54,29 +54,15 @@ namespace aspect
         {
           if (cell->is_locally_owned())
             {
-              bool refine = false;
-              bool clear_coarsen = false;
+              const Point<dim> center = cell->center();
+              const Utilities::NaturalCoordinate<dim> point =
+                this->get_geometry_model().cartesian_to_other_coordinates(center, coordinate_system);
 
-              for ( unsigned int v = 0; v < GeometryInfo<dim>::vertices_per_cell;  ++v)
-                {
-                  const Point<dim> vertex = cell->vertex(v);
-                  Utilities::NaturalCoordinate<dim> point =
-                    this->get_geometry_model().cartesian_to_other_coordinates(vertex, coordinate_system);
+              const double minimum_refinement_level = min_refinement_level.value(Utilities::convert_array_to_point<dim>(point.get_coordinates()));
 
-                  const double minimum_refinement_level = min_refinement_level.value(Utilities::convert_array_to_point<dim>(point.get_coordinates()));
-
-                  if (cell->level() <= rint(minimum_refinement_level))
-                    clear_coarsen = true;
-                  if (cell->level() <  rint(minimum_refinement_level))
-                    {
-                      refine = true;
-                      break;
-                    }
-                }
-
-              if (clear_coarsen)
+              if (cell->level() <= static_cast<int>(std::round(minimum_refinement_level)))
                 cell->clear_coarsen_flag ();
-              if (refine)
+              if (cell->level() < static_cast<int>(std::round(minimum_refinement_level)))
                 cell->set_refine_flag ();
             }
         }
@@ -107,7 +93,7 @@ namespace aspect
                              "will create a function, in which only the first "
                              "variable is non-zero, which is interpreted to "
                              "be the depth of the point. `spherical' coordinates "
-                             "are interpreted as r,phi or r,phi,theta in 2D/3D "
+                             "are interpreted as r,phi or r,phi,theta in 2d/3d "
                              "respectively with theta being the polar angle.");
           /**
            * Let the function that describes the minimal level of refinement

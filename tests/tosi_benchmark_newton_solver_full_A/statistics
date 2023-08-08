@@ -1,0 +1,38 @@
+# 1: Time step number
+# 2: Time (seconds)
+# 3: Time step size (seconds)
+# 4: Number of mesh cells
+# 5: Number of Stokes degrees of freedom
+# 6: Number of temperature degrees of freedom
+# 7: Number of nonlinear iterations
+# 8: Iterations for temperature solver
+# 9: Iterations for Stokes solver
+# 10: Velocity iterations in Stokes preconditioner
+# 11: Schur complement iterations in Stokes preconditioner
+# 12: RMS velocity (m/s)
+# 13: Max. velocity (m/s)
+# 14: Minimal temperature (K)
+# 15: Average temperature (K)
+# 16: Maximal temperature (K)
+# 17: Average nondimensional temperature (K)
+# 18: Outward heat flux through boundary with indicator 0 ("left") (W)
+# 19: Outward heat flux through boundary with indicator 1 ("right") (W)
+# 20: Outward heat flux through boundary with indicator 2 ("bottom") (W)
+# 21: Outward heat flux through boundary with indicator 3 ("top") (W)
+# 22: Visualization file name
+# 23: Maximum velocity magnitude on boundary with indicator 0 ("left") (m/s)
+# 24: Minimum velocity magnitude on boundary with indicator 0 ("left") (m/s)
+# 25: RMS velocity on boundary with indicator 0 ("left") (m/s)
+# 26: Maximum velocity magnitude on boundary with indicator 1 ("right") (m/s)
+# 27: Minimum velocity magnitude on boundary with indicator 1 ("right") (m/s)
+# 28: RMS velocity on boundary with indicator 1 ("right") (m/s)
+# 29: Maximum velocity magnitude on boundary with indicator 2 ("bottom") (m/s)
+# 30: Minimum velocity magnitude on boundary with indicator 2 ("bottom") (m/s)
+# 31: RMS velocity on boundary with indicator 2 ("bottom") (m/s)
+# 32: Maximum velocity magnitude on boundary with indicator 3 ("top") (m/s)
+# 33: Minimum velocity magnitude on boundary with indicator 3 ("top") (m/s)
+# 34: RMS velocity on boundary with indicator 3 ("top") (m/s)
+0 0.000000000000e+00 0.000000000000e+00 256 2467 1089 12   0 144 168 308 3.24199548e+00 1.53236785e+01 0.00000000e+00 5.00000000e-01 1.00000000e+00 5.00000000e-01 0.00000000e+00 0.00000000e+00 -1.00002689e+00 9.99999989e-01 output-tosi_benchmark_newton_solver_full_A/solution/solution-00000 4.07821072e+00 1.68193155e-03 1.92482856e+00 3.70514214e+00 1.64727468e-03 1.74147146e+00 1.55773941e+01 3.34368004e-01 1.10138847e+01 7.24640477e-02 1.66001618e-03 5.18831305e-02 
+1 2.007219303977e-03 2.007219303977e-03 256 2467 1089 15 502 292 322 665 8.59085267e+01 4.12764364e+02 0.00000000e+00 5.04361664e-01 1.00000000e+00 5.04361664e-01 0.00000000e+00 0.00000000e+00 -3.17088534e+00 1.00009310e+00                                                                 "" 4.24100640e+02 1.08121327e-02 1.79580988e+02 2.26932540e+02 6.26005887e-03 8.79628334e+01 3.75819800e+02 2.00469358e+01 2.38133480e+02 3.25085614e-01 5.99028502e-03 2.35382534e-01 
+2 2.080904644363e-03 7.368534038605e-05 256 2467 1089 13  84 213 239 678 9.43740278e+01 4.44795468e+02 0.00000000e+00 5.04530422e-01 1.00000000e+00 5.04530422e-01 0.00000000e+00 0.00000000e+00 -3.28124559e+00 1.00009759e+00                                                                 "" 4.58410524e+02 1.09576042e-02 1.94829672e+02 3.00825078e+02 5.19503892e-03 1.17220678e+02 3.91307582e+02 1.58356737e+01 2.56216717e+02 3.09517330e-01 5.17779826e-03 2.22239381e-01 
+3 2.100000000000e-03 1.909535563680e-05 256 2467 1089 13  50 196 222 634 9.55477475e+01 4.51031254e+02 0.00000000e+00 5.04574724e-01 1.00000000e+00 5.04574724e-01 0.00000000e+00 0.00000000e+00 -3.31277592e+00 1.00009850e+00                                                                 "" 4.65028788e+02 1.11093454e-02 1.97672885e+02 3.08201037e+02 5.22523821e-03 1.20098703e+02 3.94700209e+02 1.60712205e+01 2.58617755e+02 3.12591150e-01 5.20745246e-03 2.24399731e-01 

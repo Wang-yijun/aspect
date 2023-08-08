@@ -89,8 +89,9 @@ namespace aspect
           FunctionInclusion (double eta_B,
                              const unsigned int n_compositional_fields)
             : Function<dim>(dim+2+n_compositional_fields), eta_B_(eta_B) {}
-          virtual void vector_value (const Point< dim >   &p,
-                                     Vector< double >   &values) const
+
+          void vector_value (const Point<dim>   &p,
+                             Vector<double>   &values) const override
           {
             double pos[2]= {p(0),p(1)};
             AnalyticSolutions::_Inclusion
@@ -116,10 +117,9 @@ namespace aspect
         /**
          * Return the boundary velocity as a function of position.
          */
-        virtual
         Tensor<1,dim>
         boundary_velocity (const types::boundary_id ,
-                           const Point<dim> &position) const
+                           const Point<dim> &position) const override
         {
           Assert (dim == 2, ExcNotImplemented());
 
@@ -154,8 +154,8 @@ namespace aspect
          * @name Physical parameters used in the basic equations
          * @{
          */
-        virtual void evaluate(const MaterialModel::MaterialModelInputs<dim> &in,
-                              MaterialModel::MaterialModelOutputs<dim> &out) const
+        void evaluate(const MaterialModel::MaterialModelInputs<dim> &in,
+                      MaterialModel::MaterialModelOutputs<dim> &out) const override
         {
           for (unsigned int i=0; i < in.n_evaluation_points(); ++i)
             {
@@ -192,7 +192,7 @@ namespace aspect
          * (compressible Stokes) or as $\nabla \cdot \mathbf{u}=0$
          * (incompressible Stokes).
          */
-        virtual bool is_compressible () const
+        bool is_compressible () const override
         {
           return false;
         }
@@ -222,9 +222,8 @@ namespace aspect
         /**
          * Read the parameters this class declares from the parameter file.
          */
-        virtual
         void
-        parse_parameters (ParameterHandler &prm)
+        parse_parameters (ParameterHandler &prm) override
         {
           prm.enter_subsection("Material model");
           {
@@ -246,17 +245,6 @@ namespace aspect
 
 
 
-        /**
-         * @name Reference quantities
-         * @{
-         */
-        virtual double reference_viscosity () const
-        {
-          return 1;
-        }
-        /**
-         * @}
-         */
         /**
          * Returns the viscosity value in the inclusion
          */
@@ -287,18 +275,17 @@ namespace aspect
         /**
          * Generate graphical output from the current solution.
          */
-        virtual
         std::pair<std::string,std::string>
-        execute (TableHandler &/*statistics*/)
+        execute (TableHandler &/*statistics*/) override
         {
-          std::unique_ptr<Function<dim> > ref_func;
+          std::unique_ptr<Function<dim>> ref_func;
 
           AssertThrow(Plugins::plugin_type_matches<const InclusionMaterial<dim>>(this->get_material_model()),
                       ExcMessage("Postprocessor only works with the inclusion material model."));
 
           const InclusionMaterial<dim> &
           material_model
-            = Plugins::get_plugin_as_type<const InclusionMaterial<dim> >(this->get_material_model());
+            = Plugins::get_plugin_as_type<const InclusionMaterial<dim>>(this->get_material_model());
 
           ref_func.reset (new AnalyticSolutions::FunctionInclusion<dim>(
                             material_model.get_eta_B(),

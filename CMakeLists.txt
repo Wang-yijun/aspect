@@ -1,4 +1,4 @@
-# Copyright (C) 2013 - 2021 by the authors of the ASPECT code.
+# Copyright (C) 2013 - 2022 by the authors of the ASPECT code.
 #
 # This file is part of ASPECT.
 #
@@ -16,14 +16,33 @@
 # along with ASPECT; see the file doc/COPYING.  If not see
 # <http://www.gnu.org/licenses/>.
 
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.1.0)
 
 MESSAGE(STATUS "====================================================")
 MESSAGE(STATUS "============ Configuring ASPECT ====================")
 MESSAGE(STATUS "====================================================")
 
-# Set the name of the project and target:
+IF (EXISTS ${CMAKE_SOURCE_DIR}/CMakeCache.txt)
+  MESSAGE(FATAL_ERROR  "Detected the file\n"
+  "${CMAKE_SOURCE_DIR}/CMakeCache.txt\n"
+  "in your source directory, which is a left-over from an in-source build. "
+  "Please delete the file before running cmake from a separate build directory.")
+ENDIF()
+
+IF ("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
+  MESSAGE(FATAL_ERROR  "ASPECT does not support in-source builds in ${CMAKE_BINARY_DIR}. "
+  "Please run cmake from a separate build directory."
+  "\n"
+  "Note that CMake created a file called CMakeCache.txt and a folder called "
+  "CMakeFiles in the source directory that you have to remove before you can "
+  "begin a build in a different directory.")
+ENDIF()
+
+# Set the name of the project and main target. If we are generating
+# ASPECT debug and release mode, we have the debug build as 'aspect'
+# and we populate a list of all targets (by default they are the same):
 SET(TARGET "aspect")
+SET(TARGETS "aspect")
 
 FILE(GLOB_RECURSE TARGET_SRC
      "source/*.cc" "unit_tests/*.cc" "include/*.h" "contrib/catch/catch.hpp")
@@ -53,6 +72,7 @@ ENDFOREACH()
 INCLUDE_DIRECTORIES(BEFORE ${CMAKE_BINARY_DIR}/include include)
 INCLUDE_DIRECTORIES(AFTER  contrib/catch)
 
+# Generate compile_commands.json for tooling (VS Code, etc.)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 LIST(APPEND CMAKE_MODULE_PATH
@@ -60,8 +80,8 @@ LIST(APPEND CMAKE_MODULE_PATH
   ${CMAKE_SOURCE_DIR}/cmake/modules
   )
 
-FIND_PACKAGE(deal.II 9.2.0 QUIET
-  HINTS ${deal.II_DIR} ${DEAL_II_DIR} ../ ../../ $ENV{DEAL_II_DIR}
+FIND_PACKAGE(deal.II 9.4.0 QUIET
+  HINTS ${deal.II_DIR} ${DEAL_II_DIR} $ENV{DEAL_II_DIR}
   )
 IF(NOT ${deal.II_FOUND})
   MESSAGE(FATAL_ERROR "\n*** Could not find a suitably recent version of deal.II. ***\n"
@@ -79,22 +99,7 @@ IF(NOT DEAL_II_WITH_CXX11)
     "DEAL_II_WITH_CXX11 in deal.II.")
 ENDIF()
 
-
-SET(ASPECT_USE_PETSC OFF CACHE BOOL "Use PETSc instead of Trilinos if set to 'on'.")
-IF(ASPECT_USE_PETSC)
-    MESSAGE(FATAL_ERROR "Using PETSc by setting ASPECT_USE_PETSC to ON is currently not supported, see https://github.com/geodynamics/aspect/issues/3338 for details.")
-ENDIF()
-
-MESSAGE(STATUS "Using ASPECT_USE_PETSC = '${ASPECT_USE_PETSC}'")
-
 SET(_DEALII_GOOD ON)
-
-IF(ASPECT_USE_PETSC AND NOT DEAL_II_WITH_PETSC)
-    MESSAGE(SEND_ERROR
-      "\n-- deal.II was built without support for PETSc!\n"
-      )
-    SET(_DEALII_GOOD OFF)
-ENDIF()
 
 IF(NOT DEAL_II_WITH_P4EST)
     MESSAGE(SEND_ERROR
@@ -103,7 +108,7 @@ IF(NOT DEAL_II_WITH_P4EST)
     SET(_DEALII_GOOD OFF)
 ENDIF()
 
-IF(NOT ASPECT_USE_PETSC AND NOT DEAL_II_WITH_TRILINOS)
+IF(NOT DEAL_II_WITH_TRILINOS)
     MESSAGE(SEND_ERROR
       "\n-- deal.II was built without support for Trilinos!\n"
       )
@@ -112,7 +117,7 @@ ENDIF()
 
 IF (NOT _DEALII_GOOD)
   MESSAGE(FATAL_ERROR
-    "\nASPECT requires a deal.II installation built with support for Trilinos/PETSc and p4est but one or both of these appears to be missing!\n"
+    "\nASPECT requires a deal.II installation built with support for Trilinos and p4est but one or both of these appears to be missing!\n"
     )
 ENDIF()
 
@@ -138,19 +143,36 @@ if(ASPECT_WITH_WORLD_BUILDER)
   MESSAGE(STATUS "Using World Builder version ${WORLD_BUILDER_VERSION} found at ${WORLD_BUILDER_SOURCE_DIR}.")
 
   # add source and include dirs:
-  FILE(GLOB_RECURSE wb_files "${WORLD_BUILDER_SOURCE_DIR}/source/*.cc")
+  IF(WORLD_BUILDER_VERSION VERSION_LESS 0.5.0)
+    FILE(GLOB_RECURSE wb_files "${WORLD_BUILDER_SOURCE_DIR}/source/*.cc")
+  ELSE()
+    FILE(GLOB_RECURSE wb_files "${WORLD_BUILDER_SOURCE_DIR}/source/world_builder/*.cc")
+  ENDIF()
   LIST(APPEND TARGET_SRC ${wb_files})
+  ADD_DEFINITIONS(-DWB_WITH_MPI)
 
   # generate config.cc and include it:
-  CONFIGURE_FILE("${WORLD_BUILDER_SOURCE_DIR}/source/config.cc.in" "${CMAKE_BINARY_DIR}/world_builder_config.cc" @ONLY)
-  LIST(INSERT TARGET_SRC 0 "${CMAKE_BINARY_DIR}/world_builder_config.cc")
+  IF(WORLD_BUILDER_VERSION VERSION_LESS 0.5.0)
+    CONFIGURE_FILE("${WORLD_BUILDER_SOURCE_DIR}/source/config.cc.in" "${CMAKE_BINARY_DIR}/source/world_builder/config.cc" @ONLY)
+    LIST(INSERT TARGET_SRC 0 "${CMAKE_BINARY_DIR}/source/world_builder/config.cc")
+    FILE(REMOVE "${CMAKE_BINARY_DIR}/include/world_builder/config.h")
+  ELSE()
+    CONFIGURE_FILE("${WORLD_BUILDER_SOURCE_DIR}/include/world_builder/config.h.in" "${CMAKE_BINARY_DIR}/include/world_builder/config.h" @ONLY)
+    INCLUDE_DIRECTORIES("${CMAKE_BINARY_DIR}/include/")
+    FILE(REMOVE "${CMAKE_BINARY_DIR}/source/world_builder/config.cc")
+  ENDIF()
 
   # Move some file to the end for unity builds to make sure other file come
   # "before". Note: The current design keeps all ASPECT files (including
   # ASPECT_UNITY_LAST files) before all GWB files. Mixing them will causes
   # many issues with non-unique namespace names like Utilities.
-  SET(UNITY_WB_LAST_FILES
-  "${WORLD_BUILDER_SOURCE_DIR}/source/parameters.cc")
+  IF(WORLD_BUILDER_VERSION VERSION_LESS 0.5.0)
+    SET(UNITY_WB_LAST_FILES
+    "${WORLD_BUILDER_SOURCE_DIR}/source/parameters.cc")
+  ELSE()
+    SET(UNITY_WB_LAST_FILES
+    "${WORLD_BUILDER_SOURCE_DIR}/source/world_builder/parameters.cc")
+  ENDIF()
 
   FOREACH(_source_file ${UNITY_WB_LAST_FILES})
     LIST(FIND TARGET_SRC ${_source_file} _index)
@@ -280,21 +302,23 @@ IF(EXISTS ${CMAKE_SOURCE_DIR}/unit_tests/CMakeLists.txt)
   ADD_CUSTOM_TARGET(run_unit_tests
     COMMAND ${CMAKE_BINARY_DIR}/aspect --test
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/unit_tests
-    DEPENDS aspect
+    DEPENDS ${TARGET}
     COMMENT "Running unit_tests ...")
 
   ADD_DEPENDENCIES(test run_unit_tests)
 ENDIF()
 
+IF(EXISTS ${CMAKE_SOURCE_DIR}/tests/CMakeLists.txt)
+  # Hook up the tests:
+  FILE(APPEND ${CMAKE_BINARY_DIR}/CTestTestfile.cmake "SUBDIRS(tests)\n")
+ENDIF()
+
 IF(EXISTS ${CMAKE_SOURCE_DIR}/tests/CMakeLists.txt
   AND ${ASPECT_NEED_TEST_CONFIGURE})
 
-  # Hook up the tests:
-  FILE(APPEND ${CMAKE_BINARY_DIR}/CTestTestfile.cmake "SUBDIRS(tests)\n")
-
   FILE(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/tests)
 
-  SET(aspect_binary ${CMAKE_BINARY_DIR}/aspect)
+  SET(aspect_binary ${CMAKE_BINARY_DIR}/${TARGET})
 
   # set a flag so we don't need to rerun this configuration step every time:
   SET(ASPECT_NEED_TEST_CONFIGURE OFF CACHE BOOL "" FORCE)
@@ -320,7 +344,7 @@ IF(EXISTS ${CMAKE_SOURCE_DIR}/tests/CMakeLists.txt
   ADD_CUSTOM_TARGET(run_tests
     COMMAND ${CMAKE_COMMAND} --build . --target test
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/tests
-    DEPENDS aspect
+    DEPENDS ${TARGET}
     COMMENT "Running tests ...")
 
   ADD_DEPENDENCIES(test run_tests)
@@ -365,6 +389,15 @@ ADD_CUSTOM_TARGET(debug
   VERBATIM
   COMMENT "switching to DEBUG mode..."
   )
+ADD_CUSTOM_TARGET(debugrelease
+  COMMAND ${CMAKE_COMMAND} -D CMAKE_BUILD_TYPE=DebugRelease .
+  COMMAND ${CMAKE_COMMAND} -E echo "***"
+  COMMAND ${CMAKE_COMMAND} -E echo "*** Switched to Debug and Release mode. Now recompile with: ${_make_command}"
+  COMMAND ${CMAKE_COMMAND} -E echo "***"
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  VERBATIM
+  COMMENT "switching to DEBUG/RELEASE mode..."
+  )
 ENDIF()
 
 # Provide a "distclean" target (like it is done in deal.II):
@@ -392,6 +425,7 @@ FILE(WRITE ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/print_usage.cmake
 #      ${_make_command}                - to compile and link ${TARGET}
 #      ${_make_command} debug          - to switch the build type to 'Debug'
 #      ${_make_command} release        - to switch the build type to 'Release'
+#      ${_make_command} debugrelease   - to switch the build type to compile both
 #      ${_make_command} clean          - to remove the generated executable as well as
 #                               all intermediate compilation files
 #      ${_make_command} distclean      - to clean the directory from all generated
@@ -476,22 +510,49 @@ IF(NOT ASPECT_ADDITIONAL_CXX_FLAGS STREQUAL "")
   MESSAGE(STATUS "  DEAL_II_CXX_FLAGS_RELEASE: ${DEAL_II_CXX_FLAGS_RELEASE}")
 ENDIF()
 
-ADD_EXECUTABLE(${TARGET} ${TARGET_SRC})
-DEAL_II_SETUP_TARGET(${TARGET})
+# Provide "release" and "debug" targets to switch compile mode
+IF(${CMAKE_BUILD_TYPE} MATCHES "DebugRelease")
+  ADD_EXECUTABLE(${TARGET} ${TARGET_SRC})
+  DEAL_II_SETUP_TARGET(${TARGET} DEBUG)
+  ADD_EXECUTABLE(${TARGET}-release ${TARGET_SRC})
+  DEAL_II_SETUP_TARGET(${TARGET}-release RELEASE)
+  SET(TARGETS ${TARGET}-release ${TARGET})
+  # default for testing:
+  SET(TARGET ${TARGET})
+ELSE()
+  ADD_EXECUTABLE(${TARGET} ${TARGET_SRC})
+  DEAL_II_SETUP_TARGET(${TARGET})
+ENDIF()
 
 # deal.II does not define NDEBUG, but the world builder relies on it to disable
 # its asserts in release mode. Set it manually for anything but debug mode.
 # Note: If deal.II decides in the future to define this, this can be removed.
-IF (NOT CMAKE_BUILD_TYPE MATCHES Debug)
-    ADD_DEFINITIONS("-DNDEBUG")
+IF (CMAKE_BUILD_TYPE MATCHES Release)
+  ADD_DEFINITIONS("-DNDEBUG")
 ENDIF()
+IF (CMAKE_BUILD_TYPE MATCHES DebugRelease)
+  target_compile_definitions(${TARGET}-release PUBLIC "NDEBUG")
+ENDIF()
+
+# find zlib if it is installed in a non-standard location
+SET(ZLIB_DIR "" CACHE PATH "An optional hint to a ZLIB installation")
+IF("${ZLIB_DIR}" STREQUAL "")
+  SET(ZLIB_DIR "$ENV{ZLIB_DIR}" CACHE PATH "An optional hint to a ZLIB installation" FORCE)
+ENDIF()
+FIND_PACKAGE(ZLIB)
+INCLUDE_DIRECTORIES(${ZLIB_INCLUDE_DIR})
+FOREACH(_T ${TARGETS})
+  TARGET_LINK_LIBRARIES(${_T} ${ZLIB_LIBRARY})
+ENDFOREACH()
 
 FIND_PACKAGE(PerpleX QUIET
   HINTS ./contrib/perplex/install/ ../ ../../ ${PERPLEX_DIR} $ENV{PERPLEX_DIR})
 IF(${PerpleX_FOUND})
   MESSAGE(STATUS "PerpleX found at ${PerpleX_INCLUDE_DIR}")
   INCLUDE_DIRECTORIES(${PerpleX_INCLUDE_DIR})
-  TARGET_LINK_LIBRARIES(${TARGET} ${PerpleX_LIBRARIES})
+  FOREACH(_T ${TARGETS})
+    TARGET_LINK_LIBRARIES(${_T} ${PerpleX_LIBRARIES})
+  ENDFOREACH()
   SET(ASPECT_WITH_PERPLEX ON)
 ELSE()
   SET(ASPECT_WITH_PERPLEX OFF)
@@ -506,7 +567,9 @@ IF(ASPECT_WITH_LIBDAP)
   FIND_PACKAGE(LIBDAP)
   IF(${LIBDAP_FOUND})
     INCLUDE_DIRECTORIES(${LIBDAP_INCLUDE_DIRS})
-    TARGET_LINK_LIBRARIES(${TARGET} ${LIBDAP_LIBRARIES})
+    FOREACH(_T ${TARGETS})
+      TARGET_LINK_LIBRARIES(${_T} ${LIBDAP_LIBRARIES})
+    ENDFOREACH()
     MESSAGE(STATUS "LIBDAP found at ${LIBDAP_LIBRARY}\n")
   ELSE()
     MESSAGE(FATAL_ERROR "LIBDAP not found. Disable ASPECT_WITH_LIBDAP or specify a hint to your installation directory with LIBDAP_DIR.")
@@ -528,7 +591,9 @@ IF(ASPECT_WITH_NETCDF)
     MESSAGE(STATUS "  NETCDF_VERSION: ${NETCDF_VERSION}")
 
     INCLUDE_DIRECTORIES(${NETCDF_INCLUDE_DIRS})
-    TARGET_LINK_LIBRARIES(${TARGET} ${NETCDF_LIBRARIES})
+    FOREACH(_T ${TARGETS})
+      TARGET_LINK_LIBRARIES(${_T} ${NETCDF_LIBRARIES})
+    ENDFOREACH()
   ELSE()
     MESSAGE(FATAL_ERROR "NETCDF not found. Disable ASPECT_WITH_NETCDF or specify a hint to your installation directory with NETCDF_DIR.")
   ENDIF()
@@ -537,7 +602,9 @@ ENDIF()
 
 IF (ASPECT_USE_SHARED_LIBS)
   # some systems need to explicitly link to some libraries to use dlopen
-  TARGET_LINK_LIBRARIES(aspect ${CMAKE_DL_LIBS})
+  FOREACH(_T ${TARGETS})
+    TARGET_LINK_LIBRARIES(${_T} ${CMAKE_DL_LIBS})
+  ENDFOREACH()
 ENDIF()
 
 
@@ -601,35 +668,44 @@ ELSE()
   SET(ASPECT_UNITY_BUILD OFF CACHE BOOL "Combine source files into less compile targets to speedup compile time. Currently only supported for cmake 3.16 and newer versions." FORCE)
 ENDIF()
 
+IF (ASPECT_PRECOMPILE_HEADERS AND CMAKE_CXX_COMPILER_ID MATCHES "Intel")
+  # Intel 19.1 produces internal compiler errors inside bundled boost with
+  # precompiled headers, so we deactive it:
+  SET(ASPECT_PRECOMPILE_HEADERS OFF CACHE BOOL "" FORCE)
+ENDIF()
+
 IF (ASPECT_PRECOMPILE_HEADERS)
   IF (CMAKE_VERSION VERSION_LESS 3.9)
     MESSAGE(STATUS "Enabling cotire to precompile external header files.")
     INCLUDE(cmake/cotire)
 
-    # Set some properties that are necessary for the header precompilations
-    # and unity build to pass. We need to exclude some headers that
-    # frequently cause problems, and undefine some macros between source
-    # files that would otherwise interfere with each other.
-    SET_TARGET_PROPERTIES (aspect PROPERTIES
+    FOREACH(_T ${TARGETS})
+      # Set some properties that are necessary for the header precompilations
+      # and unity build to pass. We need to exclude some headers that
+      # frequently cause problems, and undefine some macros between source
+      # files that would otherwise interfere with each other.
+      SET_TARGET_PROPERTIES (${_T} PROPERTIES
         COTIRE_PREFIX_HEADER_IGNORE_PATH
         "/usr/include/;${CMAKE_SOURCE_DIR};${CMAKE_BINARY_DIR}")
 
-    # This line activates the cotire module for the aspect target,
-    # and therefore the whole precompilation
-    cotire(aspect)
+      # This line activates the cotire module for the aspect target,
+      # and therefore the whole precompilation
+      cotire(${_T})
+    ENDFOREACH()
 
   ELSEIF (NOT CMAKE_VERSION VERSION_LESS 3.16)
     MESSAGE(STATUS "Precompiling common header files.")
     # Use the native cmake support to precompile some common headers
     # from ASPECT and deal.II that are frequently included, but rarely changed.
-    TARGET_PRECOMPILE_HEADERS(aspect PRIVATE
-      <aspect/global.h> <aspect/plugins.h> <aspect/introspection.h> <aspect/parameters.h>)
-    TARGET_PRECOMPILE_HEADERS(aspect PRIVATE
-      <deal.II/base/table_handler.h> <deal.II/base/timer.h>
-      <deal.II/base/conditional_ostream.h> <deal.II/distributed/tria.h>
-      <deal.II/dofs/dof_handler.h> <deal.II/fe/fe.h> <deal.II/fe/mapping_q.h>
-      <deal.II/particles/particle_handler.h>)
-
+    FOREACH(_T ${TARGETS})
+      TARGET_PRECOMPILE_HEADERS(${_T} PRIVATE
+        <aspect/global.h> <aspect/plugins.h> <aspect/introspection.h> <aspect/parameters.h>)
+      TARGET_PRECOMPILE_HEADERS(${_T} PRIVATE
+        <deal.II/base/table_handler.h> <deal.II/base/timer.h>
+        <deal.II/base/conditional_ostream.h> <deal.II/distributed/tria.h>
+        <deal.II/dofs/dof_handler.h> <deal.II/fe/fe.h> <deal.II/fe/mapping_q.h>
+        <deal.II/particles/particle_handler.h>)
+    ENDFOREACH()
   ELSE()
     MESSAGE(FATAL_ERROR "ASPECT_PRECOMPILE_HEADERS is currently only supported for CMake 3.8 and older versions or 3.16 and newer versions.")
   ENDIF()
@@ -638,21 +714,32 @@ ELSE()
   MESSAGE(STATUS "Disabling precompiling headers.")
 ENDIF()
 
-
 IF (ASPECT_UNITY_BUILD)
   IF (NOT CMAKE_VERSION VERSION_LESS 3.16)
-    SET_PROPERTY(TARGET aspect PROPERTY UNITY_BUILD TRUE)
+    FOREACH(_T ${TARGETS})
+      SET_PROPERTY(TARGET ${_T} PROPERTY UNITY_BUILD TRUE)
+    ENDFOREACH()
     MESSAGE(STATUS "Combining source files into unity build.")
   ELSEIF(CMAKE_VERSION VERSION_LESS 3.16)
     MESSAGE(FATAL_ERROR "ASPECT_UNITY_BUILD is currently only supported for CMake 3.16 and newer versions.")
   ENDIF()
 ELSE()
   IF (NOT CMAKE_VERSION VERSION_LESS 3.16)
-    SET_PROPERTY(TARGET aspect PROPERTY UNITY_BUILD FALSE)
+    SET_PROPERTY(TARGET ${TARGET} PROPERTY UNITY_BUILD FALSE)
   ENDIF()
 
   MESSAGE(STATUS "Disabling unity build.")
 ENDIF()
+
+
+###########################################################
+# Having configured most of the compilation phase, now also
+# deal with other parts of the system.
+###########################################################
+
+# Start with the documentation
+
+ADD_SUBDIRECTORY(doc)
 
 
 # Find the deal.II parameter GUI and install helper script
@@ -662,7 +749,7 @@ FIND_PROGRAM(PARAMETER_GUI_EXECUTABLE
         PATH bin)
 MARK_AS_ADVANCED(CLEAR PARAMETER_GUI_EXECUTABLE)
 
-# did the user specify something that doesn't exist?
+# Did the user specify something that doesn't exist?
 IF (PARAMETER_GUI_EXECUTABLE
         AND
     (NOT EXISTS ${PARAMETER_GUI_EXECUTABLE} OR IS_DIRECTORY ${PARAMETER_GUI_EXECUTABLE}))
@@ -690,18 +777,38 @@ ENDIF()
 ## installation
 #
 # binary:
-INSTALL(TARGETS aspect
+INSTALL(TARGETS ${TARGETS}
   RUNTIME DESTINATION bin
   COMPONENT runtime)
 
 # make sure we have the rpath to our dependencies set:
-SET_PROPERTY(TARGET aspect PROPERTY INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+FOREACH(_T ${TARGETS})
+  SET_PROPERTY(TARGET ${_T} PROPERTY INSTALL_RPATH_USE_LINK_PATH TRUE)
+ENDFOREACH()
 
 # headers:
-INSTALL(DIRECTORY include/
+INSTALL(DIRECTORY include/ ${CMAKE_BINARY_DIR}/include/
   DESTINATION include
   COMPONENT includes
   FILES_MATCHING PATTERN "*.h")
+
+# examples:
+SET(ASPECT_INSTALL_EXAMPLES OFF CACHE BOOL "If ON all cookbooks and benchmarks will be built and installed.")
+
+IF (ASPECT_INSTALL_EXAMPLES)
+  ADD_SUBDIRECTORY(benchmarks)
+  ADD_SUBDIRECTORY(cookbooks)
+
+  INSTALL(DIRECTORY cookbooks/
+    DESTINATION cookbooks
+    COMPONENT examples
+    FILES_MATCHING PATTERN "*")
+  INSTALL(DIRECTORY benchmarks/
+    DESTINATION benchmarks
+    COMPONENT examples
+    FILES_MATCHING PATTERN "*")
+ENDIF()
 
 # cmake stuff:
 INSTALL(FILES ${CMAKE_BINARY_DIR}/forinstall/AspectConfig.cmake ${CMAKE_BINARY_DIR}/AspectConfigVersion.cmake
@@ -709,7 +816,7 @@ INSTALL(FILES ${CMAKE_BINARY_DIR}/forinstall/AspectConfig.cmake ${CMAKE_BINARY_D
 
 INSTALL(FILES ${CMAKE_BINARY_DIR}/include/aspect/revision.h DESTINATION "include/aspect/")
 
-MESSAGE(STATUS "Writing config into detailed.log...")
+MESSAGE(STATUS "Writing configuration details into detailed.log...")
 INCLUDE(cmake/write_config)
 
 # print "info" if run for the first time:

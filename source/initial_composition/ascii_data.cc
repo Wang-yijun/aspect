@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2018 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -29,14 +29,14 @@ namespace aspect
   {
     template <int dim>
     AsciiData<dim>::AsciiData ()
-    {}
+      = default;
 
 
     template <int dim>
     void
     AsciiData<dim>::initialize ()
     {
-      Utilities::AsciiDataInitial<dim>::initialize(this->n_compositional_fields());
+      ascii_data_initial->initialize(this->n_compositional_fields());
     }
 
 
@@ -46,7 +46,7 @@ namespace aspect
     initial_composition (const Point<dim> &position,
                          const unsigned int n_comp) const
     {
-      return Utilities::AsciiDataInitial<dim>::get_data_component(position,n_comp);
+      return ascii_data_initial->get_data_component(position,n_comp);
     }
 
 
@@ -56,9 +56,9 @@ namespace aspect
     {
       prm.enter_subsection("Initial composition model");
       {
-        Utilities::AsciiDataBase<dim>::declare_parameters(prm,
-                                                          "$ASPECT_SOURCE_DIR/data/initial-composition/ascii-data/test/",
-                                                          "box_2d.txt");
+        Utilities::AsciiDataInitial<dim>::declare_parameters(prm,
+                                                             "$ASPECT_SOURCE_DIR/data/initial-composition/ascii-data/test/",
+                                                             "box_2d.txt");
       }
       prm.leave_subsection();
     }
@@ -70,7 +70,9 @@ namespace aspect
     {
       prm.enter_subsection("Initial composition model");
       {
-        Utilities::AsciiDataBase<dim>::parse_parameters(prm);
+        ascii_data_initial = std::make_unique<Utilities::AsciiDataInitial<dim>>();
+        ascii_data_initial->initialize_simulator(this->get_simulator());
+        ascii_data_initial->parse_parameters(prm);
       }
       prm.leave_subsection();
     }

@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2021 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -92,8 +92,8 @@ namespace aspect
 
         double compute_viscosity(const double edot_ii,const double pressure,const int comp, const double prefactor,const bool regularize, const double min_visc, const double max_visc) const;
 
-        virtual void evaluate(const MaterialModel::MaterialModelInputs<dim> &in,
-                              MaterialModel::MaterialModelOutputs<dim> &out) const;
+        void evaluate(const MaterialModel::MaterialModelInputs<dim> &in,
+                      MaterialModel::MaterialModelOutputs<dim> &out) const override;
 
         /**
          * Return whether the model is compressible or not.  Incompressibility
@@ -105,19 +105,16 @@ namespace aspect
         *
         * This material model is incompressible.
          */
-        virtual bool is_compressible () const;
+        bool is_compressible () const override;
 
-        virtual double reference_viscosity () const;
-
-        virtual double reference_density () const;
+        double reference_density () const;
 
         static
         void
         declare_parameters (ParameterHandler &prm);
 
-        virtual
         void
-        parse_parameters (ParameterHandler &prm);
+        parse_parameters (ParameterHandler &prm) override;
 
       private:
 
@@ -248,7 +245,7 @@ namespace aspect
     {
       //set up additional output for the derivatives
       MaterialModelDerivatives<dim> *derivatives;
-      derivatives = out.template get_additional_output<MaterialModelDerivatives<dim> >();
+      derivatives = out.template get_additional_output<MaterialModelDerivatives<dim>>();
 
       for (unsigned int i=0; i < in.n_evaluation_points(); ++i)
         {
@@ -285,14 +282,14 @@ namespace aspect
             thermal_conductivities += volume_fractions[c] * thermal_diffusivity[c] * heat_capacity[c] * densities[c];
 
           // calculate effective viscosity
-          if (in.strain_rate.size())
+          if (in.requests_property(MaterialProperties::viscosity))
             {
               // This function calculates viscosities assuming that all the compositional fields
               // experience the same strain rate (isostrain). Since there is only one process in
               // this material model (a general powerlaw) we do not need to worry about how to
               // distribute the strain-rate and stress over the processes.
               std::vector<double> composition_viscosities(volume_fractions.size());
-              std::vector<SymmetricTensor<2,dim> > composition_viscosities_derivatives(volume_fractions.size());
+              std::vector<SymmetricTensor<2,dim>> composition_viscosities_derivatives(volume_fractions.size());
               std::vector<double> composition_dviscosities_dpressure(volume_fractions.size());
 
               const SymmetricTensor<2,dim> deviator_strain_rate = use_deviator_of_strain_rate ? deviator(in.strain_rate[i]) : in.strain_rate[i];
@@ -416,7 +413,7 @@ namespace aspect
                     {
                       std::cout << "Error: Averaged viscosity to pressure devrivative is not finite. " << std::endl;
                       for (unsigned int c=0; c < volume_fractions.size(); ++c)
-                        std::cout << composition_dviscosities_dpressure[c] << ",";
+                        std::cout << composition_dviscosities_dpressure[c] << ',';
                       std::cout << std::endl;
                     }
                   Assert(dealii::numbers::is_finite(derivatives->viscosity_derivative_wrt_pressure[i]),ExcMessage ("Error: Averaged dviscosities_dpressure is not finite."));
@@ -446,14 +443,6 @@ namespace aspect
           for (unsigned int c=0; c < in.composition[i].size(); ++c)
             out.reaction_terms[i][c] = 0.0;
         }
-    }
-
-    template <int dim>
-    double
-    DruckerPragerCompositions<dim>::
-    reference_viscosity () const
-    {
-      return ref_visc;
     }
 
     template <int dim>
@@ -599,8 +588,8 @@ namespace aspect
         cos_phi.resize(n_fields);
         for (unsigned int c = 0; c < n_fields; ++c)
           {
-            sin_phi[c] = std::sin(phi[c] * numbers::PI/180);
-            cos_phi[c] = std::cos(phi[c] * numbers::PI/180);
+            sin_phi[c] = std::sin(phi[c] * constants::degree_to_radians);
+            cos_phi[c] = std::cos(phi[c] * constants::degree_to_radians);
           }
 
         prefactor = get_vector_double("Viscous prefactors",n_fields,prm);

@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2020 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -37,6 +37,9 @@ namespace aspect
       g[dim-1] = -gravity_magnitude;
       return g;
     }
+
+
+
     template <int dim>
     void
     Vertical<dim>::declare_parameters (ParameterHandler &prm)
@@ -48,13 +51,14 @@ namespace aspect
           prm.declare_entry ("Magnitude", "1.",
                              Patterns::Double (),
                              "Value of the gravity vector in $m/s^2$ directed "
-                             "along negative y (2D) or z (3D) axis (if the magnitude "
+                             "along negative y (2d) or z (3d) axis (if the magnitude "
                              "is positive.");
         }
         prm.leave_subsection ();
       }
       prm.leave_subsection ();
     }
+
 
 
     template <int dim>
@@ -77,6 +81,8 @@ namespace aspect
     }
   }
 }
+
+
 
 // explicit instantiations
 namespace aspect

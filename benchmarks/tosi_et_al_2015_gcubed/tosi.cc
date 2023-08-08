@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2018 - 2021 by the authors of the ASPECT code.
+  Copyright (C) 2018 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -70,8 +70,8 @@ namespace aspect
     class TosiMaterial : public MaterialModel::Interface<dim>, public ::aspect::SimulatorAccess<dim>
     {
       public:
-        virtual void evaluate(const MaterialModel::MaterialModelInputs<dim> &in,
-                              MaterialModel::MaterialModelOutputs<dim> &out) const
+        void evaluate(const MaterialModel::MaterialModelInputs<dim> &in,
+                      MaterialModel::MaterialModelOutputs<dim> &out) const override
         {
           /**
            * As described in Tosi et al (2015), the viscosity \eta is computed as the
@@ -86,7 +86,7 @@ namespace aspect
 
           //set up additional output for the derivatives
           MaterialModel::MaterialModelDerivatives<dim> *derivatives;
-          derivatives = out.template get_additional_output<MaterialModel::MaterialModelDerivatives<dim> >();
+          derivatives = out.template get_additional_output<MaterialModel::MaterialModelDerivatives<dim>>();
 
           for (unsigned int i=0; i < in.n_evaluation_points(); ++i)
             {
@@ -203,7 +203,7 @@ namespace aspect
          * (compressible Stokes) or as $\nabla \cdot \mathbf{u}=0$
          * (incompressible Stokes).
          */
-        virtual bool is_compressible () const;
+        bool is_compressible () const override;
         /**
          * @}
          */
@@ -217,18 +217,9 @@ namespace aspect
         /**
          * Read the parameters this class declares from the parameter file.
          */
-        virtual
         void
-        parse_parameters (ParameterHandler &prm);
+        parse_parameters (ParameterHandler &prm) override;
 
-        /**
-         * @name Reference quantities
-         * @{
-         */
-        virtual double reference_viscosity () const;
-        /**
-         * @}
-         */
       private:
 
         double viscosity (const double                  temperature,
@@ -278,11 +269,6 @@ namespace aspect
          * The thermal conductivity.
          */
         double thermal_k;
-
-        /*
-         * The reference viscosity
-         */
-        double eta;
 
         /*
          * The linear viscosity parameter pertaining to
@@ -404,14 +390,6 @@ namespace aspect
       return etaasterisk + (stressy/strainratenorm);
     }
 
-    template <int dim>
-    double
-    TosiMaterial<dim>::
-    reference_viscosity () const
-    {
-      return eta;
-    }
-
 
 
     template <int dim>
@@ -438,9 +416,6 @@ namespace aspect
                              Patterns::Double (0),
                              "The value of the reference temperature $T_0$. The reference temperature is used "
                              "in the density calculation.");
-          prm.declare_entry ("Reference viscosity", "1e-1",
-                             Patterns::Double (0),
-                             "The value of the constant reference viscosity $\\eta_0$.");
           prm.declare_entry ("Minimum viscosity", "1e-6",
                              Patterns::Double (0),
                              "The value of the minimum cut-off viscosity $\\eta_min$.");
@@ -495,7 +470,6 @@ namespace aspect
         {
           reference_rho              = prm.get_double ("Reference density");
           reference_T                = prm.get_double ("Reference temperature");
-          eta                        = prm.get_double ("Reference viscosity");
           thermal_k                  = prm.get_double ("Thermal conductivity");
           reference_specific_heat    = prm.get_double ("Reference specific heat");
           thermal_alpha              = prm.get_double ("Thermal expansion coefficient");
@@ -561,7 +535,7 @@ namespace aspect
                                             .degree+1);
 
       const unsigned int n_q_points = quadrature_formula.size();
-      std::vector<Tensor<1,dim> > velocities(n_q_points);
+      std::vector<Tensor<1,dim>> velocities(n_q_points);
 
       FEValues<dim> fe_values (this->get_mapping(),
                                this->get_fe(),
@@ -577,13 +551,14 @@ namespace aspect
 
       // the values of the compositional fields are stored as blockvectors for each field
       // we have to extract them in this structure
-      std::vector<std::vector<double> > prelim_composition_values (this->n_compositional_fields(),
+      std::vector<std::vector<double>> prelim_composition_values (this->n_compositional_fields(),
                                                                    std::vector<double> (n_q_points));
 
       typename MaterialModel::Interface<dim>::MaterialModelInputs in(n_q_points,
                                                                      this->n_compositional_fields());
       typename MaterialModel::Interface<dim>::MaterialModelOutputs out(n_q_points,
                                                                        this->n_compositional_fields());
+      in.requested_properties = MaterialModel::MaterialProperties::viscosity;
 
       // loop over active, locally owned cells and
       // extract material model input and compute integrals

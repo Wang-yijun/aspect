@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2020 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -41,32 +41,32 @@ namespace aspect
       // iterate over all active cells and (re)set the boundary indicators
       for (const auto &cell : triangulation.active_cell_iterators())
         {
-
           // first set the default boundary indicators
-          for (unsigned int f=0; f<GeometryInfo<dim>::faces_per_cell; ++f)
+          for (const unsigned int f : cell->face_indices())
             if (cell->face(f)->at_boundary())
               cell->face(f)->set_boundary_id (f);
 
+          // Then for individual faces set the boundary indicators in specific ways:
           if (cell->face(0)->at_boundary())
             // set the lithospheric part of the left boundary to indicator 2*dim
-            if (cell->face(0)->vertex(GeometryInfo<dim-1>::vertices_per_cell-1)[dim-1] > height_lith)
+            if (cell->face(0)->vertex(cell->face(0)->n_vertices()-1)[dim-1] > height_lith)
               cell->face(0)->set_boundary_id (2*dim);
 
           if (cell->face(1)->at_boundary())
             // set the lithospheric part of the right boundary to indicator 2*dim+1
-            if (cell->face(1)->vertex(GeometryInfo<dim-1>::vertices_per_cell-1)[dim-1] > height_lith)
+            if (cell->face(1)->vertex(cell->face(1)->n_vertices()-1)[dim-1] > height_lith)
               cell->face(1)->set_boundary_id (2*dim+1);
 
           if (dim==3)
             {
               // set the lithospheric part of the front boundary to indicator 2*dim+2
               if (cell->face(2)->at_boundary())
-                if (cell->face(2)->vertex(GeometryInfo<dim-1>::vertices_per_cell-1)[dim-1] > height_lith)
+                if (cell->face(2)->vertex(cell->face(2)->n_vertices()-1)[dim-1] > height_lith)
                   cell->face(2)->set_boundary_id (2*dim+2);
 
               // set the lithospheric part of the back boundary to indicator 2*dim+3
               if (cell->face(3)->at_boundary())
-                if (cell->face(3)->vertex(GeometryInfo<dim-1>::vertices_per_cell-1)[dim-1] > height_lith)
+                if (cell->face(3)->vertex(cell->face(3)->n_vertices()-1)[dim-1] > height_lith)
                   cell->face(3)->set_boundary_id (2*dim+3);
             }
         }
@@ -77,38 +77,49 @@ namespace aspect
     TwoMergedBoxes<dim>::
     create_coarse_mesh (parallel::distributed::Triangulation<dim> &total_coarse_grid) const
     {
-      std::vector<unsigned int> lower_rep_vec(lower_repetitions, lower_repetitions+dim);
-      std::vector<unsigned int> upper_rep_vec(upper_repetitions, upper_repetitions+dim);
+      std::vector<unsigned int> lower_rep_vec(lower_repetitions.begin(), lower_repetitions.end());
+      if (use_merged_grids)
+        {
+          std::vector<unsigned int> upper_rep_vec(upper_repetitions.begin(), upper_repetitions.end());
 
-      // the two triangulations that will be merged
-      Triangulation<dim> lower_coarse_grid;
-      Triangulation<dim> upper_coarse_grid;
+          // the two triangulations that will be merged
+          Triangulation<dim> lower_coarse_grid;
+          Triangulation<dim> upper_coarse_grid;
 
-      // create lower_coarse_grid mesh
-      GridGenerator::subdivided_hyper_rectangle (lower_coarse_grid,
-                                                 lower_rep_vec,
-                                                 lower_box_origin,
-                                                 lower_box_origin+lower_extents,
-                                                 false);
+          // create lower_coarse_grid mesh
+          GridGenerator::subdivided_hyper_rectangle (lower_coarse_grid,
+                                                     lower_rep_vec,
+                                                     lower_box_origin,
+                                                     lower_box_origin+lower_extents,
+                                                     false);
 
-      // create upper_coarse_grid mesh
-      GridGenerator::subdivided_hyper_rectangle (upper_coarse_grid,
-                                                 upper_rep_vec,
-                                                 upper_box_origin,
-                                                 upper_box_origin+upper_extents,
-                                                 false);
+          // create upper_coarse_grid mesh
+          GridGenerator::subdivided_hyper_rectangle (upper_coarse_grid,
+                                                     upper_rep_vec,
+                                                     upper_box_origin,
+                                                     upper_box_origin+upper_extents,
+                                                     false);
 
-      // merge the lower and upper mesh into one total_coarse_grid.
-      // now we have at least two cells
-      GridGenerator::merge_triangulations(lower_coarse_grid,
-                                          upper_coarse_grid,
-                                          total_coarse_grid);
+          // merge the lower and upper mesh into one total_coarse_grid.
+          // now we have at least two cells
+          GridGenerator::merge_triangulations(lower_coarse_grid,
+                                              upper_coarse_grid,
+                                              total_coarse_grid);
+        }
+      else
+        {
+          GridGenerator::subdivided_hyper_rectangle (total_coarse_grid,
+                                                     lower_rep_vec,
+                                                     lower_box_origin,
+                                                     upper_box_origin+upper_extents,
+                                                     false);
+        }
 
       // set the boundary indicators
       set_boundary_indicators(total_coarse_grid);
 
       // tell p4est about the periodicity of the mesh.
-      std::vector<GridTools::PeriodicFacePair<typename parallel::distributed::Triangulation<dim>::cell_iterator> >
+      std::vector<GridTools::PeriodicFacePair<typename parallel::distributed::Triangulation<dim>::cell_iterator>>
       periodicity_vector;
       for (int i=0; i<dim+dim-1; ++i)
         {
@@ -162,8 +173,8 @@ namespace aspect
                   std::pair<std::string,types::boundary_id>("right lithosphere",5)
                 };
 
-            return std::map<std::string,types::boundary_id> (&mapping[0],
-                                                             &mapping[sizeof(mapping)/sizeof(mapping[0])]);
+            return std::map<std::string,types::boundary_id> (std::begin(mapping),
+                                                             std::end(mapping));
           }
 
           case 3:
@@ -181,8 +192,8 @@ namespace aspect
                   std::pair<std::string,types::boundary_id>("back lithosphere",  9)
                 };
 
-            return std::map<std::string,types::boundary_id> (&mapping[0],
-                                                             &mapping[sizeof(mapping)/sizeof(mapping[0])]);
+            return std::map<std::string,types::boundary_id> (std::begin(mapping),
+                                                             std::end(mapping));
           }
         }
 
@@ -193,11 +204,11 @@ namespace aspect
 
 
     template <int dim>
-    std::set< std::pair< std::pair<types::boundary_id, types::boundary_id>, unsigned int> >
+    std::set<std::pair<std::pair<types::boundary_id, types::boundary_id>, unsigned int>>
     TwoMergedBoxes<dim>::
     get_periodic_boundary_pairs () const
     {
-      std::set< std::pair< std::pair<types::boundary_id, types::boundary_id>, unsigned int> > periodic_boundaries;
+      std::set<std::pair<std::pair<types::boundary_id, types::boundary_id>, unsigned int>> periodic_boundaries;
       for ( unsigned int i=0; i<dim+dim-1; ++i)
         if (periodic[i])
           {
@@ -206,6 +217,33 @@ namespace aspect
           }
       return periodic_boundaries;
     }
+
+
+
+    template <int dim>
+    void
+    TwoMergedBoxes<dim>::adjust_positions_for_periodicity (Point<dim> &position,
+                                                           const ArrayView<Point<dim>> &connected_positions) const
+    {
+      for (unsigned int i = 0; i < dim; ++i)
+        if (periodic[i])
+          {
+            if (position[i] < lower_box_origin[i])
+              {
+                position[i] += extents[i];
+                for (auto &connected_position: connected_positions)
+                  connected_position[i] += extents[i];
+              }
+            else if (position[i] > lower_box_origin[i] + extents[i])
+              {
+                position[i] -= extents[i];
+                for (auto &connected_position: connected_positions)
+                  connected_position[i] -= extents[i];
+              }
+          }
+    }
+
+
 
     template <int dim>
     Point<dim>
@@ -416,6 +454,20 @@ namespace aspect
                              Patterns::Bool (),
                              "Whether the box should be periodic in Y direction in the lithosphere. "
                              "This value is ignored if the simulation is in 2d. ");
+
+          // grid creation paramters
+          prm.declare_entry ("Use merged grids", "true",
+                             Patterns::Bool (),
+                             "Whether to make the grid by gluing together two boxes, or just "
+                             "use one chunk to make the grid. Using two grids glued together "
+                             "is a safer option, since it forces the boundary conditions "
+                             "to be always applied to the same depth, but using one grid allows "
+                             "for a more flexible usage of the adaptive refinement. Note that if "
+                             "there is no cell boundary exactly on the boundary between the lithosphere "
+                             "and the mantle, the velocity boundary will not be exactly at that depth. "
+                             "Therefore, using a merged grid is generally recommended over using one grid."
+                             "When using one grid, the parameter for lower repetitions is used and the upper "
+                             "repetitions are ignored.");
         }
         prm.leave_subsection();
       }
@@ -448,7 +500,7 @@ namespace aspect
 
           extents[1]           = prm.get_double ("Y extent");
           lower_box_origin[1]  = prm.get_double ("Box origin Y coordinate");
-          periodic[1]          = prm.get_bool ("Y periodic");;
+          periodic[1]          = prm.get_bool ("Y periodic");
           lower_repetitions[1] = prm.get_integer ("Y repetitions");
 
           if (dim == 2)
@@ -479,7 +531,7 @@ namespace aspect
             }
 
           height_lith = extents[dim-1] - thickness_lith;
-
+          use_merged_grids = prm.get_bool ("Use merged grids");
         }
         prm.leave_subsection();
       }
@@ -504,7 +556,7 @@ namespace aspect
                                    "respectively. In 3d, boundary "
                                    "indicators 0 through 5 indicate left, right, front, back, bottom "
                                    "and top boundaries (see also the documentation of the deal.II class "
-                                   "``GeometryInfo''), while indicators 6, 7, 8 and 9 denote the left, "
+                                   "``ReferenceCell''), while indicators 6, 7, 8 and 9 denote the left, "
                                    "right, front and back upper parts of the vertical boundaries, respectively. "
                                    "You can also use symbolic names ``left'', ``right'', "
                                    "``left lithosphere'', etc., to refer to these boundaries in input files."

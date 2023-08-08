@@ -69,12 +69,10 @@ Number of degrees of freedom: 948 (578+81+289)
 
    Postprocessing:
 
-Number of active cells: 64 (on 4 levels)
-Number of degrees of freedom: 948 (578+81+289)
+Skipping mesh refinement, because the mesh did not change.
 
 *** Timestep 11:  t=2202.27 seconds, dt=113.055 seconds
    Solving temperature system... 2 iterations.
-   Rebuilding Stokes preconditioner...
    Solving Stokes system... 1+0 iterations.
 
    Postprocessing:
@@ -133,12 +131,10 @@ Number of degrees of freedom: 948 (578+81+289)
 
    Postprocessing:
 
-Number of active cells: 64 (on 4 levels)
-Number of degrees of freedom: 948 (578+81+289)
+Skipping mesh refinement, because the mesh did not change.
 
 *** Timestep 21:  t=3293.51 seconds, dt=132.505 seconds
    Solving temperature system... 2 iterations.
-   Rebuilding Stokes preconditioner...
    Solving Stokes system... 1+0 iterations.
 
    Postprocessing:
@@ -197,12 +193,10 @@ Number of degrees of freedom: 948 (578+81+289)
 
    Postprocessing:
 
-Number of active cells: 64 (on 4 levels)
-Number of degrees of freedom: 948 (578+81+289)
+Skipping mesh refinement, because the mesh did not change.
 
 *** Timestep 31:  t=5654.66 seconds, dt=305.349 seconds
    Solving temperature system... 3 iterations.
-   Rebuilding Stokes preconditioner...
    Solving Stokes system... 1+0 iterations.
 
    Postprocessing:
@@ -261,12 +255,10 @@ Number of degrees of freedom: 948 (578+81+289)
 
    Postprocessing:
 
-Number of active cells: 64 (on 4 levels)
-Number of degrees of freedom: 948 (578+81+289)
+Skipping mesh refinement, because the mesh did not change.
 
 *** Timestep 41:  t=8724.99 seconds, dt=308.417 seconds
    Solving temperature system... 3 iterations.
-   Rebuilding Stokes preconditioner...
    Solving Stokes system... 0+0 iterations.
 
    Postprocessing:
@@ -279,7 +271,7 @@ Number of degrees of freedom: 948 (578+81+289)
 
 *** Timestep 43:  t=9342.75 seconds, dt=309.034 seconds
    Solving temperature system... 3 iterations.
-   Solving Stokes system... 0+0 iterations.
+   Solving Stokes system... 1+0 iterations.
 
    Postprocessing:
 
@@ -291,13 +283,13 @@ Number of degrees of freedom: 948 (578+81+289)
 
 *** Timestep 45:  t=9961.75 seconds, dt=309.652 seconds
    Solving temperature system... 3 iterations.
-   Solving Stokes system... 2+0 iterations.
+   Solving Stokes system... 1+0 iterations.
 
    Postprocessing:
 
 *** Timestep 46:  t=10271.7 seconds, dt=309.962 seconds
    Solving temperature system... 3 iterations.
-   Solving Stokes system... 1+0 iterations.
+   Solving Stokes system... 0+0 iterations.
 
    Postprocessing:
 
@@ -309,7 +301,7 @@ Number of degrees of freedom: 948 (578+81+289)
 
 *** Timestep 48:  t=10892.6 seconds, dt=310.582 seconds
    Solving temperature system... 3 iterations.
-   Solving Stokes system... 1+0 iterations.
+   Solving Stokes system... 0+0 iterations.
 
    Postprocessing:
 
@@ -321,29 +313,27 @@ Number of degrees of freedom: 948 (578+81+289)
 
 *** Timestep 50:  t=11514.7 seconds, dt=311.203 seconds
    Solving temperature system... 3 iterations.
-   Solving Stokes system... 1+0 iterations.
+   Solving Stokes system... 2+0 iterations.
 
    Postprocessing:
 
-Number of active cells: 64 (on 4 levels)
-Number of degrees of freedom: 948 (578+81+289)
+Skipping mesh refinement, because the mesh did not change.
 
 *** Timestep 51:  t=11826.2 seconds, dt=311.515 seconds
-   Solving temperature system... 3 iterations.
-   Rebuilding Stokes preconditioner...
-   Solving Stokes system... 1+0 iterations.
-
-   Postprocessing:
-
-*** Timestep 52:  t=12138 seconds, dt=311.826 seconds
    Solving temperature system... 3 iterations.
    Solving Stokes system... 0+0 iterations.
 
    Postprocessing:
 
+*** Timestep 52:  t=12138 seconds, dt=311.826 seconds
+   Solving temperature system... 3 iterations.
+   Solving Stokes system... 2+0 iterations.
+
+   Postprocessing:
+
 *** Timestep 53:  t=12450.1 seconds, dt=312.138 seconds
    Solving temperature system... 3 iterations.
-   Solving Stokes system... 1+0 iterations.
+   Solving Stokes system... 2+0 iterations.
 
    Postprocessing:
 
@@ -355,13 +345,13 @@ Number of degrees of freedom: 948 (578+81+289)
 
 *** Timestep 55:  t=13075.4 seconds, dt=312.763 seconds
    Solving temperature system... 3 iterations.
-   Solving Stokes system... 1+0 iterations.
+   Solving Stokes system... 0+0 iterations.
 
    Postprocessing:
 
 *** Timestep 56:  t=13388.4 seconds, dt=313.075 seconds
    Solving temperature system... 3 iterations.
-   Solving Stokes system... 2+0 iterations.
+   Solving Stokes system... 1+0 iterations.
 
    Postprocessing:
 
@@ -379,7 +369,7 @@ Number of degrees of freedom: 948 (578+81+289)
 
 *** Timestep 59:  t=14329.5 seconds, dt=314.016 seconds
    Solving temperature system... 3 iterations.
-   Solving Stokes system... 1+0 iterations.
+   Solving Stokes system... 0+0 iterations.
 
    Postprocessing:
 
@@ -389,12 +379,10 @@ Number of degrees of freedom: 948 (578+81+289)
 
    Postprocessing:
 
-Number of active cells: 64 (on 4 levels)
-Number of degrees of freedom: 948 (578+81+289)
+Skipping mesh refinement, because the mesh did not change.
 
 *** Timestep 61:  t=14958.5 seconds, dt=314.644 seconds
    Solving temperature system... 3 iterations.
-   Rebuilding Stokes preconditioner...
    Solving Stokes system... 1+0 iterations.
 
    Postprocessing:

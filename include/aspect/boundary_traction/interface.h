@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2018 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -53,7 +53,7 @@ namespace aspect
          * Destructor. Made virtual to enforce that derived classes also have
          * virtual destructors.
          */
-        virtual ~Interface();
+        virtual ~Interface() = default;
 
         /**
          * Initialization function. This function is called once at the
@@ -80,27 +80,24 @@ namespace aspect
         update ();
 
         /**
-         * Return the boundary traction as a function of position.
+         * Return the traction that is to hold at a particular position on
+         * the boundary of the domain.
          *
-         * @deprecated Use boundary_traction(const types::boundary_id boundary_indicator,
-         * const Point<dim> &position, const Tensor<1,dim> &normal_vector) const instead.
-         */
-        DEAL_II_DEPRECATED
-        virtual
-        Tensor<1,dim>
-        traction (const Point<dim> &position,
-                  const Tensor<1,dim> &normal_vector) const;
-
-        /**
-         * Return the boundary traction as a function of position. The
-         * (outward) normal vector to the domain is also provided as
-         * a second argument.
+         * @param boundary_indicator The boundary indicator of the part of the
+         * boundary of the domain on which the point is located at which we
+         * are requesting the traction.
+         * @param position The position of the point at which we ask for the
+         * traction.
+         * @param normal_vector The (outward) normal vector to the boundary
+         * of the domain.
+         *
+         * @return Boundary traction at position @p position.
          */
         virtual
         Tensor<1,dim>
         boundary_traction (const types::boundary_id boundary_indicator,
                            const Point<dim> &position,
-                           const Tensor<1,dim> &normal_vector) const;
+                           const Tensor<1,dim> &normal_vector) const = 0;
 
         /**
          * Declare the parameters this class takes through input files. The
@@ -153,7 +150,7 @@ namespace aspect
     register_boundary_traction (const std::string &name,
                                 const std::string &description,
                                 void (*declare_parameters_function) (ParameterHandler &),
-                                Interface<dim> *(*factory_function) ());
+                                std::unique_ptr<Interface<dim>> (*factory_function) ());
 
     /**
      * A function that given the name of a model returns a pointer to an
@@ -166,7 +163,7 @@ namespace aspect
      * @ingroup BoundaryTractions
      */
     template <int dim>
-    Interface<dim> *
+    std::unique_ptr<Interface<dim>>
     create_boundary_traction (const std::string &name);
 
     /**
@@ -216,10 +213,10 @@ namespace aspect
   template class classname<3>; \
   namespace ASPECT_REGISTER_BOUNDARY_TRACTION_MODEL_ ## classname \
   { \
-    aspect::internal::Plugins::RegisterHelper<aspect::BoundaryTraction::Interface<2>,classname<2> > \
+    aspect::internal::Plugins::RegisterHelper<aspect::BoundaryTraction::Interface<2>,classname<2>> \
     dummy_ ## classname ## _2d (&aspect::BoundaryTraction::register_boundary_traction<2>, \
                                 name, description); \
-    aspect::internal::Plugins::RegisterHelper<aspect::BoundaryTraction::Interface<3>,classname<3> > \
+    aspect::internal::Plugins::RegisterHelper<aspect::BoundaryTraction::Interface<3>,classname<3>> \
     dummy_ ## classname ## _3d (&aspect::BoundaryTraction::register_boundary_traction<3>, \
                                 name, description); \
   }

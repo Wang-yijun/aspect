@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2021 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -25,8 +25,6 @@
 #include <aspect/simulator_access.h>
 #include <aspect/initial_composition/interface.h>
 #include <aspect/material_model/interface.h>
-#include <fstream>
-#include <iostream>
 #include <array>
 
 #include <boost/lexical_cast.hpp>
@@ -160,11 +158,11 @@ namespace aspect
     S40RTSPerturbation<dim>::initialize()
     {
       spherical_harmonics_lookup
-        = std_cxx14::make_unique<internal::S40RTS::SphericalHarmonicsLookup>(data_directory+harmonics_coeffs_file_name,
-                                                                             this->get_mpi_communicator());
-      spline_depths_lookup
-        = std_cxx14::make_unique<internal::S40RTS::SplineDepthsLookup>(data_directory+spline_depth_file_name,
+        = std::make_unique<internal::S40RTS::SphericalHarmonicsLookup>(data_directory+harmonics_coeffs_file_name,
                                                                        this->get_mpi_communicator());
+      spline_depths_lookup
+        = std::make_unique<internal::S40RTS::SplineDepthsLookup>(data_directory+spline_depth_file_name,
+                                                                 this->get_mpi_communicator());
 
       if (vs_to_density_method == file)
         {
@@ -214,8 +212,8 @@ namespace aspect
       // NOTE: there is apparently a factor of sqrt(2) difference
       // between the standard orthonormalized spherical harmonics
       // and those used for S40RTS (see PR # 966)
-      std::vector<std::vector<double> > cosine_components(max_degree+1, std::vector<double>(max_degree+1, 0.0));
-      std::vector<std::vector<double> > sine_components(max_degree+1, std::vector<double>(max_degree+1, 0.0));
+      std::vector<std::vector<double>> cosine_components(max_degree+1, std::vector<double>(max_degree+1, 0.0));
+      std::vector<std::vector<double>> sine_components(max_degree+1, std::vector<double>(max_degree+1, 0.0));
 
       for (unsigned int degree_l = 0; degree_l < max_degree+1; ++degree_l)
         {
@@ -329,7 +327,7 @@ namespace aspect
               in.velocity[0] = Tensor<1,dim> ();
               for (unsigned int c=0; c<this->n_compositional_fields(); ++c)
                 in.composition[0][c] = this->get_initial_composition_manager().initial_composition(position, c);
-              in.strain_rate.resize(0);
+              in.requested_properties = MaterialModel::MaterialProperties::thermal_expansion_coefficient;
 
               this->get_material_model().evaluate(in, out);
 
@@ -518,7 +516,7 @@ namespace aspect
                                               "but the computation of properties is optimized in speed "
                                               "if they are."
                                               "\n"
-                                              "If the plugin is used in 2D it will use an equatorial "
+                                              "If the plugin is used in 2d it will use an equatorial "
                                               "slice of the seismic tomography model.")
   }
 }

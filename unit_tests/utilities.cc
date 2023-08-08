@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2018 - 2021 by the authors of the ASPECT code.
+  Copyright (C) 2018 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -64,7 +64,7 @@ TEST_CASE("Utilities::AsciiDataLookup manual dim=1")
 
   std::vector<std::string> column_names = {"a", "b"};
   Table<1,double> table(2);
-  std::vector<Table<1,double> > raw_data(2, table);
+  std::vector<Table<1,double>> raw_data(2, table);
 
   std::vector<std::vector<double>> coordinate_values(1, std::vector<double>({1.0, 2.0}));
   // c1:
@@ -74,7 +74,8 @@ TEST_CASE("Utilities::AsciiDataLookup manual dim=1")
   raw_data[1](0) = 5.0;
   raw_data[1](1) = 3.0;
 
-  lookup.reinit(column_names, std::move(coordinate_values), std::move(raw_data));
+  lookup.reinit(column_names, std::move(coordinate_values), std::move(raw_data),
+                MPI_COMM_SELF, numbers::invalid_unsigned_int);
 
   INFO(lookup.get_data(Point<1>(1.5), 0));
   INFO(lookup.get_data(Point<1>(1.5), 1));
@@ -93,7 +94,7 @@ TEST_CASE("Utilities::AsciiDataLookup manual dim=2")
   aspect::Utilities::StructuredDataLookup<2> lookup(1 /*n_components*/, 1.0 /*scaling*/);
 
   std::vector<std::string> column_names = {"topography"};
-  std::vector<Table<2,double> > raw_data(1, Table<2,double>(3,3));
+  std::vector<Table<2,double>> raw_data(1, Table<2,double>(3,3));
   std::vector<std::vector<double>> coordinate_values(2, std::vector<double>(3, 0.));
 
   // x:
@@ -111,7 +112,8 @@ TEST_CASE("Utilities::AsciiDataLookup manual dim=2")
   raw_data[0](1,2) = 0.0;
   raw_data[0](2,2) = 0.0;
 
-  lookup.reinit(column_names, std::move(coordinate_values), std::move(raw_data));
+  lookup.reinit(column_names, std::move(coordinate_values), std::move(raw_data),
+                MPI_COMM_SELF, numbers::invalid_unsigned_int);
 
   REQUIRE(lookup.get_data(Point<2>(1.0,6.0),0) == Approx(5.0));
   REQUIRE(lookup.get_data(Point<2>(2.0,6.0),0) == Approx(5.5));
@@ -124,7 +126,7 @@ TEST_CASE("Utilities::AsciiDataLookup manual dim=2 equid")
   aspect::Utilities::StructuredDataLookup<2> lookup(1 /*n_components*/, 1.0 /*scaling*/);
 
   std::vector<std::string> column_names = {"topography"};
-  std::vector<Table<2,double> > raw_data(1, Table<2,double>(3,3));
+  std::vector<Table<2,double>> raw_data(1, Table<2,double>(3,3));
   std::vector<std::vector<double>> coordinate_values(2, std::vector<double>(3, 0.));
 
   // x:
@@ -142,8 +144,87 @@ TEST_CASE("Utilities::AsciiDataLookup manual dim=2 equid")
   raw_data[0](1,2) = 0.0;
   raw_data[0](2,2) = 0.0;
 
-  lookup.reinit(column_names, std::move(coordinate_values), std::move(raw_data));
+  lookup.reinit(column_names, std::move(coordinate_values), std::move(raw_data),
+                MPI_COMM_SELF, numbers::invalid_unsigned_int);
 
   REQUIRE(lookup.get_data(Point<2>(1.0,6.0),0) == Approx(5.0));
   REQUIRE(lookup.get_data(Point<2>(1.5,6.0),0) == Approx(5.5));
+}
+
+TEST_CASE("Random draw volume weighted average rotation matrix")
+{
+  std::vector<double> unsorted_volume_fractions = {2.,5.,1.,3.,6.,4.};
+  std::vector<double> sorted_volume_fractions_ref = {1.,2.,3.,4.,5.,6.};
+  const std::vector<std::size_t> permutation = aspect::Utilities::compute_sorting_permutation<double>(unsorted_volume_fractions);
+  const std::vector<double> sorted_volume_fractions = aspect::Utilities::apply_permutation<double>(unsorted_volume_fractions,permutation);
+
+  for (unsigned int i = 0; i < sorted_volume_fractions.size(); i++)
+    {
+      REQUIRE(sorted_volume_fractions[i] == Approx(sorted_volume_fractions_ref[i]));
+    }
+
+  const std::vector<dealii::Tensor<2,3>> unsorted_rotation_matrices =
+  {
+    dealii::Tensor<2,3>({{2.,2.,2.},{2.,2.,2.},{2.,2.,2.}}),
+    dealii::Tensor<2,3>({{5.,5.,5.},{5.,5.,5.},{5.,5.,5.}}),
+    dealii::Tensor<2,3>({{1.,1.,1.},{1.,1.,1.},{1.,1.,1.}}),
+    dealii::Tensor<2,3>({{3.,3.,3.},{3.,3.,3.},{3.,3.,3.}}),
+    dealii::Tensor<2,3>({{6.,6.,6.},{6.,6.,6.},{6.,6.,6.}}),
+    dealii::Tensor<2,3>({{4.,4.,4.},{4.,4.,4.},{4.,4.,4.}})
+  };
+
+  const std::vector<dealii::Tensor<2,3>> sorted_rotation_matrices_ref =
+  {
+    dealii::Tensor<2,3>({{1.,1.,1.},{1.,1.,1.},{1.,1.,1.}}),
+    dealii::Tensor<2,3>({{2.,2.,2.},{2.,2.,2.},{2.,2.,2.}}),
+    dealii::Tensor<2,3>({{3.,3.,3.},{3.,3.,3.},{3.,3.,3.}}),
+    dealii::Tensor<2,3>({{4.,4.,4.},{4.,4.,4.},{4.,4.,4.}}),
+    dealii::Tensor<2,3>({{5.,5.,5.},{5.,5.,5.},{5.,5.,5.}}),
+    dealii::Tensor<2,3>({{6.,6.,6.},{6.,6.,6.},{6.,6.,6.}})
+  };
+  const std::vector<dealii::Tensor<2,3>> sorted_rotation_matrices = aspect::Utilities::apply_permutation<dealii::Tensor<2,3>>(unsorted_rotation_matrices,permutation);
+  for (unsigned int i = 0; i < sorted_rotation_matrices.size(); i++)
+    {
+      REQUIRE(sorted_rotation_matrices[i][0][0] == Approx(sorted_rotation_matrices[i][0][0]));
+    }
+
+  std::mt19937 random_number_generator;
+  random_number_generator.seed(5);
+  const std::vector<dealii::Tensor<2,3>> result = aspect::Utilities::rotation_matrices_random_draw_volume_weighting(unsorted_volume_fractions,
+                                                   unsorted_rotation_matrices,
+                                                   25,
+                                                   random_number_generator);
+
+  const std::vector<dealii::Tensor<2,3>> result_ref =
+  {
+    dealii::Tensor<2,3>({{2.,2.,2.},{2.,2.,2.},{2.,2.,2.}}),
+    dealii::Tensor<2,3>({{6.,6.,6.},{6.,6.,6.},{6.,6.,6.}}),
+    dealii::Tensor<2,3>({{4.,4.,4.},{4.,4.,4.},{4.,4.,4.}}),
+    dealii::Tensor<2,3>({{6.,6.,6.},{6.,6.,6.},{6.,6.,6.}}),
+    dealii::Tensor<2,3>({{2.,2.,2.},{2.,2.,2.},{2.,2.,2.}}),
+    dealii::Tensor<2,3>({{4.,4.,4.},{4.,4.,4.},{4.,4.,4.}}),
+    dealii::Tensor<2,3>({{4.,4.,4.},{4.,4.,4.},{4.,4.,4.}}),
+    dealii::Tensor<2,3>({{5.,5.,5.},{5.,5.,5.},{5.,5.,5.}}),
+    dealii::Tensor<2,3>({{6.,6.,6.},{6.,6.,6.},{6.,6.,6.}}),
+    dealii::Tensor<2,3>({{6.,6.,6.},{6.,6.,6.},{6.,6.,6.}}),
+    dealii::Tensor<2,3>({{5.,5.,5.},{5.,5.,5.},{5.,5.,5.}}),
+    dealii::Tensor<2,3>({{6.,6.,6.},{6.,6.,6.},{6.,6.,6.}}),
+    dealii::Tensor<2,3>({{3.,3.,3.},{3.,3.,3.},{3.,3.,3.}}),
+    dealii::Tensor<2,3>({{6.,6.,6.},{6.,6.,6.},{6.,6.,6.}}),
+    dealii::Tensor<2,3>({{2.,2.,2.},{2.,2.,2.},{2.,2.,2.}}),
+    dealii::Tensor<2,3>({{3.,3.,3.},{3.,3.,3.},{3.,3.,3.}}),
+    dealii::Tensor<2,3>({{2.,2.,2.},{2.,2.,2.},{2.,2.,2.}}),
+    dealii::Tensor<2,3>({{6.,6.,6.},{6.,6.,6.},{6.,6.,6.}}),
+    dealii::Tensor<2,3>({{5.,5.,5.},{5.,5.,5.},{5.,5.,5.}}),
+    dealii::Tensor<2,3>({{5.,5.,5.},{5.,5.,5.},{5.,5.,5.}}),
+    dealii::Tensor<2,3>({{6.,6.,6.},{6.,6.,6.},{6.,6.,6.}}),
+    dealii::Tensor<2,3>({{1.,1.,1.},{1.,1.,1.},{1.,1.,1.}}),
+    dealii::Tensor<2,3>({{2.,2.,2.},{2.,2.,2.},{2.,2.,2.}}),
+    dealii::Tensor<2,3>({{6.,6.,6.},{6.,6.,6.},{6.,6.,6.}}),
+    dealii::Tensor<2,3>({{6.,6.,6.},{6.,6.,6.},{6.,6.,6.}}),
+  };
+  for (unsigned int i = 0; i < result.size(); i++)
+    {
+      REQUIRE(result[i][0][0] == Approx(result_ref[i][0][0]));
+    }
 }

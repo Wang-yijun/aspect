@@ -134,7 +134,7 @@ namespace aspect
                            a_cosine_matrices_grains);
 
         // now store the derivatives if needed
-        if (this->advection_method == AdvectionMethod::CrankNicolson)
+        if (this->advection_method == AdvectionMethod_lpo::CrankNicolson)
           {
             volume_fractions_grains_derivatives.resize(n_minerals);
             a_cosine_matrices_grains_derivatives.resize(n_minerals);
@@ -235,7 +235,7 @@ namespace aspect
         // now store the derivatives if needed. They are added after all the other data.
         // lpo_data_position + 3 + n_grains * 10 + mineral_i * (n_grains * 10 + 2)
         // data_position + 0 + n_minerals * (n_grains * 10 + 2)
-        if (this->advection_method == AdvectionMethod::CrankNicolson)
+        if (this->advection_method == AdvectionMethod_lpo::CrankNicolson)
           {
             for (size_t mineral_i = 0; mineral_i < n_minerals; mineral_i++)
               {
@@ -421,7 +421,7 @@ namespace aspect
               }
           }
 
-        if (this->advection_method == AdvectionMethod::CrankNicolson)
+        if (this->advection_method == AdvectionMethod_lpo::CrankNicolson)
           {
             // start with derivatives set to zero
             for (size_t mineral_i = 0; mineral_i < n_minerals; mineral_i++)
@@ -622,32 +622,32 @@ namespace aspect
           {
 
             // Now compute what type of deformation takes place.
-            DeformationType deformation_type = DeformationType::OlivineAFabric;
+            DeformationType_lpo deformation_type = DeformationType_lpo::OlivineAFabric;
 
             switch (deformation_type_selector[mineral_i])
               {
-                case DeformationTypeSelector::Passive:
-                  deformation_type =  DeformationType::Passive;
+                case DeformationTypeSelector_lpo::Passive:
+                  deformation_type =  DeformationType_lpo::Passive;
                   break;
-                case DeformationTypeSelector::OlivineAFabric:
-                  deformation_type =  DeformationType::OlivineAFabric;
+                case DeformationTypeSelector_lpo::OlivineAFabric:
+                  deformation_type =  DeformationType_lpo::OlivineAFabric;
                   break;
-                case DeformationTypeSelector::OlivineBFabric:
-                  deformation_type =  DeformationType::OlivineBFabric;
+                case DeformationTypeSelector_lpo::OlivineBFabric:
+                  deformation_type =  DeformationType_lpo::OlivineBFabric;
                   break;
-                case DeformationTypeSelector::OlivineCFabric:
-                  deformation_type =  DeformationType::OlivineCFabric;
+                case DeformationTypeSelector_lpo::OlivineCFabric:
+                  deformation_type =  DeformationType_lpo::OlivineCFabric;
                   break;
-                case DeformationTypeSelector::OlivineDFabric:
-                  deformation_type =  DeformationType::OlivineDFabric;
+                case DeformationTypeSelector_lpo::OlivineDFabric:
+                  deformation_type =  DeformationType_lpo::OlivineDFabric;
                   break;
-                case DeformationTypeSelector::OlivineEFabric:
-                  deformation_type =  DeformationType::OlivineEFabric;
+                case DeformationTypeSelector_lpo::OlivineEFabric:
+                  deformation_type =  DeformationType_lpo::OlivineEFabric;
                   break;
-                case DeformationTypeSelector::Enstatite:
-                  deformation_type =  DeformationType::Enstatite;
+                case DeformationTypeSelector_lpo::Enstatite:
+                  deformation_type =  DeformationType_lpo::Enstatite;
                   break;
-                case DeformationTypeSelector::OlivineKarato2008:
+                case DeformationTypeSelector_lpo::OlivineKarato2008:
                   // construct the material model inputs and outputs
                   // Since this function is only evaluating one particle,
                   // we use 1 for the amount of quadrature points.
@@ -731,7 +731,7 @@ namespace aspect
 
             switch (advection_method)
               {
-                case AdvectionMethod::ForwardEuler:
+                case AdvectionMethod_lpo::ForwardEuler:
 
                   sum_volume_mineral = this->advect_forward_euler(volume_fractions_grains[mineral_i],
                                                                   a_cosine_matrices_grains[mineral_i],
@@ -740,7 +740,7 @@ namespace aspect
 
                   break;
 
-                case AdvectionMethod::BackwardEuler:
+                case AdvectionMethod_lpo::BackwardEuler:
                   sum_volume_mineral = this->advect_backward_euler(volume_fractions_grains[mineral_i],
                                                                    a_cosine_matrices_grains[mineral_i],
                                                                    derivatives_grains,
@@ -748,7 +748,7 @@ namespace aspect
 
                   break;
 
-                case AdvectionMethod::CrankNicolson:
+                case AdvectionMethod_lpo::CrankNicolson:
                   sum_volume_mineral = this->advect_Crank_Nicolson(volume_fractions_grains[mineral_i],
                                                                    a_cosine_matrices_grains[mineral_i],
                                                                    derivatives_grains,
@@ -863,7 +863,7 @@ namespace aspect
       
 
       template<int dim>
-      DeformationType
+      DeformationType_lpo
       LPO<dim>::determine_deformation_type(const double stress, const double water_content) const
       {
         constexpr double MPa = 1e6;
@@ -872,28 +872,28 @@ namespace aspect
           {
             if (stress > (625. - 2.5 * water_content)*MPa)
               {
-                return DeformationType::OlivineBFabric;
+                return DeformationType_lpo::OlivineBFabric;
               }
             else
               {
-                return DeformationType::OlivineDFabric;
+                return DeformationType_lpo::OlivineDFabric;
               }
           }
         else
           {
             if (stress < (625.0 -2.5 * water_content)*MPa)
               {
-                return DeformationType::OlivineAFabric;
+                return DeformationType_lpo::OlivineAFabric;
               }
             else
               {
                 if (stress < (500.0 + ec_line_slope*-100. + ec_line_slope * water_content)*MPa)
                   {
-                    return DeformationType::OlivineEFabric;
+                    return DeformationType_lpo::OlivineEFabric;
                   }
                 else
                   {
-                    return DeformationType::OlivineCFabric;
+                    return DeformationType_lpo::OlivineCFabric;
                   }
               }
           }
@@ -901,13 +901,13 @@ namespace aspect
 
       template<int dim>
       std::array<double,4>
-      LPO<dim>::reference_resolved_shear_stress_from_deformation_type(DeformationType deformation_type, double max_value) const
+      LPO<dim>::reference_resolved_shear_stress_from_deformation_type(DeformationType_lpo deformation_type, double max_value) const
       {
         std::array<double,4> ref_resolved_shear_stress;
         switch (deformation_type)
           {
             // from Kaminski and Ribe, GJI 2004.
-            case DeformationType::OlivineAFabric :
+            case DeformationType_lpo::OlivineAFabric :
               ref_resolved_shear_stress[0] = 1;
               ref_resolved_shear_stress[1] = 2;
               ref_resolved_shear_stress[2] = 3;
@@ -915,7 +915,7 @@ namespace aspect
               break;
 
             // from Kaminski and Ribe, GJI 2004.
-            case DeformationType::OlivineBFabric :
+            case DeformationType_lpo::OlivineBFabric :
               ref_resolved_shear_stress[0] = 3;
               ref_resolved_shear_stress[1] = 2;
               ref_resolved_shear_stress[2] = 1;
@@ -923,7 +923,7 @@ namespace aspect
               break;
 
             // from Kaminski and Ribe, GJI 2004.
-            case DeformationType::OlivineCFabric :
+            case DeformationType_lpo::OlivineCFabric :
               ref_resolved_shear_stress[0] = 3;
               ref_resolved_shear_stress[1] = max_value;
               ref_resolved_shear_stress[2] = 2;
@@ -931,7 +931,7 @@ namespace aspect
               break;
 
             // from Kaminski and Ribe, GRL 2002.
-            case DeformationType::OlivineDFabric :
+            case DeformationType_lpo::OlivineDFabric :
               ref_resolved_shear_stress[0] = 1;
               ref_resolved_shear_stress[1] = 1;
               ref_resolved_shear_stress[2] = max_value;
@@ -939,7 +939,7 @@ namespace aspect
               break;
 
             // Kaminski, Ribe and Browaeys, JGI, 2004 (same as in the matlab code)
-            case DeformationType::OlivineEFabric :
+            case DeformationType_lpo::OlivineEFabric :
               ref_resolved_shear_stress[0] = 2;
               ref_resolved_shear_stress[1] = 1;
               ref_resolved_shear_stress[2] = max_value;
@@ -949,7 +949,7 @@ namespace aspect
             // from Kaminski and Ribe, GJI 2004.
             // Todo: this one is not used in practice, since there is an optimalisation in
             // the code. So maybe remove it in the future.
-            case DeformationType::Enstatite :
+            case DeformationType_lpo::Enstatite :
               ref_resolved_shear_stress[0] = max_value;
               ref_resolved_shear_stress[1] = max_value;
               ref_resolved_shear_stress[2] = max_value;
@@ -1073,7 +1073,7 @@ namespace aspect
               }
           }
 
-        if (this->advection_method == AdvectionMethod::CrankNicolson)
+        if (this->advection_method == AdvectionMethod_lpo::CrankNicolson)
           {
             for (size_t mineral_i = 0; mineral_i < n_minerals; mineral_i++)
               {
@@ -1686,15 +1686,15 @@ namespace aspect
               const std::string temp_advection_method = prm.get("Property advection method");
               if (temp_advection_method == "Forward Euler")
                 {
-                  advection_method = AdvectionMethod::ForwardEuler;
+                  advection_method = AdvectionMethod_lpo::ForwardEuler;
                 }
               else if (temp_advection_method == "Backward Euler")
                 {
-                  advection_method = AdvectionMethod::BackwardEuler;
+                  advection_method = AdvectionMethod_lpo::BackwardEuler;
                 }
               else if (temp_advection_method == "Crank-Nicolson")
                 {
-                  advection_method = AdvectionMethod::CrankNicolson;
+                  advection_method = AdvectionMethod_lpo::CrankNicolson;
                 }
               else
                 {
@@ -1719,35 +1719,35 @@ namespace aspect
                   {
                     if (temp_deformation_type_selector[mineral_i] == "Passive")
                       {
-                        deformation_type_selector[mineral_i] = DeformationTypeSelector::Passive;
+                        deformation_type_selector[mineral_i] = DeformationTypeSelector_lpo::Passive;
                       }
                     else if (temp_deformation_type_selector[mineral_i] == "Olivine: Karato 2008")
                       {
-                        deformation_type_selector[mineral_i] = DeformationTypeSelector::OlivineKarato2008;
+                        deformation_type_selector[mineral_i] = DeformationTypeSelector_lpo::OlivineKarato2008;
                       }
                     else if (temp_deformation_type_selector[mineral_i] ==  "Olivine: A-fabric")
                       {
-                        deformation_type_selector[mineral_i] = DeformationTypeSelector::OlivineAFabric;
+                        deformation_type_selector[mineral_i] = DeformationTypeSelector_lpo::OlivineAFabric;
                       }
                     else if (temp_deformation_type_selector[mineral_i] ==  "Olivine: B-fabric")
                       {
-                        deformation_type_selector[mineral_i] = DeformationTypeSelector::OlivineBFabric;
+                        deformation_type_selector[mineral_i] = DeformationTypeSelector_lpo::OlivineBFabric;
                       }
                     else if (temp_deformation_type_selector[mineral_i] ==  "Olivine: C-fabric")
                       {
-                        deformation_type_selector[mineral_i] = DeformationTypeSelector::OlivineCFabric;
+                        deformation_type_selector[mineral_i] = DeformationTypeSelector_lpo::OlivineCFabric;
                       }
                     else if (temp_deformation_type_selector[mineral_i] ==  "Olivine: D-fabric")
                       {
-                        deformation_type_selector[mineral_i] = DeformationTypeSelector::OlivineDFabric;
+                        deformation_type_selector[mineral_i] = DeformationTypeSelector_lpo::OlivineDFabric;
                       }
                     else if (temp_deformation_type_selector[mineral_i] ==  "Olivine: E-fabric")
                       {
-                        deformation_type_selector[mineral_i] = DeformationTypeSelector::OlivineEFabric;
+                        deformation_type_selector[mineral_i] = DeformationTypeSelector_lpo::OlivineEFabric;
                       }
                     else if (temp_deformation_type_selector[mineral_i] ==  "Enstatite")
                       {
-                        deformation_type_selector[mineral_i] = DeformationTypeSelector::Enstatite;
+                        deformation_type_selector[mineral_i] = DeformationTypeSelector_lpo::Enstatite;
                       }
                     else
                       {

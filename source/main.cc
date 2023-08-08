@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2021 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -30,10 +30,11 @@
 #include <string>
 #include <thread>
 #include <chrono>
+#include <regex>
 
 #ifdef DEBUG
 #ifdef ASPECT_USE_FP_EXCEPTIONS
-#include <fenv.h>
+#include <cfenv>
 #endif
 #endif
 
@@ -67,54 +68,28 @@ get_last_value_of_parameter(const std::string &parameters,
   std::istringstream x_file(parameters);
   while (x_file)
     {
-      // get one line and strip spaces at the front and back
+      // Get one line and then match a regex to it that matches the parameter
+      // we are looking for. Before we do that, strip spaces from the front
+      // and back of the line:
       std::string line;
       std::getline(x_file, line);
+
       while ((line.size() > 0) && (line[0] == ' ' || line[0] == '\t'))
         line.erase(0, 1);
       while ((line.size() > 0)
              && (line[line.size() - 1] == ' ' || line[line.size() - 1] == '\t'))
         line.erase(line.size() - 1, std::string::npos);
-      // now see whether the line starts with 'set' followed by multiple spaces
-      // if not, try next line
-      if (line.size() < 4)
-        continue;
 
-      if ((line[0] != 's') || (line[1] != 'e') || (line[2] != 't')
-          || !(line[3] == ' ' || line[3] == '\t'))
-        continue;
-
-      // delete the "set " and then delete more spaces if present
-      line.erase(0, 4);
-      while ((line.size() > 0) && (line[0] == ' ' || line[0] == '\t'))
-        line.erase(0, 1);
-      // now see whether the next word is the word we look for
-      if (line.find(parameter_name) != 0)
-        continue;
-
-      line.erase(0, parameter_name.size());
-      while ((line.size() > 0) && (line[0] == ' ' || line[0] == '\t'))
-        line.erase(0, 1);
-
-      // we'd expect an equals size here
-      if ((line.size() < 1) || (line[0] != '='))
-        continue;
-
-      // remove comment
-      std::string::size_type pos = line.find('#');
-      if (pos != std::string::npos)
-        line.erase (pos);
-
-      // trim the equals sign at the beginning and possibly following spaces
-      // as well as spaces at the end
-      line.erase(0, 1);
-      while ((line.size() > 0) && (line[0] == ' ' || line[0] == '\t'))
-        line.erase(0, 1);
-      while ((line.size() > 0) && (line[line.size()-1] == ' ' || line[line.size()-1] == '\t'))
-        line.erase(line.size()-1, std::string::npos);
-
-      // the rest should now be what we were looking for
-      return_value = line;
+      std::match_results<std::string::const_iterator> matches;
+      const std::string regex = "set[ \t]+" + parameter_name + "[ \t]*=[ \t]*(.*)";
+      if (std::regex_match(line, matches, std::regex(regex)))
+        {
+          // Since the line as a whole matched, the 'matches' variable needs to
+          // contain two entries: [0] denotes the whole string, and [1] the
+          // one that was matched by the '(.*)' expression.
+          Assert (matches.size() == 2, dealii::ExcInternalError());
+          return_value = std::string(matches[1].first, matches[1].second);
+        }
     }
 
   return return_value;
@@ -280,15 +255,39 @@ void possibly_load_shared_libs (const std::string &parameters)
 
       for (const auto &shared_lib : shared_libs_list)
         {
+          // The user can specify lib{target}.so, lib{target}.debug.so, or lib{target}.release.so but
+          // we need to load the correct file depending on our compilation mode. We will try to make
+          // it work regardless of what the users specified:
+          std::string filename = shared_lib;
+
+          auto delete_if_ends_with = [](std::string &a, const std::string &b)
+          {
+            if (a.size()<b.size())
+              return;
+            if (0==a.compare(a.size()-b.size(), b.size(), b))
+              a.erase(a.size()-b.size(), std::string::npos);
+          };
+
+          delete_if_ends_with(filename, ".debug.so");
+          delete_if_ends_with(filename, ".release.so");
+          delete_if_ends_with(filename, ".so");
+
+#ifdef DEBUG
+          filename.append(".debug.so");
+#else
+          filename.append(".release.so");
+#endif
+
           if (Utilities::MPI::this_mpi_process (MPI_COMM_WORLD) == 0)
             std::cout << "Loading shared library <"
-                      << shared_lib
-                      << ">" << std::endl;
+                      << filename
+                      << '>' << std::endl;
 
-          void *handle = dlopen (shared_lib.c_str(), RTLD_LAZY);
+
+          void *handle = dlopen (filename.c_str(), RTLD_LAZY);
           AssertThrow (handle != nullptr,
                        ExcMessage (std::string("Could not successfully load shared library <")
-                                   + shared_lib + ">. The operating system reports "
+                                   + filename + ">. The operating system reports "
                                    + "that the error is this: <"
                                    + dlerror() + ">."));
 
@@ -357,7 +356,8 @@ read_until_end (std::istream &input)
  * std::cin instead.
  */
 std::string
-read_parameter_file(const std::string &parameter_file_name)
+read_parameter_file(const std::string &parameter_file_name,
+                    MPI_Comm comm)
 {
   using namespace dealii;
 
@@ -366,25 +366,17 @@ read_parameter_file(const std::string &parameter_file_name)
 
   if (parameter_file_name != "--")
     {
-      std::ifstream parameter_file(parameter_file_name.c_str());
-      if (!parameter_file)
+      if (i_am_proc_0 == true &&
+          aspect::Utilities::fexists(parameter_file_name) == false &&
+          (parameter_file_name=="parameter-file.prm"
+           || parameter_file_name=="parameter_file.prm"))
         {
-          if (parameter_file_name=="parameter-file.prm"
-              || parameter_file_name=="parameter_file.prm")
-            {
-              std::cerr << "***          You should not take everything literally!          ***\n"
-                        << "*** Please pass the name of an existing parameter file instead. ***" << std::endl;
-              exit(1);
-            }
-
-          if (i_am_proc_0)
-            std::cerr << "Error: Input parameter file <" << parameter_file_name << "> not found."
-                      << std::endl;
-          throw aspect::QuietException();
-          return "";
+          std::cerr << "***          You should not take everything literally!          ***\n"
+                    << "*** Please pass the name of an existing parameter file instead. ***" << std::endl;
+          exit(1);
         }
 
-      input_as_string = read_until_end (parameter_file);
+      input_as_string = aspect::Utilities::read_and_distribute_file_content(parameter_file_name, comm);
     }
   else
     {
@@ -536,16 +528,10 @@ void signal_handler(int signal)
     {
       std::cerr << "Unexpected signal " << signal << " received\n";
     }
-#if DEAL_II_USE_CXX11
-  // Kill the program without performing any other cleanup, which is likely to
-  // lead to a deadlock
+
+  // Kill the program without performing any other cleanup, which would likely
+  // lead to a deadlock.
   std::_Exit(EXIT_FAILURE);
-#else
-  // Kill the program, or at least try to. The problem when we get here is
-  // that calling std::exit invokes at_exit() functions that may still hang
-  // the MPI system
-  std::exit(1);
-#endif
 }
 
 
@@ -654,8 +640,7 @@ int main (int argc, char *argv[])
   // Loop over all command line arguments. Handle a number of special ones
   // starting with a dash, and then take the first non-special one as the
   // name of the input file. We will later check that there are no further
-  // arguments left after that (though there may be with PETSc, see
-  // below).
+  // arguments left after that.
   while (current_argument<argc)
     {
       const std::string arg = argv[current_argument];
@@ -710,7 +695,11 @@ int main (int argc, char *argv[])
       // before, so that the destructor of this instance can react if we are
       // currently unwinding the stack if an unhandled exception is being
       // thrown to avoid MPI deadlocks.
-      Utilities::MPI::MPI_InitFinalize mpi_initialization(n_remaining_arguments, remaining_arguments, use_threads ? numbers::invalid_unsigned_int : 1);
+      Utilities::MPI::MPI_InitFinalize mpi_initialization(n_remaining_arguments,
+                                                          remaining_arguments,
+                                                          (use_threads ?
+                                                           numbers::invalid_unsigned_int :
+                                                           1));
 
       if (run_unittests)
         {
@@ -770,13 +759,8 @@ int main (int argc, char *argv[])
         }
 
       // If no parameter given or somebody gave additional parameters,
-      // show help and exit. However, this does not work with PETSc because for
-      // PETSc, one may pass any number of flags on the command line.
-      if ((prm_name == "")
-#ifndef ASPECT_USE_PETSC
-          || (current_argument < argc)
-#endif
-         )
+      // show help and exit.
+      if ((prm_name == "") || (current_argument < argc))
         {
           if (i_am_proc_0)
             print_help();
@@ -785,7 +769,7 @@ int main (int argc, char *argv[])
 
       // See where to read input from, then do the reading and
       // put the contents of the input into a string.
-      const std::string raw_input_as_string = read_parameter_file(prm_name);
+      const std::string raw_input_as_string = read_parameter_file(prm_name, MPI_COMM_WORLD);
 
       // Replace $ASPECT_SOURCE_DIR in the input so that include statements
       // like "include $ASPECT_SOURCE_DIR/tests/bla.prm" work.
@@ -836,6 +820,8 @@ int main (int argc, char *argv[])
                 << "Aborting!" << std::endl
                 << "----------------------------------------------------"
                 << std::endl;
+
+      MPI_Abort(MPI_COMM_WORLD, 1);
       return 1;
     }
   catch (std::exception &exc)
@@ -850,6 +836,8 @@ int main (int argc, char *argv[])
                 << "Aborting!" << std::endl
                 << "----------------------------------------------------"
                 << std::endl;
+
+      MPI_Abort(MPI_COMM_WORLD, 1);
       return 1;
     }
   catch (aspect::QuietException &)
@@ -863,6 +851,8 @@ int main (int argc, char *argv[])
       // other ranks to be printed before the MPI implementation might kill
       // the computation.
       std::this_thread::sleep_for(std::chrono::seconds(5));
+
+      MPI_Abort(MPI_COMM_WORLD, 1);
       return 1;
     }
   catch (...)
@@ -874,6 +864,8 @@ int main (int argc, char *argv[])
                 << "Aborting!" << std::endl
                 << "----------------------------------------------------"
                 << std::endl;
+
+      MPI_Abort(MPI_COMM_WORLD, 1);
       return 1;
     }
 

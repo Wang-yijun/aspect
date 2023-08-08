@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2016 - 2020 by the authors of the ASPECT code.
+  Copyright (C) 2016 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -33,6 +33,7 @@
 #include <aspect/geometry_model/ellipsoidal_chunk.h>
 #include <aspect/geometry_model/box.h>
 #include <aspect/geometry_model/two_merged_boxes.h>
+#include <aspect/geometry_model/two_merged_chunks.h>
 
 namespace aspect
 {
@@ -69,16 +70,15 @@ namespace aspect
 
       // For spherical(-like) domains, modify the representative point:
       // go from degrees to radians...
-      const double degrees_to_radians = dealii::numbers::PI/180.0;
       std::array<double, dim> spherical_representative_point;
       for (unsigned int d=0; d<dim; d++)
         spherical_representative_point[d] = representative_point[d];
-      spherical_representative_point[1] *= degrees_to_radians;
+      spherical_representative_point[1] *= constants::degree_to_radians;
       // and go from latitude to colatitude.
       if (dim == 3)
         {
           spherical_representative_point[2] = 90.0 - spherical_representative_point[2];
-          spherical_representative_point[2] *= degrees_to_radians;
+          spherical_representative_point[2] *= constants::degree_to_radians;
         }
 
       // Check that the representative point lies in the domain.
@@ -93,6 +93,8 @@ namespace aspect
         spherical_representative_point[0] = Plugins::get_plugin_as_type<const GeometryModel::SphericalShell<dim>>(this->get_geometry_model()).outer_radius();
       else if (Plugins::plugin_type_matches<const GeometryModel::Chunk<dim>> (this->get_geometry_model()))
         spherical_representative_point[0] =  Plugins::get_plugin_as_type<const GeometryModel::Chunk<dim>>(this->get_geometry_model()).outer_radius();
+      else if (Plugins::plugin_type_matches<const GeometryModel::TwoMergedChunks<dim>> (this->get_geometry_model()))
+        spherical_representative_point[0] =  Plugins::get_plugin_as_type<const GeometryModel::TwoMergedChunks<dim>>(this->get_geometry_model()).outer_radius();
       else if (Plugins::plugin_type_matches<const GeometryModel::EllipsoidalChunk<dim>> (this->get_geometry_model()))
         {
           const GeometryModel::EllipsoidalChunk<dim> &gm = Plugins::get_plugin_as_type<const GeometryModel::EllipsoidalChunk<dim>> (this->get_geometry_model());
@@ -117,40 +119,44 @@ namespace aspect
         AssertThrow(false, ExcNotImplemented());
 
       // Set up the input for the density function of the material model.
-      typename MaterialModel::Interface<dim>::MaterialModelInputs in0(1, n_compositional_fields);
-      typename MaterialModel::Interface<dim>::MaterialModelOutputs out0(1, n_compositional_fields);
+      typename MaterialModel::Interface<dim>::MaterialModelInputs in(1, n_compositional_fields);
+      typename MaterialModel::Interface<dim>::MaterialModelOutputs out(1, n_compositional_fields);
+      in.requested_properties = MaterialModel::MaterialProperties::density;
 
       // Where to calculate the density
       // for cartesian domains
       if (Plugins::plugin_type_matches<const GeometryModel::Box<dim>> (this->get_geometry_model()) ||
           Plugins::plugin_type_matches<const GeometryModel::TwoMergedBoxes<dim>> (this->get_geometry_model()))
-        in0.position[0] = representative_point;
+        in.position[0] = representative_point;
       // and for spherical domains
       else
-        in0.position[0] = Utilities::Coordinates::spherical_to_cartesian_coordinates<dim>(spherical_representative_point);
+        in.position[0] = Utilities::Coordinates::spherical_to_cartesian_coordinates<dim>(spherical_representative_point);
 
       // We need the initial temperature at this point
-      in0.temperature[0] = this->get_initial_temperature_manager().initial_temperature(in0.position[0]);
+      in.temperature[0] = this->get_initial_temperature_manager().initial_temperature(in.position[0]);
 
       // and the surface pressure.
-      in0.pressure[0] = pressure[0];
+      in.pressure[0] = pressure[0];
 
       // Then the compositions at this point.
       for (unsigned int c=0; c<n_compositional_fields; ++c)
-        in0.composition[0][c] = this->get_initial_composition_manager().initial_composition(in0.position[0], c);
+        in.composition[0][c] = this->get_initial_composition_manager().initial_composition(in.position[0], c);
 
-      // We do not need the viscosity.
-      in0.strain_rate.resize(0);
+      // Hopefully the material model won't needed in.strain_rate, we
+      // leave it as NaNs.
+
+      // We set all entries of the velocity vector to zero since this is the lithostatic case.
+      in.velocity[0] = Tensor<1,dim> ();
 
       // Evaluate the material model to get the density.
-      this->get_material_model().evaluate(in0, out0);
-      const double density0 = out0.densities[0];
+      this->get_material_model().evaluate(in, out);
+      const double density0 = out.densities[0];
 
       // Get the magnitude of gravity. We assume
       // that gravity always points along the depth direction. This
       // may not strictly be true always but is likely a good enough
       // approximation here.
-      const double gravity0 = this->get_gravity_model().gravity_vector(in0.position[0]).norm();
+      const double gravity0 = this->get_gravity_model().gravity_vector(in.position[0]).norm();
 
       // Now integrate pressure downward using trapezoidal integration
       // p'(z) = rho(p,c,T) * |g| * delta_z
@@ -162,10 +168,6 @@ namespace aspect
                                                        + dealii::Utilities::int_to_string(i)
                                                        + std::string(" is bigger than the size of the pressure vector ")
                                                        + dealii::Utilities::int_to_string(pressure.size())));
-
-          // Set up the input for the density function of the material model
-          typename MaterialModel::Interface<dim>::MaterialModelInputs in(1, n_compositional_fields);
-          typename MaterialModel::Interface<dim>::MaterialModelOutputs out(1, n_compositional_fields);
 
           // Where to calculate the density:
           // for cartesian domains
@@ -193,8 +195,8 @@ namespace aspect
           for (unsigned int c=0; c<n_compositional_fields; ++c)
             in.composition[0][c] = this->get_initial_composition_manager().initial_composition(in.position[0], c);
 
-          // We do not need the viscosity.
-          in.strain_rate.resize(0);
+          // We set all entries of the velocity vector to zero since this is the lithostatic case.
+          in.velocity[0] = Tensor<1,dim> ();
 
           // Evaluate the material model to get the density at the current point.
           this->get_material_model().evaluate(in, out);
@@ -217,15 +219,16 @@ namespace aspect
     template <int dim>
     Tensor<1,dim>
     InitialLithostaticPressure<dim>::
-    traction (const Point<dim> &p,
-              const Tensor<1,dim> &normal) const
+    boundary_traction (const types::boundary_id /*boundary_indicator*/,
+                       const Point<dim> &position,
+                       const Tensor<1,dim> &normal_vector) const
     {
       // We want to set the normal component to the vertical boundary
       // to the lithostatic pressure, the rest of the traction
       // components are left set to zero. We get the lithostatic pressure
       // from a linear interpolation of the calculated profile.
       Tensor<1,dim> traction;
-      traction = -interpolate_pressure(p) * normal;
+      traction = -interpolate_pressure(position) * normal_vector;
 
       return traction;
     }
@@ -271,8 +274,8 @@ namespace aspect
                              Patterns::List(Patterns::Double()),
                              "The point where the pressure profile will be calculated. "
                              "Cartesian coordinates $(x,y,z)$ when geometry is a box, otherwise enter radius, "
-                             "longitude, and in 3D latitude. Note that the coordinate related to the depth "
-                             "($y$ in 2D cartesian, $z$ in 3D cartesian and radius in spherical coordinates) is "
+                             "longitude, and in 3d latitude. Note that the coordinate related to the depth "
+                             "($y$ in 2d cartesian, $z$ in 3d cartesian and radius in spherical coordinates) is "
                              "not used. "
                              "Units: \\si{\\meter} or degrees.");
           prm.declare_entry("Number of integration points", "1000",

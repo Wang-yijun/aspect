@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2021 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -42,15 +42,20 @@
 
 
 
-#include <fstream>
-#include <string>
-#include <locale>
+#include <cerrno>
 #include <dirent.h>
+#include <fstream>
+#include <locale>
+#include <string>
 #include <sys/stat.h>
-#include <errno.h>
+#include <iostream>
+#include <regex>
 
 #include <boost/math/special_functions/spherical_harmonic.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
+#include <boost/iostreams/copy.hpp>
 
 namespace aspect
 {
@@ -60,6 +65,155 @@ namespace aspect
    */
   namespace Utilities
   {
+    namespace internal
+    {
+      namespace MPI
+      {
+        // --------------------------------------------------------------------
+        // The following is copied from deal.II's mpi.templates.h file.
+        // We should instead import it from deal.II's header files directly
+        // if that information is made available via one of the existing .h
+        // files.
+        // --------------------------------------------------------------------
+#ifdef DEAL_II_WITH_MPI
+        /**
+         * Return the corresponding MPI data type id for the argument given.
+         */
+        inline MPI_Datatype
+        mpi_type_id(const bool *)
+        {
+#  if DEAL_II_MPI_VERSION_GTE(2, 2)
+          return MPI_CXX_BOOL;
+#  else
+          return MPI_C_BOOL;
+#  endif
+        }
+
+
+
+        inline MPI_Datatype
+        mpi_type_id(const char *)
+        {
+          return MPI_CHAR;
+        }
+
+
+
+        inline MPI_Datatype
+        mpi_type_id(const signed char *)
+        {
+          return MPI_SIGNED_CHAR;
+        }
+
+
+
+        inline MPI_Datatype
+        mpi_type_id(const short *)
+        {
+          return MPI_SHORT;
+        }
+
+
+
+        inline MPI_Datatype
+        mpi_type_id(const int *)
+        {
+          return MPI_INT;
+        }
+
+
+
+        inline MPI_Datatype
+        mpi_type_id(const long int *)
+        {
+          return MPI_LONG;
+        }
+
+
+
+        inline MPI_Datatype
+        mpi_type_id(const unsigned char *)
+        {
+          return MPI_UNSIGNED_CHAR;
+        }
+
+
+
+        inline MPI_Datatype
+        mpi_type_id(const unsigned short *)
+        {
+          return MPI_UNSIGNED_SHORT;
+        }
+
+
+
+        inline MPI_Datatype
+        mpi_type_id(const unsigned int *)
+        {
+          return MPI_UNSIGNED;
+        }
+
+
+
+        inline MPI_Datatype
+        mpi_type_id(const unsigned long int *)
+        {
+          return MPI_UNSIGNED_LONG;
+        }
+
+
+
+        inline MPI_Datatype
+        mpi_type_id(const unsigned long long int *)
+        {
+          return MPI_UNSIGNED_LONG_LONG;
+        }
+
+
+
+        inline MPI_Datatype
+        mpi_type_id(const float *)
+        {
+          return MPI_FLOAT;
+        }
+
+
+
+        inline MPI_Datatype
+        mpi_type_id(const double *)
+        {
+          return MPI_DOUBLE;
+        }
+
+
+
+        inline MPI_Datatype
+        mpi_type_id(const long double *)
+        {
+          return MPI_LONG_DOUBLE;
+        }
+
+
+
+        inline MPI_Datatype
+        mpi_type_id(const std::complex<float> *)
+        {
+          return MPI_COMPLEX;
+        }
+
+
+
+        inline MPI_Datatype
+        mpi_type_id(const std::complex<double> *)
+        {
+          return MPI_DOUBLE_COMPLEX;
+        }
+#endif
+      }
+    }
+
+
+
     template <typename T>
     Table<2,T>
     parse_input_table (const std::string &input_string,
@@ -91,111 +245,298 @@ namespace aspect
       return input_table;
     }
 
-    namespace
+
+
+    namespace MapParsing
     {
-      // This is a helper function used in parse_map_to_double_array below.
-      // It takes an input_string that is expected to follow the input format
-      // explained in the documentation of the parse_map_to_double_array function
-      // and parses it into a multimap, only performing rudimentary error checking
-      // for correct formatting.
-      std::multimap<std::string, double>
-      parse_string_to_map (const std::string &input_string,
-                           const std::vector<std::string> &list_of_keys,
-                           const std::string &property_name)
+      namespace
       {
-        std::multimap<std::string, double> parsed_map;
+        // This is a helper function used in parse_map_to_double_array below.
+        // It takes an input_string that is expected to follow the input format
+        // explained in the documentation of the parse_map_to_double_array function
+        // and parses it into a multimap, only performing rudimentary error checking
+        // for correct formatting.
+        std::multimap<std::string, double>
+        parse_string_to_map (const std::string &input_string,
+                             const Options &options)
+        {
+          std::multimap<std::string, double> parsed_map;
 
-        if (Patterns::Map(Patterns::Anything(),
-                          Patterns::List(Patterns::Double(),
-                                         0,
-                                         std::numeric_limits<unsigned int>::max(),
-                                         "|")).match(input_string))
-          {
-            // Split the list by comma delimited components.
-            const std::vector<std::string> field_entries = dealii::Utilities::split_string_list(input_string, ',');
+          // Parse the input string, if it follows the structure of
+          // 'key1:value1, key2:value2', or 'key1:value1|value2, ...'.
+          if (Patterns::Map(Patterns::Anything(),
+                            Patterns::List(Patterns::Double(),
+                                           0,
+                                           std::numeric_limits<unsigned int>::max(),
+                                           "|")).match(input_string))
+            {
+              // Split the list by comma delimited components.
+              const std::vector<std::string> field_entries = dealii::Utilities::split_string_list(input_string, ',');
 
-            for (const auto &field_entry : field_entries)
-              {
-                // Split each entry into string and value ( <id> : <value>)
-                std::vector<std::string> key_and_value = Utilities::split_string_list (field_entry, ':');
+              for (const auto &field_entry : field_entries)
+                {
+                  // Split each entry into string and value ( <id> : <value>)
+                  std::vector<std::string> key_and_value = Utilities::split_string_list (field_entry, ':');
 
-                // Ensure that each entry has the correct form.
-                AssertThrow (key_and_value.size() == 2,
-                             ExcMessage ("The format for mapped "
-                                         + property_name
-                                         + "requires that each entry has the "
-                                         "form `<key> : <value>' "
-                                         ", but the entry <"
-                                         + field_entry
-                                         + "> does not appear to follow this pattern."));
+                  // Ensure that each entry has the correct form.
+                  AssertThrow (key_and_value.size() == 2,
+                               ExcMessage ("The format for mapped "
+                                           + options.property_name
+                                           + "requires that each entry has the "
+                                           "form `<key> : <value>' "
+                                           ", but the entry <"
+                                           + field_entry
+                                           + "> does not appear to follow this pattern."));
 
-                // Handle special key "all", which must be the only entry if found
-                if (key_and_value[0] == "all")
-                  {
-                    AssertThrow (field_entries.size() == 1,
-                                 ExcMessage ("The keyword `all' in the property "
-                                             + property_name
-                                             + " is only allowed if there is no other "
-                                             "keyword."));
+                  // Handle special key "all", which must be the only entry if found
+                  if (key_and_value[0] == "all")
+                    {
+                      AssertThrow (field_entries.size() == 1,
+                                   ExcMessage ("The keyword `all' in the property "
+                                               + options.property_name
+                                               + " is only allowed if there is no other "
+                                               "keyword."));
 
-                    const std::vector<std::string> values = dealii::Utilities::split_string_list(key_and_value[1], '|');
+                      const std::vector<std::string> values = dealii::Utilities::split_string_list(key_and_value[1], '|');
 
-                    // Assign all the values to all fields
-                    for (const std::string &key: list_of_keys)
-                      for (const std::string &value : values)
-                        {
-                          parsed_map.emplace(key, Utilities::string_to_double(value));
-                        }
-                  }
-                // Handle lists of multiple unique entries
-                else
-                  {
-                    AssertThrow (parsed_map.find(key_and_value[0]) == parsed_map.end(),
-                                 ExcMessage ("The keyword <"
-                                             + key_and_value[0]
-                                             + "> in "
-                                             + property_name
-                                             + " is listed multiple times. "
-                                             "Check that you have only one value for "
-                                             "each field id in your list."));
+                      // Assign all the values to all fields
+                      for (const std::string &key: options.list_of_required_keys)
+                        for (const std::string &value : values)
+                          {
+                            parsed_map.emplace(key, Utilities::string_to_double(value));
+                          }
+                    }
+                  // Handle lists of multiple unique entries
+                  else
+                    {
+                      AssertThrow (parsed_map.find(key_and_value[0]) == parsed_map.end(),
+                                   ExcMessage ("The keyword <"
+                                               + key_and_value[0]
+                                               + "> in "
+                                               + options.property_name
+                                               + " is listed multiple times. "
+                                               "Check that you have only one value for "
+                                               "each field id in your list."));
 
-                    const std::vector<std::string> values = dealii::Utilities::split_string_list(key_and_value[1], '|');
+                      const std::vector<std::string> values = dealii::Utilities::split_string_list(key_and_value[1], '|');
 
-                    for (const auto &value : values)
-                      {
+                      for (const auto &value : values)
                         parsed_map.emplace(key_and_value[0],Utilities::string_to_double(value));
-                      }
-                  }
-              }
-          }
-        else if (Patterns::List(Patterns::Double(),1,list_of_keys.size()).match(input_string))
-          {
-            // Handle the format of a comma separated list of doubles, with no keywords
-            const std::vector<double> values = possibly_extend_from_1_to_N (dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(input_string)),
-                                                                            list_of_keys.size(),
-                                                                            property_name);
+                    }
+                }
+            }
+          // Parse the input string, if it follows the structure of
+          // 'value1, value2, value3' with as many entries as allowed keys.
+          else if (Patterns::List(Patterns::Double(),options.list_of_allowed_keys.size(),options.list_of_allowed_keys.size()).match(input_string))
+            {
+              const std::vector<double> values = possibly_extend_from_1_to_N (dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(input_string)),
+                                                                              options.list_of_allowed_keys.size(),
+                                                                              options.property_name);
 
-            for (unsigned int i=0; i<values.size(); ++i)
-              {
-                // list_of_keys and values have the same length, which is guaranteed by the
-                // call to possibly_extend_from_1_to_N() above
-                parsed_map.emplace(list_of_keys[i],values[i]);
-              }
-          }
-        else
-          {
-            // No Patterns matches were found!
-            AssertThrow (false,
-                         ExcMessage ("The required format for property <"
-                                     + property_name
-                                     + "> was not found. Specify a comma separated "
-                                     + "list of `<double>' or `<key1> : <double>|<double>|..., "
-                                     + "<key2> : <double>|... , ... '."));
-          }
+              for (unsigned int i=0; i<values.size(); ++i)
+                {
+                  // list_of_keys and values have the same length, which is guaranteed by the
+                  // call to possibly_extend_from_1_to_N() above
+                  parsed_map.emplace(options.list_of_allowed_keys[i],values[i]);
+                }
+            }
+          // Parse the input string, if it follows the structure of
+          // 'value1, value2, value3' with one entry or as many entries as required keys.
+          else if (Patterns::List(Patterns::Double(),1,options.list_of_required_keys.size()).match(input_string))
+            {
+              const std::vector<double> values = possibly_extend_from_1_to_N (dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(input_string)),
+                                                                              options.list_of_required_keys.size(),
+                                                                              options.property_name);
 
-        return parsed_map;
+              for (unsigned int i=0; i<values.size(); ++i)
+                {
+                  // list_of_keys and values have the same length, which is guaranteed by the
+                  // call to possibly_extend_from_1_to_N() above
+                  parsed_map.emplace(options.list_of_required_keys[i],values[i]);
+                }
+            }
+          else
+            {
+              // No Patterns matches were found!
+              AssertThrow (false,
+                           ExcMessage ("The string for property <"
+                                       + options.property_name
+                                       + "> does not have the expected format. "
+                                       + "Check that the string is either a "
+                                       + "comma separated list of `<double>' or "
+                                       + "`<key1> : <double>|<double>|..., "
+                                       + "<key2> : <double>|... , ... '. "
+                                       + "If the string looks correct, "
+                                       + "it is likely that the length of the "
+                                       + "list of keys passed to "
+                                       + "parse_map_to_double_array does not "
+                                       + "match the length of the "
+                                       + "comma separated property list."));
+            }
+
+          // Now remove all allowed but not requested keys from the map
+          // If no keys are specifically requested, do not delete any.
+          if (options.list_of_allowed_keys.size() > options.list_of_required_keys.size())
+            {
+              for (const auto &allowed_key: options.list_of_allowed_keys)
+                if (std::find(options.list_of_required_keys.begin(),
+                              options.list_of_required_keys.end(),
+                              allowed_key) == options.list_of_required_keys.end())
+                  parsed_map.erase(allowed_key);
+            }
+
+          return parsed_map;
+        }
+
+        // This is a helper function used in parse_map_to_double_array below.
+        // It takes an input multimap for example generated by parse_string_to_map
+        // above and flattens it into a
+        // vector of plain doubles (in the order of the given keys).
+        std::vector<double>
+        flatten_map_to_vector (const std::multimap<std::string, double> &map,
+                               const std::vector<std::string> &keys)
+        {
+          std::vector<double> values;
+          values.reserve(map.size());
+
+          for (const std::string &field_name: keys)
+            {
+              const std::pair<std::multimap<std::string, double>::const_iterator,
+                    std::multimap<std::string, double>::const_iterator> entry_range = map.equal_range(field_name);
+
+              for (auto entry = entry_range.first; entry != entry_range.second; ++entry)
+                values.push_back(entry->second);
+            }
+          return values;
+        }
+
+        void
+        read_or_check_map_structure (std::multimap<std::string, double> &map,
+                                     Options &options)
+        {
+          const unsigned int n_fields = options.list_of_required_keys.size();
+
+          std::vector<unsigned int> values_per_key(n_fields, 0);
+
+          if (options.check_values_per_key)
+            AssertThrow(options.n_values_per_key.size() == n_fields,
+                        ExcMessage("When providing an expected structure for input parameter " + options.property_name + " you need to provide "
+                                   + "as many entries in the structure vector as there are input field names (+1 if there is a background field). "
+                                   + "The current structure vector has " + std::to_string(options.n_values_per_key.size()) + " entries, but there are "
+                                   + std::to_string(n_fields) + " field names." ));
+
+          for (const std::pair<const std::string, double> &key_and_value: map)
+            {
+              const std::vector<std::string>::const_iterator field_name =
+                std::find(options.list_of_required_keys.begin(),
+                          options.list_of_required_keys.end(),
+                          key_and_value.first);
+
+              // Ensure that each key is in the list of field names
+              AssertThrow (field_name != options.list_of_required_keys.end(),
+                           ExcMessage ("The keyword <" + key_and_value.first + "> in "
+                                       + options.property_name + " does not match any entries "
+                                       "from the list of requested field names."
+                                       "Check that you only use valid names.\n\n"
+                                       "One example of where to check this is if "
+                                       "Compositional fields are used, "
+                                       "then check the id list "
+                                       "from `set Names of fields' in the "
+                                       "Compositional fields subsection. "
+                                       "Alternatively, if `set Names of fields' "
+                                       "is not set, the default names are "
+                                       "C_1, C_2, ..., C_n."));
+
+              const unsigned int field_index = std::distance(options.list_of_required_keys.cbegin(), field_name);
+              values_per_key[field_index] += 1;
+            }
+
+          if (options.store_values_per_key)
+            options.n_values_per_key = values_per_key;
+
+          unsigned int field_index = 0;
+          for (const unsigned int &n_values: values_per_key)
+            {
+              if (options.allow_multiple_values_per_key == false)
+                AssertThrow (n_values <= 1,
+                             ExcMessage ("The keyword <"
+                                         + options.list_of_required_keys[field_index]
+                                         + "> in "
+                                         + options.property_name
+                                         + " has multiple values, which is unexpected. "
+                                         "Check that you have only one value for "
+                                         "each field id in your list."));
+
+              if (options.allow_missing_keys == false)
+                AssertThrow (n_values > 0,
+                             ExcMessage ("The keyword <"
+                                         + options.list_of_required_keys[field_index]
+                                         + "> in "
+                                         + options.property_name
+                                         + " is not listed, although it is expected. "
+                                         "Check that you have at least one value for "
+                                         "each field id in your list (possibly plus "
+                                         "`background` if a background field is expected "
+                                         "for this property)."));
+
+              if (options.check_values_per_key)
+                {
+                  const unsigned int n_expected_values = options.n_values_per_key[field_index];
+                  const std::string field_name = options.list_of_required_keys[field_index];
+
+                  AssertThrow((n_expected_values == n_values || n_values == 1),
+                              ExcMessage("The key <" + field_name + "> in <"+ options.property_name + "> does not have "
+                                         + "the expected number of values. It expects " + std::to_string(n_expected_values)
+                                         + "or 1 values, but we found " + std::to_string(n_values) + " values."));
+
+                  // If we expect multiple values for a key, but found exactly one: assume
+                  // the one value stands for every expected value. This allows
+                  // for short and simpler input if all values for a key are the same.
+                  if (n_values == 1)
+                    {
+                      const double field_value = map.find(field_name)->second;
+                      for (unsigned int i=1; i<n_expected_values; ++i)
+                        map.emplace(field_name, field_value);
+                    }
+                }
+
+              ++field_index;
+            }
+        }
+      }
+
+      std::vector<double>
+      parse_map_to_double_array(const std::string &input_string,
+                                Options &options)
+      {
+        // Check options for consistency
+        AssertThrow (options.list_of_required_keys.size() != 0,
+                     ExcMessage("parse_map_to_double_array needs at least one required key name."));
+        AssertThrow (options.property_name != "",
+                     ExcMessage("parse_map_to_double_array needs a property name to be able to properly report parsing errors."));
+        AssertThrow (options.check_values_per_key == false ||
+                     options.store_values_per_key == false,
+                     ExcMessage("parse_map_to_double_array can not simultaneously store the structure "
+                                "of the parsed map and check that structure against a given structure."));
+        AssertThrow (options.check_values_per_key == false ||
+                     options.n_values_per_key.size() == options.list_of_required_keys.size(),
+                     ExcMessage("parse_map_to_double_array can only check the structure "
+                                "of the parsed map if an expected number of values for each key is given."));
+
+        // First: parse the string into a map depending on what Pattern we are dealing with
+        std::multimap<std::string, double> parsed_map = parse_string_to_map(input_string,
+                                                                            options);
+
+        // Second: Now check that the structure of the map is as expected
+        read_or_check_map_structure(parsed_map,
+                                    options);
+
+        // Finally: Convert the map into a vector of doubles, sorted in the order
+        // of the list_of_required_keys option
+        return flatten_map_to_vector(parsed_map, options.list_of_required_keys);
       }
     }
+
 
 
     std::vector<double>
@@ -204,120 +545,31 @@ namespace aspect
                                const bool expects_background_field,
                                const std::string &property_name,
                                const bool allow_multiple_values_per_key,
-                               const std::shared_ptr<std::vector<unsigned int> > &n_values_per_key,
+                               const std::unique_ptr<std::vector<unsigned int>> &n_values_per_key,
                                const bool allow_missing_keys)
     {
-      std::vector<std::string> field_names = list_of_keys;
+      std::vector<std::string> input_field_names = list_of_keys;
+
       if (expects_background_field)
-        field_names.insert(field_names.begin(),"background");
-      const unsigned int n_fields = field_names.size();
+        input_field_names.insert(input_field_names.begin(),"background");
 
-      // First: parse the string into a map depending on what Pattern we are dealing with
-      std::multimap<std::string, double> parsed_map = parse_string_to_map(input_string,
-                                                                          field_names,
-                                                                          property_name);
+      MapParsing::Options options(input_field_names, property_name);
+      options.allow_multiple_values_per_key = allow_multiple_values_per_key;
+      options.allow_missing_keys = allow_missing_keys;
 
-      // Second: Now check that the structure of the map is as expected
-      {
-        const bool check_structure = (n_values_per_key && n_values_per_key->size() != 0);
-        const bool store_structure = (n_values_per_key && n_values_per_key->size() == 0);
-        std::vector<unsigned int> values_per_key(n_fields, 0);
-
-        if (check_structure)
-          AssertThrow(n_values_per_key->size() == n_fields,
-                      ExcMessage("When providing an expected structure for input parameter " + property_name + " you need to provide "
-                                 + "as many entries in the structure vector as there are input field names (+1 if there is a background field). "
-                                 + "The current structure vector has " + std::to_string(n_values_per_key->size()) + " entries, but there are "
-                                 + std::to_string(n_fields) + " field names." ));
-
-        for (const std::pair<const std::string, double> &key_and_value: parsed_map)
-          {
-            const std::vector<std::string>::iterator field_name =
-              std::find(field_names.begin(),field_names.end(),key_and_value.first);
-
-            // Ensure that each key is in the list of field names
-            AssertThrow (field_name != field_names.end(),
-                         ExcMessage ("The keyword <" + key_and_value.first + "> in "
-                                     + property_name + " does not match any entries "
-                                     "from the list of field names"
-                                     + ((expects_background_field)
-                                        ?
-                                        " (plus `background' for the background field). "
-                                        :
-                                        ". ")
-                                     + "Check that you only use valid names.\n\n"
-                                     "One example of where to check this is if "
-                                     "Compositional fields are used, "
-                                     "then check the id list "
-                                     "from `set Names of fields' in the "
-                                     "Compositional fields subsection. "
-                                     "Alternatively, if `set Names of fields' "
-                                     "is not set, the default names are "
-                                     "C_1, C_2, ..., C_n."));
-
-            const unsigned int field_index = std::distance(field_names.begin(), field_name);
-            values_per_key[field_index] += 1;
-          }
-
-        if (store_structure)
-          *n_values_per_key = values_per_key;
-
-        unsigned int field_index = 0;
-        for (const unsigned int &n_values: values_per_key)
-          {
-            if (allow_multiple_values_per_key == false)
-              AssertThrow (n_values <= 1,
-                           ExcMessage ("The keyword <"
-                                       + field_names[field_index]
-                                       + "> in "
-                                       + property_name
-                                       + " has multiple values, which is unexpected. "
-                                       "Check that you have only one value for "
-                                       "each field id in your list."));
-
-            if (allow_missing_keys == false)
-              AssertThrow (n_values > 0,
-                           ExcMessage ("The keyword <"
-                                       + field_names[field_index]
-                                       + "> in "
-                                       + property_name
-                                       + " is not listed, although it is expected. "
-                                       "Check that you have at least one value for "
-                                       "each field id in your list (possibly plus "
-                                       "`background` if a background field is expected "
-                                       "for this property)."));
-
-            if (check_structure)
-              {
-                AssertThrow(((*n_values_per_key)[field_index] == n_values || n_values == 1),
-                            ExcMessage("The key <" + field_names[field_index] + "> in <"+ property_name + "> does not have "
-                                       + "the expected number of values. It expects " + std::to_string((*n_values_per_key)[field_index])
-                                       + "or 1 values, but we found " + std::to_string(n_values) + " values."));
-                if (n_values == 1)
-                  {
-                    const std::string field_name = field_names[field_index];
-                    const double field_value = parsed_map.find(field_name)->second;
-                    for (unsigned int i=1; i<(*n_values_per_key)[field_index]; ++i)
-                      parsed_map.emplace(field_name, field_value);
-                  }
-              }
-
-            ++field_index;
-          }
-      }
-
-      // Finally: Convert the map into a vector of doubles, sorted in the order
-      // of the field_names input parameter
-      std::vector<double> return_values;
-      for (const std::string &field_name: field_names)
+      if (n_values_per_key)
         {
-          const std::pair<std::multimap<std::string, double>::const_iterator,
-                std::multimap<std::string, double>::const_iterator> entry_range = parsed_map.equal_range(field_name);
-
-          for (auto entry = entry_range.first; entry != entry_range.second; ++entry)
-            return_values.push_back(entry->second);
+          options.n_values_per_key = *n_values_per_key;
+          options.check_values_per_key = (n_values_per_key->size() != 0);
+          options.store_values_per_key = (n_values_per_key->size() == 0);
         }
-      return return_values;
+
+      const auto parsed_map = MapParsing::parse_map_to_double_array(input_string, options);
+
+      if (n_values_per_key)
+        *n_values_per_key = options.n_values_per_key;
+
+      return parsed_map;
     }
 
 
@@ -367,6 +619,7 @@ namespace aspect
     }
 
 
+
     /**
     * This is an internal deal.II function stolen from dof_tools.cc
     *
@@ -404,6 +657,7 @@ namespace aspect
     }
 
 
+
     template <int dim>
     IndexSet extract_locally_active_dofs_with_component(const DoFHandler<dim> &dof_handler,
                                                         const ComponentMask &component_mask)
@@ -430,6 +684,46 @@ namespace aspect
 
 
 
+    template <int dim>
+    std::vector<Point<dim>> get_unit_support_points(const SimulatorAccess<dim> &simulator_access)
+    {
+      if ( !simulator_access.get_parameters().use_locally_conservative_discretization )
+        {
+          return simulator_access.get_fe().get_unit_support_points();
+        }
+      else
+        {
+          //special case for discontinuous pressure elements, which lack unit support points
+          const unsigned int dofs_per_cell = simulator_access.get_fe().dofs_per_cell;
+          std::vector<Point<dim>> unit_support_points;
+          unit_support_points.reserve(dofs_per_cell);
+
+          for (unsigned int dof=0; dof < dofs_per_cell; ++dof)
+            {
+              // base will hold element, base_index holds node/shape function within that element
+              const unsigned int base       = simulator_access.get_fe().system_to_base_index(dof).first.first;
+              const unsigned int base_index = simulator_access.get_fe().system_to_base_index(dof).second;
+              // get the unit support points for the relevant element
+              const std::vector<Point<dim>> &my_support_points = simulator_access.get_fe().base_element(base).get_unit_support_points();
+              if ( my_support_points.size() == 0 )
+                {
+                  //manufacture a support point, arbitrarily at cell center
+                  if (dim==2)
+                    unit_support_points.push_back(Point<dim> (0.5,0.5));
+                  if (dim==3)
+                    unit_support_points.push_back(Point<dim> (0.5,0.5,0.5));
+                }
+              else
+                {
+                  unit_support_points.push_back(my_support_points[base_index]);
+                }
+            }
+          return unit_support_points;
+        }
+    }
+
+
+
     namespace Coordinates
     {
 
@@ -451,12 +745,12 @@ namespace aspect
                                 * std::sin(th) * std::sin(th)),
                                (p - (ellipticity * ellipticity * radius * (std::cos(th)
                                                                            * std::cos(th) * std::cos(th)))))
-                    * (180. / numbers::PI);
+                    * constants::radians_to_degree;
 
         if (dim == 3)
           {
             ecoord[1] = std::atan2(position(1), position(0))
-                        * (180. / numbers::PI);
+                        * constants::radians_to_degree;
 
             /* Set all longitudes between [0,360]. */
             if (ecoord[1] < 0.)
@@ -469,10 +763,12 @@ namespace aspect
 
 
         ecoord[0] = radius/std::sqrt(1- ellipticity * ellipticity
-                                     * std::sin(numbers::PI * ecoord[2]/180)
-                                     * std::sin(numbers::PI * ecoord[2]/180));
+                                     * std::sin(constants::degree_to_radians * ecoord[2])
+                                     * std::sin(constants::degree_to_radians * ecoord[2]));
         return ecoord;
       }
+
+
 
       template <int dim>
       std::array<double,dim>
@@ -493,6 +789,8 @@ namespace aspect
           }
         return scoord;
       }
+
+
 
       template <int dim>
       Point<dim>
@@ -523,6 +821,8 @@ namespace aspect
         return ccoord;
       }
 
+
+
       template <int dim>
       std::array<double,3>
       cartesian_to_ellipsoidal_coordinates(const Point<3> &x,
@@ -548,6 +848,8 @@ namespace aspect
         return phi_theta_d;
       }
 
+
+
       template <int dim>
       Point<3>
       ellipsoidal_to_cartesian_coordinates(const std::array<double,3> &phi_theta_d,
@@ -566,6 +868,7 @@ namespace aspect
                          ((1 - eccentricity * eccentricity) * R_bar + d) * std::sin(theta));
 
       }
+
 
 
       template <int dim>
@@ -637,13 +940,13 @@ namespace aspect
 
         return Coordinates::invalid;
       }
-
-
     }
+
+
 
     template <int dim>
     bool
-    polygon_contains_point(const std::vector<Point<2> > &point_list,
+    polygon_contains_point(const std::vector<Point<2>> &point_list,
                            const dealii::Point<2> &point)
     {
       /**
@@ -741,9 +1044,11 @@ namespace aspect
       return (wn != 0);
     }
 
+
+
     template <int dim>
     double
-    signed_distance_to_polygon(const std::vector<Point<2> > &point_list,
+    signed_distance_to_polygon(const std::vector<Point<2>> &point_list,
                                const dealii::Point<2> &point)
     {
       // If the point lies outside polygon, we give it a negative sign,
@@ -770,7 +1075,7 @@ namespace aspect
       std::vector<double> distances(n_poly_points, 1e23);
 
       // Create another polygon but with all points shifted 1 position to the right
-      std::vector<Point<2> > shifted_point_list(n_poly_points);
+      std::vector<Point<2>> shifted_point_list(n_poly_points);
       shifted_point_list[0] = point_list[n_poly_points-1];
 
       for (unsigned int i = 0; i < n_poly_points-1; ++i)
@@ -778,7 +1083,7 @@ namespace aspect
 
       for (unsigned int i = 0; i < n_poly_points; ++i)
         {
-          const std::array<Point<2>,2 > list = {{point_list[i], shifted_point_list[i]}};
+          const std::array<Point<2>,2> list = {{point_list[i], shifted_point_list[i]}};
           distances[i] = distance_to_line(list, point);
         }
 
@@ -786,8 +1091,10 @@ namespace aspect
       return *std::min_element(distances.begin(),distances.end()) * sign;
     }
 
+
+
     double
-    distance_to_line(const std::array<dealii::Point<2>,2 > &point_list,
+    distance_to_line(const std::array<dealii::Point<2>,2> &point_list,
                      const dealii::Point<2> &point)
     {
 
@@ -832,6 +1139,8 @@ namespace aspect
       const Point<2> point_on_segment = point_list[0] + (c1/c2) * vector_segment;
       return (Tensor<1,2> (point - point_on_segment)).norm();
     }
+
+
 
     template <int dim>
     std::array<Tensor<1,dim>,dim-1>
@@ -894,6 +1203,98 @@ namespace aspect
     }
 
 
+
+    Tensor<2,3>
+    rotation_matrix_from_axis (const Tensor<1,3> &rotation_axis,
+                               const double rotation_angle)
+    {
+      Tensor<2,3> rotation_matrix;
+      rotation_matrix[0][0] = (1-std::cos(rotation_angle)) * rotation_axis[0]*rotation_axis[0] + std::cos(rotation_angle);
+      rotation_matrix[0][1] = (1-std::cos(rotation_angle)) * rotation_axis[0]*rotation_axis[1] - rotation_axis[2] * std::sin(rotation_angle);
+      rotation_matrix[0][2] = (1-std::cos(rotation_angle)) * rotation_axis[0]*rotation_axis[2] + rotation_axis[1] * std::sin(rotation_angle);
+      rotation_matrix[1][0] = (1-std::cos(rotation_angle)) * rotation_axis[1]*rotation_axis[0] + rotation_axis[2] * std::sin(rotation_angle);
+      rotation_matrix[1][1] = (1-std::cos(rotation_angle)) * rotation_axis[1]*rotation_axis[1] + std::cos(rotation_angle);
+      rotation_matrix[1][2] = (1-std::cos(rotation_angle)) * rotation_axis[1]*rotation_axis[2] - rotation_axis[0] * std::sin(rotation_angle);
+      rotation_matrix[2][0] = (1-std::cos(rotation_angle)) * rotation_axis[2]*rotation_axis[0] - rotation_axis[1] * std::sin(rotation_angle);
+      rotation_matrix[2][1] = (1-std::cos(rotation_angle)) * rotation_axis[2]*rotation_axis[1] + rotation_axis[0] * std::sin(rotation_angle);
+      rotation_matrix[2][2] = (1-std::cos(rotation_angle)) * rotation_axis[2]*rotation_axis[2] + std::cos(rotation_angle);
+      return rotation_matrix;
+    }
+
+
+
+    Tensor<2,3>
+    compute_rotation_matrix_for_slice (const Tensor<1,3> &point_one,
+                                       const Tensor<1,3> &point_two)
+    {
+      AssertThrow(point_one.norm() > std::numeric_limits<double>::min()
+                  && point_two.norm() > std::numeric_limits<double>::min(),
+                  ExcMessage("The points that are used to define the slice that "
+                             "should be rotated onto the x-y-plane can not lie "
+                             "at the origin of the coordinate system."));
+
+      // Set up the normal vector of an unrotated 2d spherical shell
+      // that by default lies in the x-y plane.
+      const Tensor<1,3> unrotated_normal_vector ({0.0,0.0,1.0});
+
+      // Compute the normal vector of the plane that contains
+      // the origin and the two points specified as the function arguments.
+      Tensor<1,3> rotated_normal_vector = cross_product_3d(point_one, point_two);
+
+      AssertThrow(rotated_normal_vector.norm() > std::numeric_limits<double>::min(),
+                  ExcMessage("The points that are used to define the slice that "
+                             "should be rotated onto the x-y-plane can not lie "
+                             "along the line that also goes through the origin "
+                             "of the coordinate system."));
+
+      rotated_normal_vector /= rotated_normal_vector.norm();
+
+      Tensor<2,3> rotation_matrix ({{1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}});
+
+      // Calculate the crossing line of the two normals,
+      // which will be the rotation axis to transform the one
+      // normal into the other
+      Tensor<1,3> rotation_axis = cross_product_3d(unrotated_normal_vector, rotated_normal_vector);
+
+      // If the normal vector of the slice already points in z-direction, we do not have to
+      // apply the first rotation.
+      if (rotation_axis.norm() > std::numeric_limits<double>::min())
+        {
+          rotation_axis /= rotation_axis.norm();
+
+          // Calculate the rotation angle from the inner product rule
+          const double rotation_angle = std::acos(rotated_normal_vector * unrotated_normal_vector);
+          rotation_matrix = rotation_matrix_from_axis(rotation_axis, rotation_angle);
+        }
+
+      // Now apply the rotation that will project point_one onto the known point
+      // (0,1,0).
+      const Tensor<1,3> normalized_point_one = point_one / point_one.norm();
+      const Tensor<1,3> rotated_point_one = transpose(rotation_matrix) * normalized_point_one;
+      const Tensor<1,3> final_point_one ({0.0,1.0,0.0});
+
+      const double second_rotation_angle = std::acos(rotated_point_one * final_point_one);
+      Tensor<1,3> second_rotation_axis = cross_product_3d(final_point_one, rotated_point_one);
+
+      // If point 1 is already located at (0,1,0) after the first rotation, we do not
+      // have to apply the second rotation.
+      if (second_rotation_axis.norm() > std::numeric_limits<double>::min())
+        {
+          second_rotation_axis /= second_rotation_axis.norm();
+          const Tensor<2,3> second_rotation_matrix = rotation_matrix_from_axis(second_rotation_axis, second_rotation_angle);
+
+          // The final rotation used for the model will be the combined
+          // rotation of the two operations above. This is achieved by a
+          // matrix multiplication of the rotation matrices.
+          // This concatenation of rotations is the reason for using a
+          // rotation matrix instead of a combined rotation_axis + angle.
+          rotation_matrix = rotation_matrix * second_rotation_matrix;
+        }
+      return rotation_matrix;
+    }
+
+
+
     std::pair<double,double> real_spherical_harmonic( const unsigned int l,
                                                       const unsigned int m,
                                                       const double theta,
@@ -916,6 +1317,7 @@ namespace aspect
     }
 
 
+
     bool
     fexists(const std::string &filename)
     {
@@ -925,6 +1327,25 @@ namespace aspect
       // success requires the file to exist and to be readable
       return static_cast<bool>(ifile);
     }
+
+
+
+    bool
+    fexists(const std::string &filename,
+            MPI_Comm comm)
+    {
+      bool file_exists = false;
+      if (Utilities::MPI::this_mpi_process(comm) == 0)
+        {
+          std::ifstream ifile(filename.c_str());
+
+          // return whether construction of the input file has succeeded;
+          // success requires the file to exist and to be readable
+          file_exists = static_cast<bool>(ifile);
+        }
+      return Utilities::MPI::broadcast(comm, file_exists);
+    }
+
 
 
     bool
@@ -937,6 +1358,7 @@ namespace aspect
     }
 
 
+
     std::string
     read_and_distribute_file_content(const std::string &filename,
                                      const MPI_Comm &comm)
@@ -945,15 +1367,15 @@ namespace aspect
 
       if (Utilities::MPI::this_mpi_process(comm) == 0)
         {
-          // set file size to an invalid size (signaling an error if we can not read it)
-          unsigned int filesize = numbers::invalid_unsigned_int;
+          std::size_t filesize;
 
           // Check to see if the prm file will be reading data from disk or
           // from a provided URL
           if (filename_is_url(filename))
             {
 #ifdef ASPECT_WITH_LIBDAP
-              libdap::Connect *url = new libdap::Connect(filename);
+              std::unique_ptr<libdap::Connect> url
+                = std::make_unique<libdap::Connect>(filename);
               libdap::BaseTypeFactory factory;
               libdap::DataDDS dds(&factory);
               libdap::DAS das;
@@ -1009,9 +1431,7 @@ namespace aspect
               std::vector<std::string> points;
               for (libdap::AttrTable::Attr_iter i = das.var_begin(); i != das.var_end(); i++)
                 {
-                  libdap::AttrTable *table;
-
-                  table = das.get_table(i);
+                  libdap::AttrTable *table = das.get_table(i);
                   if (table->get_attr("POINTS") != "")
                     points.push_back(table->get_attr("POINTS"));
                   if (table->get_attr("points") != "")
@@ -1025,7 +1445,7 @@ namespace aspect
               urlString << "# POINTS:";
               for (unsigned int i = 0; i < points.size(); i++)
                 {
-                  urlString << " " << points[i];
+                  urlString << ' ' << points[i];
                 }
               urlString << "\n";
 
@@ -1038,19 +1458,23 @@ namespace aspect
                   for (unsigned int j = 0; j < columns.size(); j++)
                     {
                       urlString << columns[j][i];
-                      urlString << " ";
+                      urlString << ' ';
                     }
                   urlString << "\n";
                 }
 
               data_string = urlString.str();
               filesize = data_string.size();
-              delete url;
+
 #else // ASPECT_WITH_LIBDAP
 
-              // broadcast failure state, then throw
-              const int ierr = MPI_Bcast(&filesize, 1, MPI_UNSIGNED, 0, comm);
-              AssertThrowMPI(ierr);
+              // Broadcast failure state, then throw. We signal the failure by
+              // setting the file size to an invalid size, then trigger an assert.
+              {
+                std::size_t invalid_filesize = numbers::invalid_size_type;
+                const int ierr = MPI_Bcast(&invalid_filesize, 1, Utilities::internal::MPI::mpi_type_id(&filesize), 0, comm);
+                AssertThrowMPI(ierr);
+              }
               AssertThrow(false,
                           ExcMessage(std::string("Reading of file ") + filename + " failed. " +
                                      "Make sure you have the dependencies for reading a url " +
@@ -1060,33 +1484,43 @@ namespace aspect
             }
           else
             {
-              std::ifstream filestream(filename.c_str());
+              std::ifstream filestream;
+              const bool filename_ends_in_gz = std::regex_search(filename, std::regex("\\.gz$"));
+              if (filename_ends_in_gz == true)
+                filestream.open(filename.c_str(), std::ios_base::in | std::ios_base::binary);
+              else
+                filestream.open(filename.c_str());
 
               if (!filestream)
                 {
                   // broadcast failure state, then throw
-                  const int ierr = MPI_Bcast(&filesize,1,MPI_UNSIGNED,0,comm);
+                  std::size_t invalid_filesize = numbers::invalid_size_type;
+                  const int ierr = MPI_Bcast(&invalid_filesize, 1, Utilities::internal::MPI::mpi_type_id(&filesize), 0, comm);
                   AssertThrowMPI(ierr);
                   AssertThrow (false,
                                ExcMessage (std::string("Could not open file <") + filename + ">."));
-                  return data_string; // never reached
                 }
-
 
               // Read data from disk
               std::stringstream datastream;
-              filestream >> datastream.rdbuf();
 
-              if (!filestream.eof())
+              try
+                {
+                  boost::iostreams::filtering_istreambuf in;
+                  if (filename_ends_in_gz == true)
+                    in.push(boost::iostreams::gzip_decompressor());
+
+                  in.push(filestream);
+                  boost::iostreams::copy(in, datastream);
+                }
+              catch (const std::ios::failure &)
                 {
                   // broadcast failure state, then throw
-                  const int ierr = MPI_Bcast(&filesize,1,MPI_UNSIGNED,0,comm);
+                  std::size_t invalid_filesize = numbers::invalid_size_type;
+                  const int ierr = MPI_Bcast(&invalid_filesize, 1, Utilities::internal::MPI::mpi_type_id(&filesize), 0, comm);
                   AssertThrowMPI(ierr);
                   AssertThrow (false,
-                               ExcMessage (std::string("Reading of file ") + filename + " finished " +
-                                           "before the end of file was reached. Is the file corrupted or "
-                                           "too large for the input buffer?"));
-                  return data_string; // never reached
+                               ExcMessage (std::string("Could not read file content from <") + filename + ">."));
                 }
 
               data_string = datastream.str();
@@ -1094,29 +1528,79 @@ namespace aspect
             }
 
           // Distribute data_size and data across processes
-          int ierr = MPI_Bcast(&filesize,1,MPI_UNSIGNED,0,comm);
+          int ierr = MPI_Bcast(&filesize, 1, Utilities::internal::MPI::mpi_type_id(&filesize), 0, comm);
           AssertThrowMPI(ierr);
-          ierr = MPI_Bcast(&data_string[0],filesize,MPI_CHAR,0,comm);
-          AssertThrowMPI(ierr);
+
+          big_mpi::broadcast(&data_string[0], filesize, 0, comm);
         }
       else
         {
           // Prepare for receiving data
-          unsigned int filesize;
-          int ierr = MPI_Bcast(&filesize,1,MPI_UNSIGNED,0,comm);
+          std::size_t filesize;
+          int ierr = MPI_Bcast(&filesize, 1, Utilities::internal::MPI::mpi_type_id(&filesize), 0, comm);
           AssertThrowMPI(ierr);
-          if (filesize == numbers::invalid_unsigned_int)
+          if (filesize == numbers::invalid_size_type)
             throw QuietException();
 
           data_string.resize(filesize);
 
           // Receive and store data
-          ierr = MPI_Bcast(&data_string[0],filesize,MPI_CHAR,0,comm);
-          AssertThrowMPI(ierr);
+          big_mpi::broadcast(&data_string[0], filesize, 0, comm);
         }
 
       return data_string;
     }
+
+
+
+    void
+    collect_and_write_file_content(const std::string &filename,
+                                   const std::string &file_content,
+                                   const MPI_Comm &comm)
+    {
+      const std::vector<std::string> collected_content = Utilities::MPI::gather(comm, file_content);
+
+      if (Utilities::MPI::this_mpi_process(comm) == 0)
+        {
+          std::ofstream filestream;
+          filestream.open(filename.c_str());
+
+          AssertThrow (filestream.good(),
+                       ExcMessage (std::string("Could not open file <") + filename + ">."));
+
+          try
+            {
+              for (const auto &content : collected_content)
+                filestream << content;
+
+              bool success = filestream.good();
+              const int ierr = MPI_Bcast(&success, 1, Utilities::internal::MPI::mpi_type_id(&success), 0, comm);
+              AssertThrowMPI(ierr);
+            }
+          catch (const std::ios::failure &)
+            {
+              // broadcast failure state, then throw
+              bool success = false;
+              const int ierr = MPI_Bcast(&success, 1, Utilities::internal::MPI::mpi_type_id(&success), 0, comm);
+              AssertThrowMPI(ierr);
+              AssertThrow (false,
+                           ExcMessage (std::string("Could not write content to file <") + filename + ">."));
+            }
+
+          filestream.close();
+        }
+      else
+        {
+          // Check that the file was written successfully
+          bool success;
+          int ierr = MPI_Bcast(&success, 1, Utilities::internal::MPI::mpi_type_id(&success), 0, comm);
+          AssertThrowMPI(ierr);
+          if (success == false)
+            throw QuietException();
+        }
+    }
+
+
 
     int
     mkdirp(std::string pathname,const mode_t mode)
@@ -1147,6 +1631,8 @@ namespace aspect
 
       return 0;
     }
+
+
 
     void create_directory(const std::string &pathname,
                           const MPI_Comm &comm,
@@ -1194,6 +1680,8 @@ namespace aspect
         }
     }
 
+
+
 // tk does the cubic spline interpolation that can be used between different spherical layers in the mantle.
 // This interpolation is based on the script spline.h, which was downloaded from
 // http://kluge.in-chemnitz.de/opensource/spline/spline.h   //
@@ -1211,16 +1699,23 @@ namespace aspect
            * Constructor, see resize()
            */
           band_matrix(int dim, int n_u, int n_l);
+
+
+
           /**
            * Resize to a @p dim by @dim matrix with given number
            * of off-diagonals.
            */
           void resize(int dim, int n_u, int n_l);
 
+
+
           /**
            * Return the dimension of the matrix
            */
           int dim() const;
+
+
 
           /**
            * Number of off-diagonals above.
@@ -1230,6 +1725,8 @@ namespace aspect
             return m_upper.size()-1;
           }
 
+
+
           /**
            * Number of off-diagonals below.
            */
@@ -1238,40 +1735,57 @@ namespace aspect
             return m_lower.size()-1;
           }
 
+
+
           /**
            * Writeable access to element A(i,j), indices going from
            * i=0,...,dim()-1
            */
           double &operator () (int i, int j);
+
+
+
           /**
            * Read-only access
            */
           double operator () (int i, int j) const;
+
+
 
           /**
            * second diagonal (used in LU decomposition), saved in m_lower[0]
            */
           double &saved_diag(int i);
 
+
+
           /**
            * second diagonal (used in LU decomposition), saved in m_lower[0]
            */
           double saved_diag(int i) const;
+
+
 
           /**
            * LU-Decomposition of a band matrix
            */
           void lu_decompose();
 
+
+
           /**
            * solves Ux=y
            */
           std::vector<double> r_solve(const std::vector<double> &b) const;
 
+
+
           /**
            * solves Ly=b
            */
           std::vector<double> l_solve(const std::vector<double> &b) const;
+
+
 
           /**
            * Solve Ax=b and builds LU decomposition using lu_decompose()
@@ -1279,21 +1793,29 @@ namespace aspect
            */
           std::vector<double> lu_solve(const std::vector<double> &b,
                                        bool is_lu_decomposed=false);
+
+
+
         private:
           /**
            * diagonal and off-diagonals above
            */
-          std::vector< std::vector<double> > m_upper;
+          std::vector<std::vector<double>> m_upper;
+
           /**
            * diagonals below the diagonal
            */
-          std::vector< std::vector<double> > m_lower;
+          std::vector<std::vector<double>> m_lower;
       };
+
+
 
       band_matrix::band_matrix(int dim, int n_u, int n_l)
       {
         resize(dim, n_u, n_l);
       }
+
+
 
       void band_matrix::resize(int dim, int n_u, int n_l)
       {
@@ -1302,15 +1824,13 @@ namespace aspect
         assert(n_l >= 0);
         m_upper.resize(n_u+1);
         m_lower.resize(n_l+1);
-        for (size_t i=0; i<m_upper.size(); i++)
-          {
-            m_upper[i].resize(dim);
-          }
-        for (size_t i=0; i<m_lower.size(); i++)
-          {
-            m_lower[i].resize(dim);
-          }
+        for (auto &x : m_upper)
+          x.resize(dim);
+        for (auto &x : m_lower)
+          x.resize(dim);
       }
+
+
 
       int band_matrix::dim() const
       {
@@ -1324,6 +1844,8 @@ namespace aspect
           }
       }
 
+
+
       double &band_matrix::operator () (int i, int j)
       {
         int k = j - i;       // what band is the entry
@@ -1335,6 +1857,8 @@ namespace aspect
         else
           return m_lower[-k][i];
       }
+
+
 
       double band_matrix::operator () (int i, int j) const
       {
@@ -1348,17 +1872,23 @@ namespace aspect
           return m_lower[-k][i];
       }
 
+
+
       double band_matrix::saved_diag(int i) const
       {
         assert( (i >= 0) && (i < dim()) );
         return m_lower[0][i];
       }
 
+
+
       double &band_matrix::saved_diag(int i)
       {
         assert( (i >= 0) && (i < dim()) );
         return m_lower[0][i];
       }
+
+
 
       void band_matrix::lu_decompose()
       {
@@ -1400,6 +1930,8 @@ namespace aspect
           }
       }
 
+
+
       std::vector<double> band_matrix::l_solve(const std::vector<double> &b) const
       {
         assert( this->dim() == static_cast<int>(b.size()) );
@@ -1415,6 +1947,7 @@ namespace aspect
           }
         return x;
       }
+
 
 
       std::vector<double> band_matrix::r_solve(const std::vector<double> &b) const
@@ -1433,6 +1966,8 @@ namespace aspect
         return x;
       }
 
+
+
       std::vector<double> band_matrix::lu_solve(const std::vector<double> &b,
                                                 bool is_lu_decomposed)
       {
@@ -1448,6 +1983,7 @@ namespace aspect
         x = this->r_solve(y);
         return x;
       }
+
 
 
       void spline::set_points(const std::vector<double> &x,
@@ -1578,6 +2114,8 @@ namespace aspect
           }
       }
 
+
+
       double spline::operator() (double x) const
       {
         size_t n = m_x.size();
@@ -1605,8 +2143,8 @@ namespace aspect
           }
         return interpol;
       }
-
     } // namespace tk
+
 
 
     std::string
@@ -1617,6 +2155,8 @@ namespace aspect
                                           ASPECT_SOURCE_DIR);
     }
 
+
+
     std::string parenthesize_if_nonempty (const std::string &s)
     {
       if (s.size() > 0)
@@ -1625,13 +2165,14 @@ namespace aspect
         return "";
     }
 
+
+
     bool
     has_unique_entries (const std::vector<std::string> &strings)
     {
       const std::set<std::string> set_of_strings(strings.begin(),strings.end());
       return (set_of_strings.size() == strings.size());
     }
-
 
 
 
@@ -1938,7 +2479,7 @@ namespace aspect
       if ((strain_rate.norm() == 0) || (dviscosities_dstrain_rate.norm() == 0))
         return 1;
 
-      const double norm_a_b = std::sqrt((strain_rate*strain_rate)*(dviscosities_dstrain_rate*dviscosities_dstrain_rate));;//std::sqrt((deviator(strain_rate)*deviator(strain_rate))*(dviscosities_dstrain_rate*dviscosities_dstrain_rate));
+      const double norm_a_b = std::sqrt((strain_rate*strain_rate)*(dviscosities_dstrain_rate*dviscosities_dstrain_rate));//std::sqrt((deviator(strain_rate)*deviator(strain_rate))*(dviscosities_dstrain_rate*dviscosities_dstrain_rate));
       const double contract_b_a = (dviscosities_dstrain_rate*strain_rate);
       const double one_minus_part = 1 - (contract_b_a / norm_a_b);
       const double denom = one_minus_part * one_minus_part * norm_a_b;
@@ -2087,6 +2628,8 @@ namespace aspect
       return symmetrize(result);
     }
 
+
+
     template <int dim>
     NaturalCoordinate<dim>::NaturalCoordinate(Point<dim> &position,
                                               const GeometryModel::Interface<dim> &geometry_model)
@@ -2094,6 +2637,8 @@ namespace aspect
       coordinate_system = geometry_model.natural_coordinate_system();
       coordinates = geometry_model.cartesian_to_natural_coordinates(position);
     }
+
+
 
     template <int dim>
     NaturalCoordinate<dim>::NaturalCoordinate(const std::array<double, dim> &coord,
@@ -2108,6 +2653,16 @@ namespace aspect
     {
       return coordinates;
     }
+
+
+
+    template <int dim>
+    const std::array<double,dim> &NaturalCoordinate<dim>::get_coordinates() const
+    {
+      return coordinates;
+    }
+
+
 
     template <>
     std::array<double,1> NaturalCoordinate<2>::get_surface_coordinates() const
@@ -2136,6 +2691,8 @@ namespace aspect
 
       return coordinate;
     }
+
+
 
     template <>
     std::array<double,2> NaturalCoordinate<3>::get_surface_coordinates() const
@@ -2166,6 +2723,8 @@ namespace aspect
       return coordinate;
     }
 
+
+
     template <int dim>
     double NaturalCoordinate<dim>::get_depth_coordinate() const
     {
@@ -2188,6 +2747,7 @@ namespace aspect
     }
 
 
+
     template <int dim, typename VectorType>
     void
     project_cellwise(const Mapping<dim>                                        &mapping,
@@ -2196,7 +2756,7 @@ namespace aspect
                      const Quadrature<dim>                                     &quadrature,
                      const std::function<void(
                        const typename DoFHandler<dim>::active_cell_iterator &,
-                       const std::vector<Point<dim> > &,
+                       const std::vector<Point<dim>> &,
                        std::vector<double> &)>                                 &function,
                      VectorType                                                &vec_result)
     {
@@ -2262,7 +2822,6 @@ namespace aspect
 
 
 
-
     template <int dim>
     VectorFunctionFromVelocityFunctionObject<dim>::
     VectorFunctionFromVelocityFunctionObject
@@ -2313,12 +2872,129 @@ namespace aspect
 
 
 
+    void linear_solver_failed(const std::string &solver_name,
+                              const std::string &function_name,
+                              const std::vector<SolverControl> &solver_controls,
+                              const std::exception &exc,
+                              const MPI_Comm &mpi_communicator,
+                              const std::string &output_filename)
+    {
+      if (Utilities::MPI::this_mpi_process(mpi_communicator) == 0)
+        {
+          std::ostringstream exception_message;
+          exception_message << std::scientific
+                            << "The " + solver_name
+                            << " in " + function_name
+                            << " did not converge. " << std::endl << std::endl;
+
+          if (solver_controls.front().last_step() != numbers::invalid_unsigned_int)
+            exception_message << "The initial residual was: "
+                              << solver_controls.front().initial_value() << std::endl;
+
+          if (solver_controls.back().last_step() != numbers::invalid_unsigned_int)
+            exception_message << "The final residual is: "
+                              << solver_controls.back().last_value() << std::endl;
+
+          exception_message << "The required residual for convergence is: "
+                            << solver_controls.front().tolerance() << std::endl;
+
+          if (output_filename != "")
+            {
+              // output solver history
+              std::ofstream f((output_filename).c_str());
+
+              for (const auto &solver_control: solver_controls)
+                {
+                  // Skip the output if no iterations were run for this solver
+                  if (solver_control.last_step() == numbers::invalid_unsigned_int)
+                    continue;
+
+                  // Add an empty line between solvers
+                  if (&solver_control != &(solver_controls.front()))
+                    f << std::endl;
+
+                  unsigned int j=0;
+                  for (const auto &residual: solver_control.get_history_data())
+                    f << j++ << ' ' << residual << std::endl;
+                }
+
+              f.close();
+
+              exception_message << "See " << output_filename
+                                << " for the full convergence history." << std::endl;
+            }
+
+          exception_message << std::endl
+                            << "The solver reported the following error:"
+                            << std::endl;
+          exception_message << exc.what();
+
+          AssertThrow (false,
+                       ExcMessage (exception_message.str()));
+        }
+      else
+        throw QuietException();
+    }
+
+    std::vector<Tensor<2,3>>
+    rotation_matrices_random_draw_volume_weighting(const std::vector<double> volume_fraction,
+                                                   const std::vector<Tensor<2,3>> rotation_matrices,
+                                                   const unsigned int n_output_matrices,
+                                                   std::mt19937 &random_number_generator)
+    {
+      const unsigned int n_grains = volume_fraction.size();
+
+      // Get volume weighted euler angles, using random draws to convert odf
+      // to a discrete number of orientations, weighted by volume
+      // 1a. Sort the volume fractions and matrices based on the volume fractions size
+      const auto p = compute_sorting_permutation(volume_fraction);
+
+      const std::vector<double> fv_sorted = apply_permutation(volume_fraction, p);
+      const std::vector<Tensor<2,3>> matrices_sorted = apply_permutation(rotation_matrices, p);
+
+      // 2. Get cumulative weight for volume fraction
+      std::vector<double> cum_weight(n_grains);
+      std::partial_sum(fv_sorted.begin(),fv_sorted.end(),cum_weight.begin());
+
+      // 3. Generate random indices
+      std::uniform_real_distribution<> dist(0, cum_weight[n_grains-1]);
+      std::vector<double> idxgrain(n_output_matrices);
+      for (unsigned int grain_i = 0; grain_i < n_output_matrices; ++grain_i)
+        {
+          idxgrain[grain_i] = dist(random_number_generator);
+        }
+
+      // 4. Find the maximum cum_weight that is less than the random value.
+      // the euler angle index is +1. For example, if the idxGrain(g) < cumWeight(1),
+      // the index should be 1 not zero)
+      std::vector<Tensor<2,3>> matrices_out(n_output_matrices);
+      for (unsigned int grain_i = 0; grain_i < n_output_matrices; ++grain_i)
+        {
+          const std::vector<double>::iterator selected_matrix =
+            std::lower_bound(cum_weight.begin(),
+                             cum_weight.end(),
+                             idxgrain[grain_i]);
+
+          const unsigned int matrix_index =
+            std::distance(cum_weight.begin(), selected_matrix);
+
+          matrices_out[grain_i] = matrices_sorted[matrix_index];
+        }
+      return matrices_out;
+    }
+
+
 // Explicit instantiations
 
 #define INSTANTIATE(dim) \
   template \
   IndexSet extract_locally_active_dofs_with_component(const DoFHandler<dim> &, \
                                                       const ComponentMask &); \
+  \
+  template \
+  std::vector<Point<dim>> \
+  get_unit_support_points(const SimulatorAccess<dim> &simulator_access); \
+  \
   template \
   std::vector<std::string> \
   expand_dimensional_variable_names<dim> (const std::vector<std::string> &var_declarations); \
@@ -2340,11 +3016,11 @@ namespace aspect
   std::array<double,dim> Coordinates::WGS84_coordinates<dim>(const Point<dim> &position); \
   \
   template \
-  bool polygon_contains_point<dim>(const std::vector<Point<2> > &pointList, \
+  bool polygon_contains_point<dim>(const std::vector<Point<2>> &pointList, \
                                    const dealii::Point<2> &point); \
   \
   template \
-  double signed_distance_to_polygon<dim>(const std::vector<Point<2> > &pointList, \
+  double signed_distance_to_polygon<dim>(const std::vector<Point<2>> &pointList, \
                                          const dealii::Point<2> &point); \
   \
   template \
@@ -2355,7 +3031,7 @@ namespace aspect
   derivative_of_weighted_p_norm_average (const double averaged_parameter, \
                                          const std::vector<double> &weights, \
                                          const std::vector<double> &values, \
-                                         const std::vector<dealii::SymmetricTensor<2, dim, double> > &derivatives, \
+                                         const std::vector<dealii::SymmetricTensor<2, dim, double>> &derivatives, \
                                          const double p); \
   \
   template \
@@ -2384,7 +3060,7 @@ namespace aspect
                    const Quadrature<dim> &quadrature, \
                    const std::function<void( \
                                              const DoFHandler<dim>::active_cell_iterator &, \
-                                             const std::vector<Point<dim> > &, \
+                                             const std::vector<Point<dim>> &, \
                                              std::vector<double> &)> &function, \
                    dealii::LinearAlgebra::distributed::Vector<double> &vec_result); \
   \
@@ -2396,7 +3072,7 @@ namespace aspect
                    const Quadrature<dim> &quadrature, \
                    const std::function<void( \
                                              const DoFHandler<dim>::active_cell_iterator &, \
-                                             const std::vector<Point<dim> > &, \
+                                             const std::vector<Point<dim>> &, \
                                              std::vector<double> &)> &function, \
                    LinearAlgebra::BlockVector &vec_result);
 

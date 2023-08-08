@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2019 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -61,7 +61,7 @@ namespace aspect
          * Destructor. Made virtual to enforce that derived classes also have
          * virtual destructors.
          */
-        virtual ~Interface();
+        virtual ~Interface() = default;
 
         /**
          * Initialization function. This function is called once at the
@@ -79,11 +79,12 @@ namespace aspect
          * are requesting the temperature.
          * @param position The position of the point at which we ask for the
          * temperature.
+         *
          * @return Boundary temperature at position @p position.
          */
         virtual
         double boundary_temperature (const types::boundary_id boundary_indicator,
-                                     const Point<dim> &position) const;
+                                     const Point<dim> &position) const = 0;
 
         /**
          * Return the minimal temperature on that part of the boundary on
@@ -233,7 +234,7 @@ namespace aspect
         register_boundary_temperature (const std::string &name,
                                        const std::string &description,
                                        void (*declare_parameters_function) (ParameterHandler &),
-                                       Interface<dim> *(*factory_function) ());
+                                       std::unique_ptr<Interface<dim>> (*factory_function) ());
 
 
         /**
@@ -247,20 +248,8 @@ namespace aspect
          * Return a list of pointers to all boundary temperature models
          * currently used in the computation, as specified in the input file.
          */
-        const std::vector<std::unique_ptr<Interface<dim> > > &
+        const std::vector<std::unique_ptr<Interface<dim>>> &
         get_active_boundary_temperature_conditions () const;
-
-        /**
-         * Go through the list of all boundary temperature models that have been selected in
-         * the input file (and are consequently currently active) and see if one
-         * of them has the desired type specified by the template argument. If so,
-         * return a pointer to it. If no boundary temperature model is active
-         * that matches the given type, return a nullptr.
-         */
-        template <typename BoundaryTemperatureType>
-        DEAL_II_DEPRECATED
-        BoundaryTemperatureType *
-        find_boundary_temperature_model () const;
 
         /**
          * Go through the list of all boundary temperature models that have been selected
@@ -325,7 +314,7 @@ namespace aspect
          * A list of boundary temperature objects that have been requested in the
          * parameter file.
          */
-        std::vector<std::unique_ptr<Interface<dim> > > boundary_temperature_objects;
+        std::vector<std::unique_ptr<Interface<dim>>> boundary_temperature_objects;
 
         /**
          * A list of names of boundary temperature objects that have been requested
@@ -359,19 +348,6 @@ namespace aspect
     template <int dim>
     template <typename BoundaryTemperatureType>
     inline
-    BoundaryTemperatureType *
-    Manager<dim>::find_boundary_temperature_model () const
-    {
-      for (const auto &p : boundary_temperature_objects)
-        if (BoundaryTemperatureType *x = dynamic_cast<BoundaryTemperatureType *> ( p.get()) )
-          return x;
-      return nullptr;
-    }
-
-
-    template <int dim>
-    template <typename BoundaryTemperatureType>
-    inline
     bool
     Manager<dim>::has_matching_boundary_temperature_model () const
     {
@@ -399,7 +375,7 @@ namespace aspect
           return Plugins::get_plugin_as_type<BoundaryTemperatureType>(*p);
 
       // We will never get here, because we had the Assert above. Just to avoid warnings.
-      typename std::vector<std::unique_ptr<Interface<dim> > >::const_iterator boundary_temperature_model;
+      typename std::vector<std::unique_ptr<Interface<dim>>>::const_iterator boundary_temperature_model;
       return Plugins::get_plugin_as_type<BoundaryTemperatureType>(*(*boundary_temperature_model));
     }
 
@@ -427,10 +403,10 @@ namespace aspect
   template class classname<3>; \
   namespace ASPECT_REGISTER_BOUNDARY_TEMPERATURE_MODEL_ ## classname \
   { \
-    aspect::internal::Plugins::RegisterHelper<aspect::BoundaryTemperature::Interface<2>,classname<2> > \
+    aspect::internal::Plugins::RegisterHelper<aspect::BoundaryTemperature::Interface<2>,classname<2>> \
     dummy_ ## classname ## _2d (&aspect::BoundaryTemperature::Manager<2>::register_boundary_temperature, \
                                 name, description); \
-    aspect::internal::Plugins::RegisterHelper<aspect::BoundaryTemperature::Interface<3>,classname<3> > \
+    aspect::internal::Plugins::RegisterHelper<aspect::BoundaryTemperature::Interface<3>,classname<3>> \
     dummy_ ## classname ## _3d (&aspect::BoundaryTemperature::Manager<3>::register_boundary_temperature, \
                                 name, description); \
   }

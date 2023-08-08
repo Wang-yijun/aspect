@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2019 - 2020 by the authors of the ASPECT code.
+  Copyright (C) 2019 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -61,9 +61,9 @@ namespace aspect
       double vel[],
       double *pressure,
       double *density,
-      std::shared_ptr<Functions::ParsedFunction<dim> > pressure_function,
-      std::shared_ptr<Functions::ParsedFunction<dim> > velocity_function,
-      std::shared_ptr<Functions::ParsedFunction<dim> > density_function)
+      std::shared_ptr<Functions::ParsedFunction<dim>> pressure_function,
+      std::shared_ptr<Functions::ParsedFunction<dim>> velocity_function,
+      std::shared_ptr<Functions::ParsedFunction<dim>> density_function)
     {
       /****************************************************************************************/
       /****************************************************************************************/
@@ -83,9 +83,9 @@ namespace aspect
     class FunctionStreamline : public Function<dim>
     {
       public:
-        FunctionStreamline (std::shared_ptr<Functions::ParsedFunction<dim> > pressure,
-                            std::shared_ptr<Functions::ParsedFunction<dim> > velocity,
-                            std::shared_ptr<Functions::ParsedFunction<dim> > density,
+        FunctionStreamline (std::shared_ptr<Functions::ParsedFunction<dim>> pressure,
+                            std::shared_ptr<Functions::ParsedFunction<dim>> velocity,
+                            std::shared_ptr<Functions::ParsedFunction<dim>> density,
                             const unsigned int n_components)
           :
           Function<dim>(n_components),
@@ -94,8 +94,8 @@ namespace aspect
           density_function (density)
         {}
 
-        virtual void vector_value (const Point< dim > &p,
-                                   Vector< double >   &values) const
+        virtual void vector_value (const Point<dim> &p,
+                                   Vector<double>   &values) const
         {
           double pos[2]= {p(0),p(1)};
 
@@ -104,9 +104,9 @@ namespace aspect
            &values[0], &values[2], &values[4], pressure_function, velocity_function, density_function);
         }
       private:
-        std::shared_ptr<Functions::ParsedFunction<dim> > pressure_function;
-        std::shared_ptr<Functions::ParsedFunction<dim> > velocity_function;
-        std::shared_ptr<Functions::ParsedFunction<dim> > density_function;
+        std::shared_ptr<Functions::ParsedFunction<dim>> pressure_function;
+        std::shared_ptr<Functions::ParsedFunction<dim>> velocity_function;
+        std::shared_ptr<Functions::ParsedFunction<dim>> density_function;
     };
   }
 
@@ -118,11 +118,11 @@ namespace aspect
     class TimeDependentAnnulus : public MaterialModel::Interface<dim>
     {
       private:
-        std::shared_ptr<Functions::ParsedFunction<dim> > density_function, pressure_function, velocity_function;
+        std::shared_ptr<Functions::ParsedFunction<dim>> density_function, pressure_function, velocity_function;
 
       public:
-        virtual void evaluate(const MaterialModel::MaterialModelInputs<dim> &in,
-                              MaterialModel::MaterialModelOutputs<dim> &out) const
+        void evaluate(const MaterialModel::MaterialModelInputs<dim> &in,
+                      MaterialModel::MaterialModelOutputs<dim> &out) const override
         {
           for (unsigned int i=0; i < in.n_evaluation_points(); ++i)
             {
@@ -139,7 +139,7 @@ namespace aspect
             }
         }
 
-        virtual bool is_compressible () const
+        bool is_compressible () const override
         {
           return false;
         }
@@ -196,9 +196,8 @@ namespace aspect
         /**
          * Read the parameters this class declares from the parameter file.
          */
-        virtual
         void
-        parse_parameters (ParameterHandler &prm)
+        parse_parameters (ParameterHandler &prm) override
         {
           prm.enter_subsection("Material model");
           {
@@ -265,15 +264,6 @@ namespace aspect
         }
 
         /**
-         * @name Reference quantities
-         * @{
-         */
-        virtual double reference_viscosity () const
-        {
-          return 1;
-        }
-
-        /**
          * Returns the analytic solutions of this model. See the
          * corresponding member variable of this class for more information.
          */
@@ -311,15 +301,14 @@ namespace aspect
     class TimeDependentAnnulus : public Postprocess::Interface<dim>, public ::aspect::SimulatorAccess<dim>
     {
       private:
-        std::shared_ptr<Function<dim> > ref_func;
+        std::shared_ptr<Function<dim>> ref_func;
 
       public:
-        virtual
         void
-        initialize ()
+        initialize () override
         {
           const MaterialModel::TimeDependentAnnulus<dim> &material_model =
-            Plugins::get_plugin_as_type<const MaterialModel::TimeDependentAnnulus<dim> >(this->get_material_model());
+            Plugins::get_plugin_as_type<const MaterialModel::TimeDependentAnnulus<dim>>(this->get_material_model());
 
           ref_func.reset (new AnalyticSolutions::FunctionStreamline<dim>(material_model.get_pressure(),
                                                                          material_model.get_velocity(),
@@ -327,9 +316,8 @@ namespace aspect
                                                                          1 + dim + 1 + this->n_compositional_fields()));
         }
 
-        virtual
         std::pair<std::string,std::string>
-        execute (TableHandler &statistics)
+        execute (TableHandler &statistics) override
         {
           const QGauss<dim> quadrature_formula (this->get_fe().base_element(this->introspection().base_elements.velocities).degree+2);
 

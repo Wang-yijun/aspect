@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2020 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -78,8 +78,8 @@ namespace aspect
          * @{
          */
 
-        virtual void evaluate(const MaterialModel::MaterialModelInputs<dim> &in,
-                              MaterialModel::MaterialModelOutputs<dim> &out) const
+        void evaluate(const MaterialModel::MaterialModelInputs<dim> &in,
+                      MaterialModel::MaterialModelOutputs<dim> &out) const override
         {
           for (unsigned int i=0; i < in.n_evaluation_points(); ++i)
             {
@@ -114,25 +114,16 @@ namespace aspect
          * equation as $\nabla \cdot (\rho \mathbf u)=0$ (compressible Stokes)
          * or as $\nabla \cdot \mathbf{u}=0$ (incompressible Stokes).
          */
-        virtual bool is_compressible () const;
+        bool is_compressible () const override;
         /**
          * @}
          */
 
-        /**
-         * @name Reference quantities
-         * @{
-         */
-        virtual double reference_viscosity () const;
 
         double parameter_a() const;
         double parameter_wavenumber() const;
         double parameter_Di() const;
         double parameter_gamma() const;
-
-        /**
-         * @}
-         */
 
 
         /**
@@ -149,9 +140,8 @@ namespace aspect
         /**
          * Read the parameters this class declares from the parameter file.
          */
-        virtual
         void
-        parse_parameters (ParameterHandler &prm);
+        parse_parameters (ParameterHandler &prm) override;
         /**
          * @}
          */
@@ -180,14 +170,6 @@ namespace aspect
       gamma=1.0;
 
       wavenumber=1;
-    }
-
-    template <int dim>
-    double
-    TanGurnis<dim>::
-    reference_viscosity () const
-    {
-      return 1.0;
     }
 
 
@@ -372,21 +354,20 @@ namespace aspect
     material_model = Plugins::get_plugin_as_type<const MaterialModel::TanGurnis<dim>>(this->get_material_model());
 
     double ref=1.0/this->get_triangulation().begin_active()->minimum_vertex_distance();
-    std::ofstream f ((this->get_output_directory() + "vel_" +
-                      Utilities::int_to_string(static_cast<unsigned int>(ref)) +
-                      ".csv").c_str());
-    f.precision (16);
-    f << material_model.parameter_Di() << ' '
-      << material_model.parameter_gamma() << ' '
-      << material_model.parameter_wavenumber() << ' '
-      << material_model.parameter_a();
 
-    // pad the first line to the same number of columns as the data below to make MATLAB happy
+    std::stringstream output;
+    output.precision (16);
+    output << material_model.parameter_Di() << ' '
+           << material_model.parameter_gamma() << ' '
+           << material_model.parameter_wavenumber() << ' '
+           << material_model.parameter_a();
+
+    // pad the first line to the same number ooutputcolumns as the data below to make MATLAB happy
     for (unsigned int i=4; i<7+this->get_heating_model_manager().get_active_heating_models().size(); ++i)
-      f << " -1";
+      output<< " -1";
 
-    f << std::endl;
-    f << std::scientific;
+    output<< std::endl;
+    output<< std::scientific;
 
 
     const QGauss<dim> quadrature_formula (this->introspection().polynomial_degree.velocities+2);
@@ -399,7 +380,7 @@ namespace aspect
     MaterialModel::MaterialModelInputs<dim> in(fe_values.n_quadrature_points, this->n_compositional_fields());
     MaterialModel::MaterialModelOutputs<dim> out(fe_values.n_quadrature_points, this->n_compositional_fields());
 
-    const std::list<std::unique_ptr<HeatingModel::Interface<dim> > > &heating_model_objects = this->get_heating_model_manager().get_active_heating_models();
+    const std::list<std::unique_ptr<HeatingModel::Interface<dim>>> &heating_model_objects = this->get_heating_model_manager().get_active_heating_models();
 
     std::vector<HeatingModel::HeatingModelOutputs> heating_model_outputs (heating_model_objects.size(),
                                                                           HeatingModel::HeatingModelOutputs (n_q_points, this->n_compositional_fields()));
@@ -424,7 +405,7 @@ namespace aspect
           }
 
         unsigned int index = 0;
-        for (typename std::list<std::unique_ptr<HeatingModel::Interface<dim> > >::const_iterator
+        for (typename std::list<std::unique_ptr<HeatingModel::Interface<dim>>>::const_iterator
              heating_model = heating_model_objects.begin();
              heating_model != heating_model_objects.end(); ++heating_model, ++index)
           {
@@ -434,7 +415,7 @@ namespace aspect
 
         for (unsigned int q = 0; q < n_q_points; ++q)
           {
-            f
+            output
                 <<  fe_values.quadrature_point (q) (0)
                 << ' ' << fe_values.quadrature_point (q) (1)
                 << ' ' << in.velocity[q][0]
@@ -444,11 +425,16 @@ namespace aspect
                 << ' ' << in.temperature[q];
 
             for (unsigned int i = 0; i < heating_model_objects.size(); ++i)
-              f << ' ' << heating_model_outputs[i].heating_source_terms[q];
+              output << ' ' << heating_model_outputs[i].heating_source_terms[q];
 
-            f  << std::endl;
+            output << std::endl;
           }
       }
+
+    const std::string filename = this->get_output_directory() + "vel_" +
+                                 Utilities::int_to_string(static_cast<unsigned int>(ref)) +
+                                 ".csv";
+    Utilities::collect_and_write_file_content(filename, output.str(), this->get_mpi_communicator());
 
     return std::make_pair("writing:", "output.csv");
   }

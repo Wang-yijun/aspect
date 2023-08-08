@@ -1,5 +1,5 @@
 
-Loading shared library <./libfind_boundary_composition_model_fail_1.so>
+Loading shared library <./libfind_boundary_composition_model_fail_1.debug.so>
 
 Number of active cells: 64 (on 4 levels)
 Number of degrees of freedom: 1,526 (578+81+289+289+289)
@@ -18,6 +18,12 @@ An error occurred in file <interface.h> in function
 The violated condition was: 
     has_matching_boundary_composition_model<BoundaryCompositionType> ()
 Additional information: 
-    You asked BoundaryComposition::Manager::get_boundary_composition_model() for a boundary composition model of type <aspect::BoundaryComposition::Box<2>> that could not be found in the current model. Activate this boundary composition model in the input file.
+    You asked
+    BoundaryComposition::Manager::get_boundary_composition_model() for a
+    boundary composition model of type
+    <aspect::BoundaryComposition::Box<2>> that could not be found in the
+    current model. Activate this boundary composition model in the input
+    file.
 
-Aborting!
+Stacktrace:
+(rest of the output replaced by default.sh script)

@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2019 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -60,7 +60,7 @@ namespace aspect
          * Destructor. Made virtual to enforce that derived classes also have
          * virtual destructors.
          */
-        virtual ~Interface();
+        virtual ~Interface() = default;
 
         /**
          * Initialization function. This function is called once at the
@@ -165,7 +165,7 @@ namespace aspect
         register_initial_composition (const std::string &name,
                                       const std::string &description,
                                       void (*declare_parameters_function) (ParameterHandler &),
-                                      Interface<dim> *(*factory_function) ());
+                                      std::unique_ptr<Interface<dim>> (*factory_function) ());
 
 
         /**
@@ -179,20 +179,8 @@ namespace aspect
          * Return a list of pointers to all initial composition models
          * currently used in the computation, as specified in the input file.
          */
-        const std::list<std::unique_ptr<Interface<dim> > > &
+        const std::list<std::unique_ptr<Interface<dim>>> &
         get_active_initial_composition_conditions () const;
-
-        /**
-         * Go through the list of all initial composition models that have been selected in
-         * the input file (and are consequently currently active) and see if one
-         * of them has the desired type specified by the template argument. If so,
-         * return a pointer to it. If no initial composition model is active that matches the
-         * given type, return a nullptr.
-         */
-        template <typename InitialCompositionType>
-        DEAL_II_DEPRECATED
-        InitialCompositionType *
-        find_initial_composition_model () const;
 
         /**
          * Go through the list of all initial composition models that have been selected
@@ -242,7 +230,7 @@ namespace aspect
          * A list of initial composition objects that have been requested in the
          * parameter file.
          */
-        std::list<std::unique_ptr<Interface<dim> > > initial_composition_objects;
+        std::list<std::unique_ptr<Interface<dim>>> initial_composition_objects;
 
         /**
          * A list of names of initial composition objects that have been requested
@@ -259,29 +247,6 @@ namespace aspect
         std::vector<aspect::Utilities::Operator> model_operators;
     };
 
-
-
-    /**
-     * A function that given the name of a model returns a pointer to an
-     * object that describes it. Ownership of the pointer is transferred to
-     * the caller.
-     *
-     * The model object returned is not yet initialized and has not read its
-     * runtime parameters yet.
-     *
-     * @ingroup InitialCompositions
-     */
-    template <int dim>
-    template <typename InitialCompositionType>
-    inline
-    InitialCompositionType *
-    Manager<dim>::find_initial_composition_model () const
-    {
-      for (const auto &p : initial_composition_objects)
-        if (InitialCompositionType *x = dynamic_cast<InitialCompositionType *> ( p.get()) )
-          return x;
-      return nullptr;
-    }
 
 
     template <int dim>
@@ -309,7 +274,7 @@ namespace aspect
                              "that could not be found in the current model. Activate this "
                              "initial composition model in the input file."));
 
-      typename std::list<std::unique_ptr<Interface<dim> > >::const_iterator initial_composition_model;
+      typename std::list<std::unique_ptr<Interface<dim>>>::const_iterator initial_composition_model;
       for (const auto &p : initial_composition_objects)
         if (Plugins::plugin_type_matches<InitialCompositionType>(*p))
           return Plugins::get_plugin_as_type<InitialCompositionType>(*p);
@@ -345,10 +310,10 @@ namespace aspect
   template class classname<3>; \
   namespace ASPECT_REGISTER_INITIAL_COMPOSITION_MODEL_ ## classname \
   { \
-    aspect::internal::Plugins::RegisterHelper<aspect::InitialComposition::Interface<2>,classname<2> > \
+    aspect::internal::Plugins::RegisterHelper<aspect::InitialComposition::Interface<2>,classname<2>> \
     dummy_ ## classname ## _2d (&aspect::InitialComposition::Manager<2>::register_initial_composition, \
                                 name, description); \
-    aspect::internal::Plugins::RegisterHelper<aspect::InitialComposition::Interface<3>,classname<3> > \
+    aspect::internal::Plugins::RegisterHelper<aspect::InitialComposition::Interface<3>,classname<3>> \
     dummy_ ## classname ## _3d (&aspect::InitialComposition::Manager<3>::register_initial_composition, \
                                 name, description); \
   }

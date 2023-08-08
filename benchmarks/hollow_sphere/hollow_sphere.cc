@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2011 - 2020 by the authors of the ASPECT code.
+  Copyright (C) 2011 - 2022 by the authors of the ASPECT code.
 
   This file is part of ASPECT.
 
@@ -177,8 +177,8 @@ namespace aspect
             mmm_(mmm)
           {}
 
-          virtual void vector_value (const Point< dim >   &pos,
-                                     Vector< double >   &values) const
+          void vector_value (const Point<dim>   &pos,
+                             Vector<double>   &values) const override
           {
             Assert (dim == 3, ExcNotImplemented());
             Assert (values.size() >= 4, ExcInternalError());
@@ -214,7 +214,7 @@ namespace aspect
          */
         Tensor<1,dim>
         boundary_velocity (const types::boundary_id ,
-                           const Point<dim> &position) const;
+                           const Point<dim> &position) const override;
 
 
         static
@@ -224,9 +224,8 @@ namespace aspect
         /**
          * Read the parameters this class declares from the parameter file.
         */
-        virtual
         void
-        parse_parameters (ParameterHandler &prm);
+        parse_parameters (ParameterHandler &prm) override;
 
 
 
@@ -281,8 +280,8 @@ namespace aspect
          * @name Physical parameters used in the basic equations
          * @{
          */
-        virtual void evaluate(const MaterialModel::MaterialModelInputs<dim> &in,
-                              MaterialModel::MaterialModelOutputs<dim> &out) const
+        void evaluate(const MaterialModel::MaterialModelInputs<dim> &in,
+                      MaterialModel::MaterialModelOutputs<dim> &out) const override
         {
           for (unsigned int i=0; i < in.n_evaluation_points(); ++i)
             {
@@ -341,7 +340,7 @@ namespace aspect
          * (compressible Stokes) or as $\nabla \cdot \mathbf{u}=0$
          * (incompressible Stokes).
          */
-        virtual bool is_compressible () const;
+        bool is_compressible () const override;
         /**
          * @}
          */
@@ -355,20 +354,11 @@ namespace aspect
         /**
          * Read the parameters this class declares from the parameter file.
          */
-        virtual
         void
-        parse_parameters (ParameterHandler &prm);
+        parse_parameters (ParameterHandler &prm) override;
 
 
 
-        /**
-         * @name Reference quantities
-         * @{
-         */
-        virtual double reference_viscosity () const;
-        /**
-         * @}
-         */
         /**
          * Returns the viscosity value in the inclusion
          */
@@ -379,15 +369,6 @@ namespace aspect
          */
         double mmm;
     };
-
-
-    template <int dim>
-    double
-    HollowSphereMaterial<dim>::
-    reference_viscosity () const
-    {
-      return 1.;
-    }
 
     template <int dim>
     bool
@@ -477,9 +458,8 @@ namespace aspect
         /**
          * Generate graphical output from the current solution.
          */
-        virtual
         std::pair<std::string,std::string>
-        execute (TableHandler &statistics);
+        execute (TableHandler &statistics) override;
 
         /**
          * List the other postprocessors required by this plugin.
@@ -499,7 +479,7 @@ namespace aspect
     std::pair<std::string,std::string>
     HollowSpherePostprocessor<dim>::execute (TableHandler &)
     {
-      std::unique_ptr<Function<dim> > ref_func;
+      std::unique_ptr<Function<dim>> ref_func;
       {
         const HollowSphereMaterial<dim> &
         material_model
@@ -584,10 +564,10 @@ namespace aspect
     HollowSpherePostprocessor<dim>::compute_dynamic_topography_error() const
     {
       const Postprocess::DynamicTopography<dim> &dynamic_topography =
-        this->get_postprocess_manager().template get_matching_postprocessor<Postprocess::DynamicTopography<dim> >();
+        this->get_postprocess_manager().template get_matching_postprocessor<Postprocess::DynamicTopography<dim>>();
 
       const HollowSphereMaterial<dim> &material_model
-        = Plugins::get_plugin_as_type<const HollowSphereMaterial<dim> >(this->get_material_model());
+        = Plugins::get_plugin_as_type<const HollowSphereMaterial<dim>>(this->get_material_model());
       const double beta = material_model.get_mmm();
 
       const QGauss<dim-1> quadrature_formula (this->introspection().polynomial_degree.velocities+2);
@@ -618,6 +598,7 @@ namespace aspect
                   fe_face_values.reinit(cell, f);
                   MaterialModel::MaterialModelInputs<dim> in_face(fe_face_values, cell, this->introspection(), this->get_solution());
                   MaterialModel::MaterialModelOutputs<dim> out_face(fe_face_values.n_quadrature_points, this->n_compositional_fields());
+                  in_face.requested_properties = MaterialModel::MaterialProperties::density;
                   fe_face_values[this->introspection().extractors.temperature].get_function_values(topo_vector, topo_values);
                   this->get_material_model().evaluate(in_face, out_face);
 
