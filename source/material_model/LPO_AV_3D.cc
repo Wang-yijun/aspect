@@ -779,8 +779,14 @@ namespace aspect
               double Jhill = F*pow((S_CPO[0][0]-S_CPO[1][1]),2) + G*pow((S_CPO[1][1]-S_CPO[2][2]),2) + H*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);
               if (Jhill < 0)
                 {
-                  double Jhill = std::abs(F)*pow((S_CPO[0][0]-S_CPO[1][1]),2) + std::abs(G)*pow((S_CPO[1][1]-S_CPO[2][2]),2) + std::abs(H)*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);
+                  Jhill = std::abs(F)*pow((S_CPO[0][0]-S_CPO[1][1]),2) + std::abs(G)*pow((S_CPO[1][1]-S_CPO[2][2]),2) + std::abs(H)*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);
                 }
+              std::cout << "Jhillpart1 " << std::abs(F)*pow((S_CPO[0][0]-S_CPO[1][1]),2) <<std::endl;
+              std::cout << "Jhillpart2 " << std::abs(G)*pow((S_CPO[1][1]-S_CPO[2][2]),2) <<std::endl;
+              std::cout << "Jhillpart3 " << std::abs(H)*pow((S_CPO[2][2]-S_CPO[0][0]),2) <<std::endl;
+              std::cout << "Jhillpart4 " << 2*L*pow(S_CPO[1][2],2) <<std::endl;
+              std::cout << "Jhillpart5 " << 2*M*pow(S_CPO[0][2],2) <<std::endl;
+              std::cout << "Jhillpart6 " << 2*N*pow(S_CPO[0][1],2) <<std::endl;
               std::cout << "Jhill " << Jhill <<std::endl;
 
               AssertThrow(Jhill >= 0,
