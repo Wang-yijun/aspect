@@ -204,6 +204,9 @@ namespace aspect
         const double eigenvalue_a3 = eigenvectors_a[2].first/matrices.size();
         const double eigenvalue_b3 = eigenvectors_b[2].first/matrices.size();
         const double eigenvalue_c3 = eigenvectors_c[2].first/matrices.size();
+        // std::cout << "eigenvectors_a[0].first " << eigenvectors_a[0].first <<std::endl;
+        // std::cout << "eigenvectors_a[1].first " << eigenvectors_a[1].first <<std::endl;
+        // std::cout << "eigenvectors_a[2].first " << eigenvectors_a[2].first <<std::endl;
 
         return
         {
