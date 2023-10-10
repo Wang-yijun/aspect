@@ -167,7 +167,7 @@ namespace aspect
             //std::cout<<"Def style: "<<deformation_type[mineral_i]<<std::endl;
             Tensor<1,3> A_ss; //A_ss is the invers of the minimum resolved stress on the slip systems on the nth power
             //std::cout<<"A_ss: "<<A_ss<<  std::endl; //correct values
-            if (deformation_type[mineral_i] == (unsigned int)DeformationTypeSelector::Enstatite)
+            if (deformation_type[mineral_i] == (unsigned int)DeformationTypeSelector_lpo::Enstatite)
               {
                 A_ss[0] = 1.;
                 A_ss[1] = 1.;

@@ -146,11 +146,7 @@ namespace aspect
         const double rad_to_degree = 180.0/M_PI;
         const double degree_to_rad = M_PI/180.0;
 
-<<<<<<< HEAD
         mutable boost::lagged_fibonacci44497 		random_number_generator;
-=======
-        mutable boost::lagged_fibonacci44497            random_number_generator;
->>>>>>> b955cf1c905d4292db4a7fe9aba2b7eeca6d908a
 
         unsigned int random_number_seed;
 

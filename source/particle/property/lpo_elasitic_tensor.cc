@@ -137,7 +137,7 @@ namespace aspect
         std::vector<SymmetricTensor<2,6> > stiffness_matrices(n_minerals_local);
         for (size_t mineral_i = 0; mineral_i < n_minerals_local; mineral_i++)
           {
-            if (deformation_type[mineral_i] == (unsigned int)DeformationTypeSelector::Enstatite)
+            if (deformation_type[mineral_i] == (unsigned int)DeformationTypeSelector_lpo::Enstatite)
               {
                 stiffness_matrices[mineral_i] = stiffness_matrix_enstatite;
               }
