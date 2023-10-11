@@ -29,6 +29,7 @@
 #include <aspect/adiabatic_conditions/interface.h>
 #include <aspect/material_model/interface.h>
 #include <aspect/simulator_access.h>
+#include <aspect/material_model/rheology/visco_plastic.h>
 
 #include<deal.II/fe/component_mask.h>
 

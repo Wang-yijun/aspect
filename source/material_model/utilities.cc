@@ -1483,6 +1483,14 @@ namespace aspect
       ASPECT_INSTANTIATE(INSTANTIATE)
 
 #undef INSTANTIATE
+
+#define INSTANTIATE(dim) \
+  template \
+  void \
+  compute_drucker_prager_yielding<dim> (const DruckerPragerInputs &, \
+                                        DruckerPragerOutputs &); \
+   
+      ASPECT_INSTANTIATE(INSTANTIATE)
     }
   }
 }

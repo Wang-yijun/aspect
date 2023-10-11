@@ -1435,15 +1435,14 @@ namespace aspect
     void
     ViscoPlasticMod<dim>::create_additional_named_outputs (MaterialModel::MaterialModelOutputs<dim> &out) const
     {
-      if (out.template get_additional_output<PlasticAdditionalOutputs<dim> >() == nullptr)
-        {
-          const unsigned int n_points = out.viscosities.size();
-          out.additional_outputs.push_back(
-            std::shared_ptr<MaterialModel::AdditionalMaterialOutputs<dim> >
-            (new MaterialModel::PlasticAdditionalOutputs<dim> (n_points)));
-        }
+      if (out.template get_additional_output<PlasticAdditionalOutputs<dim>>() == nullptr)
+          {
+            const unsigned int n_points = out.n_evaluation_points();
+            out.additional_outputs.push_back(
+              std::make_unique<PlasticAdditionalOutputs<dim>> (n_points));
+          }
     }
-
+    
   }
 }
 
