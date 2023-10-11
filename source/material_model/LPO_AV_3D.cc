@@ -648,17 +648,13 @@ namespace aspect
                       ssd_array[i] = composition[ind];
                     }
                   std::copy(ssd_array.begin(), ssd_array.end(), old_stress_strain_director.begin_raw());
-                  stress = 2 * out.viscosities[q] * old_stress_strain_director * deviatoric_strain_rate;
-                  // std::cout << "old out.vis " << out.viscosities[q] <<std::endl;
-                  // std::cout << "strain rate " << deviatoric_strain_rate <<std::endl;                  
-                  // std::cout << "Anisotropic stress using pf " << std::endl;
+                  stress = 2 * out.viscosities[q] * old_stress_strain_director * deviatoric_strain_rate;                 
+                  std::cout << "Anisotropic stress using pf " << std::endl;
                 }
               else
                 {
-                  stress = 2 * out.viscosities[q] * deviatoric_strain_rate;
-                  // std::cout << "old out.vis " << out.viscosities[q] <<std::endl;
-                  // std::cout << "strain rate " << deviatoric_strain_rate <<std::endl;                  
-                  // std::cout << "Isotropic stress " << std::endl;
+                  stress = 2 * out.viscosities[q] * deviatoric_strain_rate;               
+                  std::cout << "Isotropic stress " << std::endl;
                 }
 
               //Get rotation matrix from eigen vectors in compositional fields
@@ -672,12 +668,6 @@ namespace aspect
               R_CPO[0][2] = composition[lpo_bingham_avg_c[0]];
               R_CPO[1][2] = composition[lpo_bingham_avg_c[1]];
               R_CPO[2][2] = composition[lpo_bingham_avg_c[2]];
-              // if (R_CPO[0][0]==0 && R_CPO[0][1]==0 && R_CPO[0][2]==0 && R_CPO[1][0]==0 && R_CPO[1][1]==0 && R_CPO[1][2]==0 && R_CPO[2][0]==0 && R_CPO[2][1]==0 && R_CPO[2][2]==0)
-              //   {
-              //     R_CPO[0][0] = 1;
-              //     R_CPO[1][1] = 1;
-              //     R_CPO[2][2] = 1;
-              //   }
               // std::cout << "R_CPO " << R_CPO <<std::endl;
 
               //Get eigen values from compositional fields
@@ -708,9 +698,9 @@ namespace aspect
                   phi1 = atan2(Rot[0][2], -Rot[1][2]);
                   phi2 = atan2(Rot[2][0], Rot[2][1]);
                 }
-              std::cout << "phi1 " << phi1 <<std::endl;
-              std::cout << "theta " << theta <<std::endl;
-              std::cout << "phi2 " << phi2 <<std::endl;
+              // std::cout << "phi1 " << phi1 <<std::endl;
+              // std::cout << "theta " << theta <<std::endl;
+              // std::cout << "phi2 " << phi2 <<std::endl;
 
               //Compute Hill Parameters FGHLMN from the eigenvalues of a,b,c axis
               double F = std::pow(eigvalue_a1,2)*CnI_F[0] + eigvalue_a2*CnI_F[1] + (1/eigvalue_a3)*CnI_F[2] + std::pow(eigvalue_b1,2)*CnI_F[3] + eigvalue_b2*CnI_F[4] + (1/eigvalue_b3)*CnI_F[5] + std::pow(eigvalue_c1,2)*CnI_F[6] + eigvalue_c2*CnI_F[7] + (1/eigvalue_c3)*CnI_F[8] + CnI_F[9];
@@ -719,6 +709,15 @@ namespace aspect
               double L = std::abs(std::pow(eigvalue_a1,2)*CnI_L[0] + eigvalue_a2*CnI_L[1] + (1/eigvalue_a3)*CnI_L[2] + std::pow(eigvalue_b1,2)*CnI_L[3] + eigvalue_b2*CnI_L[4] + (1/eigvalue_b3)*CnI_L[5] + std::pow(eigvalue_c1,2)*CnI_L[6] + eigvalue_c2*CnI_L[7] + (1/eigvalue_c3)*CnI_L[8] + CnI_L[9]);
               double M = std::abs(std::pow(eigvalue_a1,2)*CnI_M[0] + eigvalue_a2*CnI_M[1] + (1/eigvalue_a3)*CnI_M[2] + std::pow(eigvalue_b1,2)*CnI_M[3] + eigvalue_b2*CnI_M[4] + (1/eigvalue_b3)*CnI_M[5] + std::pow(eigvalue_c1,2)*CnI_M[6] + eigvalue_c2*CnI_M[7] + (1/eigvalue_c3)*CnI_M[8] + CnI_M[9]);
               double N = std::abs(std::pow(eigvalue_a1,2)*CnI_N[0] + eigvalue_a2*CnI_N[1] + (1/eigvalue_a3)*CnI_N[2] + std::pow(eigvalue_b1,2)*CnI_N[3] + eigvalue_b2*CnI_N[4] + (1/eigvalue_b3)*CnI_N[5] + std::pow(eigvalue_c1,2)*CnI_N[6] + eigvalue_c2*CnI_N[7] + (1/eigvalue_c3)*CnI_N[8] + CnI_N[9]);
+              if (isnan(F) || isnan(G) || isnan(H) || isnan(L) || isnan(M) || isnan(N))
+                {
+                  F = 1/2;
+                  G = 1/2;
+                  H = 1/2;
+                  L = 3/2;
+                  M = 3/2;
+                  N = 3/2;
+                }
               // std::cout << "F: " << F <<std::endl;
               // std::cout << "G: " << G <<std::endl;
               // std::cout << "H: " << H <<std::endl;
@@ -780,17 +779,20 @@ namespace aspect
               if (Jhill < 0)
                 {
                   Jhill = std::abs(F)*pow((S_CPO[0][0]-S_CPO[1][1]),2) + std::abs(G)*pow((S_CPO[1][1]-S_CPO[2][2]),2) + std::abs(H)*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);
+                  // std::cout << "Jhill part1 " << std::abs(F)*pow((S_CPO[0][0]-S_CPO[1][1]),2) <<std::endl;
+                  // std::cout << "Jhill part2 " << std::abs(G)*pow((S_CPO[1][1]-S_CPO[2][2]),2) <<std::endl;
+                  // std::cout << "Jhill part3 " << std::abs(H)*pow((S_CPO[2][2]-S_CPO[0][0]),2) <<std::endl;
+                  // std::cout << "Jhill part4 " << 2*L*pow(S_CPO[1][2],2) <<std::endl;
+                  // std::cout << "Jhill part5 " << 2*M*pow(S_CPO[0][2],2) <<std::endl;
+                  // std::cout << "Jhill part6 " << 2*N*pow(S_CPO[0][1],2) <<std::endl;                
                 }
-              std::cout << "Jhillpart1 " << std::abs(F)*pow((S_CPO[0][0]-S_CPO[1][1]),2) <<std::endl;
-              std::cout << "Jhillpart2 " << std::abs(G)*pow((S_CPO[1][1]-S_CPO[2][2]),2) <<std::endl;
-              std::cout << "Jhillpart3 " << std::abs(H)*pow((S_CPO[2][2]-S_CPO[0][0]),2) <<std::endl;
-              std::cout << "Jhillpart4 " << 2*L*pow(S_CPO[1][2],2) <<std::endl;
-              std::cout << "Jhillpart5 " << 2*M*pow(S_CPO[0][2],2) <<std::endl;
-              std::cout << "Jhillpart6 " << 2*N*pow(S_CPO[0][1],2) <<std::endl;
-              std::cout << "Jhill " << Jhill <<std::endl;
+              
+              // std::cout << "Jhill " << Jhill <<std::endl;
 
               AssertThrow(Jhill >= 0,
                           ExcMessage("Jhill should not be negative"));
+              AssertThrow(isfinite(Jhill),
+                          ExcMessage("Jhill should be finite"));
 
               SymmetricTensor<2,6> invA;
               invA[0][0] = (F+H)/(F*H+F*G+G*H);
@@ -808,7 +810,7 @@ namespace aspect
 
               //Overwrite the scalar viscosity with an effective viscosity
               out.viscosities[q] = (1 / (Gamma * std::pow(Jhill,(n-1)/2)));
-              std::cout << "Jhill term " << std::pow(Jhill,(n-1)/2) <<std::endl;
+
               AssertThrow(out.viscosities[q] != 0,
                           ExcMessage("Viscosity should not be 0"));
               AssertThrow(isfinite(out.viscosities[q]),
@@ -869,10 +871,12 @@ namespace aspect
           // Prescribe the stress strain directors to compositional field for access in the next time step
           if (PrescribedFieldOutputs<dim> *prescribed_field_out = out.template get_additional_output<PrescribedFieldOutputs<dim>>())
             {
+              std::cout << "Prescribe the stress strain directors to compositional field for access in the next time step "<< std::endl;
               std::vector<double> ViscoTensor_array(SymmetricTensor<4,dim>::n_independent_components);
               std::copy(anisotropic_viscosity->stress_strain_directors[q].begin_raw(), anisotropic_viscosity->stress_strain_directors[q].end_raw(), ViscoTensor_array.begin());
               for (unsigned int i = 0; i < SymmetricTensor<4,dim>::n_independent_components ; ++i)
                 {
+                  // std::cout << "In loop "<< std::endl;
                   const unsigned int ind = this->introspection().compositional_index_for_name(ssd_names[i]);
                   prescribed_field_out->prescribed_field_outputs[q][ind] = ViscoTensor_array[i];
                 }
