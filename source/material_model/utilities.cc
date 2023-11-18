@@ -877,6 +877,81 @@ namespace aspect
       }
 
 
+      DruckerPragerInputs::DruckerPragerInputs(const double cohesion_,
+                                               const double friction_angle_,
+                                               const double pressure_,
+                                               const double effective_strain_rate_,
+                                               const double max_yield_strength_)
+        :
+        cohesion(cohesion_),
+        friction_angle(friction_angle_),
+        pressure(pressure_),
+        effective_strain_rate(effective_strain_rate_),
+        max_yield_strength(max_yield_strength_)
+      {}
+
+
+      DruckerPragerOutputs::DruckerPragerOutputs ()
+        :
+        yield_strength(numbers::signaling_nan<double>()),
+        plastic_viscosity(numbers::signaling_nan<double>()),
+        viscosity_pressure_derivative(numbers::signaling_nan<double>())
+      {}
+
+
+      template <int dim>
+      void
+      compute_drucker_prager_yielding (const DruckerPragerInputs &in,
+                                       DruckerPragerOutputs &out)
+      {
+        // plasticity
+        const double sin_phi = std::sin(in.friction_angle);
+        const double cos_phi = std::cos(in.friction_angle);
+        const double strength_inv_part = 1. / (std::sqrt(3.0) * (3.0 + sin_phi));
+
+        out.yield_strength = ( (dim==3)
+                               ?
+                               ( 6.0 * in.cohesion * cos_phi + 6.0 * in.pressure * sin_phi) * strength_inv_part
+                               :
+                               in.cohesion * cos_phi + in.pressure * sin_phi);
+
+        out.yield_strength = std::min(out.yield_strength, in.max_yield_strength);
+
+        // Rescale the viscosity back onto the yield surface
+        const double strain_rate_effective_inv = 1./(2.*in.effective_strain_rate);
+        out.plastic_viscosity = out.yield_strength * strain_rate_effective_inv;
+
+        out.viscosity_pressure_derivative = sin_phi * strain_rate_effective_inv *
+                                            (dim == 3
+                                             ?
+                                             (6.0 * strength_inv_part)
+                                             :
+                                             1);
+
+        return;
+      }
+
+
+      
+      template <int dim>
+      void
+      fill_averaged_equation_of_state_outputs(const EquationOfStateOutputs<dim> &eos_outputs,
+                                              const std::vector<double> &mass_fractions,
+                                              const std::vector<double> &volume_fractions,
+                                              const unsigned int i,
+                                              MaterialModelOutputs<dim> &out)
+      {
+        // The density, isothermal compressibility and thermal expansivity are volume-averaged
+        // The specific entropy derivatives and heat capacity are mass-averaged
+        out.densities[i] = MaterialUtilities::average_value (volume_fractions, eos_outputs.densities, MaterialUtilities::arithmetic);
+        out.compressibilities[i] = MaterialUtilities::average_value (volume_fractions, eos_outputs.compressibilities, MaterialUtilities::arithmetic);
+        out.thermal_expansion_coefficients[i] = MaterialUtilities::average_value (volume_fractions, eos_outputs.thermal_expansion_coefficients, MaterialUtilities::arithmetic);
+        out.entropy_derivative_pressure[i] = MaterialUtilities::average_value (mass_fractions, eos_outputs.entropy_derivative_pressure, MaterialUtilities::arithmetic);
+        out.entropy_derivative_temperature[i] = MaterialUtilities::average_value (mass_fractions, eos_outputs.entropy_derivative_temperature, MaterialUtilities::arithmetic);
+        out.specific_heat[i] = MaterialUtilities::average_value (mass_fractions, eos_outputs.specific_heat_capacities, MaterialUtilities::arithmetic);
+      }
+
+      
       double phase_average_value (const std::vector<double> &phase_function_values,
                                   const std::vector<unsigned int> &n_phases_per_composition,
                                   const std::vector<double> &parameter_values,

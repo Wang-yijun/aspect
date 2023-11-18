@@ -388,12 +388,18 @@ namespace aspect
           const unsigned int column_num = read_data_entries%(components+dim);
           const unsigned int row_num = read_data_entries/(components+dim);
           TableIndices<dim> idx = compute_table_indices(new_table_points, row_num);
+          // std::cout << "column_num " << column_num << std::endl;
+          // std::cout << "row_num " << row_num << std::endl;
+          // std::cout << "temp_data " << temp_data << std::endl;
 
           if (column_num < dim)
             {
               // This is a coordinate. Store (and check that they are consistent)
               const double old_value = coordinate_values[column_num][idx[column_num]];
-
+              // std::cout << "column_num " << column_num << std::endl;
+              // std::cout << "row_num " << row_num << std::endl;
+              // std::cout << "old_value " << old_value << std::endl;
+              // std::cout << "temp_data " << temp_data << std::endl;
               AssertThrow(old_value == 0. ||
                           (std::abs(old_value-temp_data) < 1e-8*std::abs(old_value)),
                           ExcMessage("Invalid coordinate "
@@ -424,6 +430,8 @@ namespace aspect
                               "lines at the end of the data file."));
 
       const unsigned int n_expected_data_entries = (components + dim) * data_table.n_elements();
+      // std::cout << "n_expected_data_entries " << n_expected_data_entries << std::endl;
+      // std::cout << "read_data_entries " << read_data_entries << std::endl;
       AssertThrow(read_data_entries == n_expected_data_entries,
                   ExcMessage ("While reading the data file '" + filename + "' the ascii data "
                               "plugin has reached the end of the file, but has not found the "
