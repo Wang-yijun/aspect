@@ -47,23 +47,25 @@ namespace aspect
         Tensor<2,dim> grad_u;
         for (unsigned int d=0; d<dim; ++d)
           grad_u[d] = gradients[d];
-        //std::cout<<"grad_u: "<<grad_u<<std::endl;
+        // std::cout<<"grad_u: "<<grad_u<<std::endl;
         // Calculate strain rate from velocity gradients
         const SymmetricTensor<2,dim> strain_rate = symmetrize (grad_u);
-        //std::cout<<"strainrate: "<<strain_rate<<std::endl;
+        // std::cout<<"strainrate: "<<strain_rate<<std::endl;
         const SymmetricTensor<2,dim> deviatoric_strain_rate
               = (this->get_material_model().is_compressible()
                  ?
                  strain_rate - 1./3 * trace(strain_rate) * unit_symmetric_tensor<dim>()
                  :
                  strain_rate);
-
+        std::cout<<"deviatoric strain rate: "<<deviatoric_strain_rate<<std::endl;
 
         double pressure = solution[this->introspection().component_indices.pressure];
+        std::cout<<"introspection success "<<std::endl;
         double temperature = solution[this->introspection().component_indices.temperature];
         Tensor<1,dim> velocity;
         for (unsigned int i = 0; i < dim; ++i)
             velocity[i] = solution[this->introspection().component_indices.velocities[i]];
+        
         std::vector<double> compositions;
         for (unsigned int i = 0; i < this->n_compositional_fields(); i++)
             {
@@ -82,7 +84,7 @@ namespace aspect
         MaterialModel::MaterialModelOutputs<dim> material_model_outputs(1,this->n_compositional_fields());
         this->get_material_model().evaluate(material_model_inputs, material_model_outputs);
         double eta = material_model_outputs.viscosities[0];
-
+        
         // Compressive stress is positive in geoscience applications
         SymmetricTensor<2,dim> stress = 2.*eta*deviatoric_strain_rate;
         

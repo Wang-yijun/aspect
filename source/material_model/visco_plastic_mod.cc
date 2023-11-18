@@ -190,13 +190,12 @@ namespace aspect
       // The first time this function is called (first iteration of first time step)
       // a specified "reference" strain rate is used as the returned value would
       // otherwise be zero.
-      const double edot_ii = ( (this->get_timestep_number() == 0 && strain_rate.norm() <= std::numeric_limits<double>::min())
+      const double edot_ii = ( ((this->get_timestep_number() == 0 && strain_rate.norm() <= std::numeric_limits<double>::min()) || isfinite(strain_rate.norm()) == 0)
                                ?
                                ref_strain_rate
                                :
                                std::max(std::sqrt(std::fabs(second_invariant(deviator(strain_rate)))),
                                         min_strain_rate) );
-
       // Choice of activation volume depends on whether there is an adiabatic temperature
       // gradient used when calculating the viscosity. This allows the same activation volume
       // to be used in incompressible and compressible models.
@@ -239,8 +238,7 @@ namespace aspect
 	                                   std::exp((activation_energies_diffusion[j] + pressure*activation_volumes_deep_diffusion[j])/
 	                                            (constants::gas_constant*temperature_for_viscosity)) *
 	                                   std::pow(grain_size, grain_size_exponents_diffusion[j]);
-
-	            if (lower_mant_dislocation_creep == true)
+              if (lower_mant_dislocation_creep == true)
 	               {
 	                 viscosity_composite = (viscosity_diffusion * viscosity_dislocation)/(viscosity_diffusion + viscosity_dislocation); 
 	               }
@@ -256,7 +254,6 @@ namespace aspect
 	                                   std::exp((activation_energies_diffusion[j] + pressure*activation_volumes_diffusion[j])/
 	                                            (constants::gas_constant*temperature_for_viscosity)) *
 	                                   std::pow(grain_size, grain_size_exponents_diffusion[j]);
-
 	            // Composite viscosity
 	            viscosity_composite = (viscosity_diffusion * viscosity_dislocation)/(viscosity_diffusion + viscosity_dislocation);
 
@@ -363,8 +360,8 @@ namespace aspect
               {
 
 	            double yield_strength = std::min(yield_stress_prefactors[j] * (coh  +  friction_coefficients[j]*std::max(pressure,0.0)), max_yield_stresses[j]);
-	            viscosity_yield = yield_strength / (2.0 * edot_ii);
-	            break;
+	            viscosity_yield = yield_strength / (2.0 * edot_ii);              
+              break;
 
               }
               default:
@@ -392,7 +389,7 @@ namespace aspect
           else
             {
               composition_viscosities[j] = std::min(std::max(viscosity_composite, min_field_viscs[j]), max_field_viscs[j]);
-            }
+            } 
 
 
         }
@@ -699,7 +696,7 @@ namespace aspect
           const Point<dim> position = in.position[i];
           const double depth = this->get_geometry_model().depth(position); // units: m
 
-	  	  const std::vector<double> volume_fractions = compute_volume_fractions(in.composition[i],volumetric_compositions,depth);
+	  	    const std::vector<double> volume_fractions = compute_volume_fractions(in.composition[i],volumetric_compositions,depth);
           for (unsigned int j=0; j < volume_fractions.size(); ++j)
             {
               // not strictly correct if thermal expansivities are different, since we are interpreting

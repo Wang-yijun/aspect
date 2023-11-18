@@ -507,7 +507,6 @@ namespace aspect
                 {
                   // This is a coordinate. Store (and check that they are consistent)
                   const double old_value = coordinate_values[column_num][idx[column_num]];
-
                   AssertThrow(old_value == 0. ||
                               (std::abs(old_value-temp_data) < 1e-8*std::abs(old_value)),
                               ExcMessage("Invalid coordinate in column "
@@ -518,7 +517,7 @@ namespace aspect
                                          "the coordinate values in each coordinate direction repeat exactly "
                                          "each time. This also means each row in the data file has to have "
                                          "the same number of columns as the first row containing data."));
-
+                
                   coordinate_values[column_num][idx[column_num]] = temp_data;
                 }
               else

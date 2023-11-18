@@ -2017,7 +2017,7 @@ namespace aspect
             // then do the core work: assemble systems and solve
             solve_timestep ();
           }
-
+        
         // See if we have to start over with a new adaptive refinement cycle
         // at the beginning of the simulation. If so, set the
         // simulator_is_past_initialization variable back to false because we will
@@ -2032,7 +2032,7 @@ namespace aspect
                 goto start_time_iteration;
               }
           }
-
+        // std::cout << "Finished initial refinement " << std::endl;
         // We're now definitely past the point where we need the initial
         // conditions objects, and we can release the pointers to these objects
         // that we have created in the constructor of this class. If some of the
@@ -2046,7 +2046,7 @@ namespace aspect
 #endif
         // Prepare the next time step:
         time_stepping_manager.update();
-
+        // std::cout << "Finished reset and update " << std::endl;
         const double new_time_step_size = time_stepping_manager.get_next_time_step_size();
 
         // if we postprocess nonlinear iterations, this function is called within
@@ -2062,7 +2062,7 @@ namespace aspect
           }
         else
           maybe_refine_mesh(new_time_step_size, max_refinement_level);
-
+        // std::cout << "Finished refine mesh " << std::endl;
         if (time_stepping_manager.should_repeat_time_step())
           {
             pcout << "Repeating the current time step based on the time stepping manager ..." << std::endl;
@@ -2085,7 +2085,7 @@ namespace aspect
 
         // see if we want to write a timing summary
         maybe_write_timing_output();
-
+        // std::cout << "Finished this timestep and advance " << std::endl;
         // update values for timestep, increment time step by one.
         advance_time(new_time_step_size);
 

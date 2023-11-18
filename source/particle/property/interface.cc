@@ -564,10 +564,12 @@ namespace aspect
         for (typename std::list<std::unique_ptr<Interface<dim>>>::const_iterator
              p = property_list.begin(); p!=property_list.end(); ++p,++plugin_index)
           {
+            std::cout << "Before pp " << std::endl;
             (*p)->update_particle_property(property_information.get_position_by_plugin_index(plugin_index),
                                            solution,
                                            gradients,
                                            particle);
+            std::cout << "End pp " << std::endl;
           }
       }
 

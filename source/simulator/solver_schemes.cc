@@ -1201,10 +1201,12 @@ namespace aspect
           postprocess ();
 
         ++nonlinear_iteration;
+        // std::cout << "Finished this loop " << nonlinear_iteration << std::endl;
       }
     while (nonlinear_solver_control.check(nonlinear_iteration, relative_residual) == SolverControl::iterate);
 
     signals.post_nonlinear_solver(nonlinear_solver_control);
+    // std::cout << "Finished this solver " << std::endl;
   }
 
 
