@@ -32,13 +32,14 @@
 
 #include <boost/lexical_cast.hpp>
 #include <cstdlib>
+#include <regex>
 #include <sys/stat.h>
 
 namespace aspect
 {
   template <int dim>
   Parameters<dim>::Parameters (ParameterHandler &prm,
-                               MPI_Comm mpi_communicator)
+                               const MPI_Comm mpi_communicator)
   {
     parse_parameters (prm, mpi_communicator);
   }
@@ -443,7 +444,7 @@ namespace aspect
         prm.declare_entry ("Number of cheap Stokes solver steps", "200",
                            Patterns::Integer(0),
                            "As explained in the paper that describes ASPECT (Kronbichler, Heister, and Bangerth, "
-                           "2012, see \\cite{KHB12}) we first try to solve the Stokes system in every "
+                           "2012, see \\cite{kronbichler:etal:2012}) we first try to solve the Stokes system in every "
                            "time step using a GMRES iteration with a poor but cheap "
                            "preconditioner. By default, we try whether we can converge the GMRES "
                            "solver in 200 such iterations before deciding that we need a better "
@@ -477,7 +478,7 @@ namespace aspect
                            "of the Stokes system is computed. This approximate $A$ is used in the "
                            "preconditioning used in the GMRES solver. The exact definition of this "
                            "block preconditioner for the Stokes equation can be found in "
-                           "\\cite{KHB12}.");
+                           "\\cite{kronbichler:etal:2012}.");
 
         prm.declare_entry ("Use full A block as preconditioner", "false",
                            Patterns::Bool(),
@@ -485,7 +486,7 @@ namespace aspect
                            "$A$ block as preconditioner for the Stokes solver, or the full $A$ block. The "
                            "simplified approximation only contains the terms that describe the coupling of "
                            "identical components (plus boundary conditions) as described in "
-                           "\\cite{KHB12}. The full block is closer to the description in "
+                           "\\cite{kronbichler:etal:2012}. The full block is closer to the description in "
                            "\\cite{rudi2017weighted}."
                            "\n\n"
                            "There is no clear way to determine which preconditioner "
@@ -507,7 +508,7 @@ namespace aspect
                            "system is computed. This approximate inverse of the $S$ block is used "
                            "in the preconditioning used in the GMRES solver. The exact definition of "
                            "this block preconditioner for the Stokes equation can be found in "
-                           "\\cite{KHB12}.");
+                           "\\cite{kronbichler:etal:2012}.");
       }
       prm.leave_subsection ();
 
@@ -602,22 +603,24 @@ namespace aspect
                          "published formulations are available in ASPECT (see the list of "
                          "possible values for this parameter in the manual for available options). "
                          "Two ASPECT specific options are\n"
-                         "\\begin{enumerate}\n"
-                         "  \\item `isentropic compression': ASPECT's original "
+                         "  * `isentropic compression': ASPECT's original "
                          "formulation, using the explicit compressible mass equation, "
                          "and the full density for the temperature equation.\n"
-                         "  \\item `custom': A custom selection of `Mass conservation' and "
+                         "  * `custom': A custom selection of `Mass conservation' and "
                          "`Temperature equation'.\n"
-                         "\\end{enumerate}\n\n"
-                         "\\note{Warning: The `custom' option is "
+                         ":::{warning}\n"
+                         "The `custom' option is "
                          "implemented for advanced users that want full control over the "
                          "equations solved. It is possible to choose inconsistent formulations "
                          "and no error checking is performed on the consistency of the resulting "
-                         "equations.}\n\n"
-                         "\\note{The `anelastic liquid approximation' option here can also be "
+                         "equations.\n"
+                         ":::\n\n"
+                         ":::{note}\n"
+                         "The `anelastic liquid approximation' option here can also be "
                          "used to set up the `truncated anelastic liquid approximation' as long as "
                          "this option is chosen together with a material model that defines a "
-                         "density that depends on temperature and depth and not on the pressure.}");
+                         "density that depends on temperature and depth and not on the pressure.\n"
+                         ":::");
 
       prm.declare_entry ("Mass conservation", "ask material model",
                          Patterns::Selection ("incompressible|isentropic compression|hydrostatic compression|"
@@ -689,32 +692,6 @@ namespace aspect
                          "may have provided for each part of the boundary. You may want "
                          "to compare this with the documentation of the geometry model you "
                          "use in your model.");
-    }
-    prm.leave_subsection();
-
-    prm.enter_subsection ("Boundary traction model");
-    {
-      prm.declare_entry ("Prescribed traction boundary indicators", "",
-                         Patterns::Map (Patterns::Anything(),
-                                        Patterns::Selection(BoundaryTraction::get_names<dim>())),
-                         "A comma separated list denoting those boundaries "
-                         "on which a traction force is prescribed, i.e., where "
-                         "known external forces act, resulting in an unknown velocity. This is "
-                         "often used to model ``open'' boundaries where we only know the pressure. "
-                         "This pressure then produces a force that is normal to the boundary and "
-                         "proportional to the pressure."
-                         "\n\n"
-                         "The format of valid entries for this parameter is that of a map "
-                         "given as ``key1 [selector]: value1, key2 [selector]: value2, key3: value3, ...'' where "
-                         "each key must be a valid boundary indicator (which is either an "
-                         "integer or the symbolic name the geometry model in use may have "
-                         "provided for this part of the boundary) "
-                         "and each value must be one of the currently implemented boundary "
-                         "traction models. ``selector'' is an optional string given as a subset "
-                         "of the letters `xyz' that allows you to apply the boundary conditions "
-                         "only to the components listed. As an example, '1 y: function' applies "
-                         "the type `function' to the y component on boundary 1. Without a selector "
-                         "it will affect all components of the traction.");
     }
     prm.leave_subsection();
 
@@ -971,7 +948,7 @@ namespace aspect
                          "the error is generally smaller with this choice."
                          "\n\n"
                          "For an in-depth discussion of these issues and a quantitative evaluation "
-                         "of the different choices, see \\cite{KHB12}.");
+                         "of the different choices, see \\cite{kronbichler:etal:2012}.");
       prm.declare_entry ("Use equal order interpolation for Stokes", "false",
                          Patterns::Bool(),
                          "By default (i.e., when this parameter is set to its default value "
@@ -1003,15 +980,17 @@ namespace aspect
                          "provided for the parameter ``Stokes velocity polynomial "
                          "degree''."
                          "\n\n"
-                         "\\note{While \\aspect{} \\textit{allows} you to use this "
-                         "  method, it is generally understood that this is not a "
-                         "  great idea as it leads to rather low accuracy in "
-                         "  general as documented in \\cite{thba22}. "
-                         "  It also leads to substantial problems when "
-                         "  using free surfaces. As a consequence, the presence "
-                         "  of this parameter should not be seen as an "
-                         "  endorsement of the method, or a suggestion to "
-                         "  actually use it. It simply makes the method available.}");
+                         ":::{note}\n"
+                         "While \\aspect{} \\textit{allows} you to use this "
+                         "method, it is generally understood that this is not a "
+                         "great idea as it leads to rather low accuracy in "
+                         "general as documented in \\cite{thba22}. "
+                         "It also leads to substantial problems when "
+                         "using free surfaces. As a consequence, the presence "
+                         "of this parameter should not be seen as an "
+                         "endorsement of the method, or a suggestion to "
+                         "actually use it. It simply makes the method available.\n"
+                         ":::");
       prm.declare_entry ("Use discontinuous temperature discretization", "false",
                          Patterns::Bool (),
                          "Whether to use a temperature discretization that is discontinuous "
@@ -1030,7 +1009,7 @@ namespace aspect
         prm.declare_entry ("Stabilization method", "entropy viscosity",
                            Patterns::Selection("entropy viscosity|SUPG"),
                            "Select the method for stabilizing the advection equation. The original "
-                           "method implemented is 'entropy viscosity' as described in \\cite {KHB12}. "
+                           "method implemented is 'entropy viscosity' as described in \\cite {kronbichler:etal:2012}. "
                            "SUPG is currently experimental.");
 
         prm.declare_entry ("List of compositional fields with disabled boundary entropy viscosity", "",
@@ -1045,7 +1024,7 @@ namespace aspect
         prm.declare_entry ("Use artificial viscosity smoothing", "false",
                            Patterns::Bool (),
                            "If set to false, the artificial viscosity of a cell is computed and "
-                           "is computed on every cell separately as discussed in \\cite{KHB12}. "
+                           "is computed on every cell separately as discussed in \\cite{kronbichler:etal:2012}. "
                            "If set to true, the maximum of the artificial viscosity in "
                            "the cell as well as the neighbors of the cell is computed and used "
                            "instead.");
@@ -1055,10 +1034,10 @@ namespace aspect
                            "The exponent $\\alpha$ in the entropy viscosity stabilization. Valid "
                            "options are 1 or 2. The recommended setting is 2. (This parameter does "
                            "not correspond to any variable in the 2012 paper by Kronbichler, "
-                           "Heister and Bangerth that describes ASPECT, see \\cite{KHB12}. "
+                           "Heister and Bangerth that describes ASPECT, see \\cite{kronbichler:etal:2012}. "
                            "Rather, the paper always uses 2 as the exponent in the definition "
                            "of the entropy, following equation (15) of the paper. The full "
-                           "approach is discussed in \\cite{GPP11}.) Note that this is not the "
+                           "approach is discussed in \\cite{guermond:etal:2011}.) Note that this is not the "
                            "thermal expansion coefficient, also commonly referred to as $\\alpha$."
                            "Units: None.");
         prm.declare_entry ("cR", "0.11",
@@ -1075,7 +1054,7 @@ namespace aspect
                            "for the temperature, which already has some physical diffusion. "
                            "(For historical reasons, the name used here is different "
                            "from the one used in the 2012 paper by Kronbichler, "
-                           "Heister and Bangerth that describes ASPECT, see \\cite{KHB12}. "
+                           "Heister and Bangerth that describes ASPECT, see \\cite{kronbichler:etal:2012}. "
                            "This parameter corresponds "
                            "to the factor $\\alpha_E$ in the formulas following equation (15) of "
                            "the paper.) Units: None.");
@@ -1088,7 +1067,7 @@ namespace aspect
                            "field itself or its residual. An appropriate value for 2d is 0.052 and "
                            "0.78 for 3d. (For historical reasons, the name used here is different "
                            "from the one used in the 2012 paper by Kronbichler, "
-                           "Heister and Bangerth that describes ASPECT, see \\cite{KHB12}. "
+                           "Heister and Bangerth that describes ASPECT, see \\cite{kronbichler:etal:2012}. "
                            "This parameter can be given as a single value or as a list with as "
                            "many entries as one plus the number of compositional fields. In the "
                            "former case all advection fields use the same stabilization parameters, "
@@ -1104,7 +1083,7 @@ namespace aspect
                            "stabilization. This parameter determines how much the strain rate (in addition "
                            "to the velocity) should influence the stabilization. (This parameter does "
                            "not correspond to any variable in the 2012 paper by Kronbichler, "
-                           "Heister and Bangerth that describes ASPECT, see \\cite{KHB12}. "
+                           "Heister and Bangerth that describes ASPECT, see \\cite{kronbichler:etal:2012}. "
                            "Rather, the paper always uses "
                            "0, i.e. they specify the maximum dissipation $\\nu_h^\\text{max}$ as "
                            "$\\nu_h^\\text{max}\\vert_K = \\alpha_{\\text{max}} h_K \\|\\mathbf u\\|_{\\infty,K}$. "
@@ -1246,7 +1225,7 @@ namespace aspect
                          "advecting along the values of the previous time step using the "
                          "velocity field, and applying reaction rates to it. In other words, "
                          "this corresponds to the usual notion of a composition field as "
-                         "mentioned in Section~\\ref{sec:compositional}. "
+                         "mentioned in Section~\\ref{sec:methods:compositional-fields}. "
                          "\n"
                          "\\item ``particles'': If a compositional field is marked with "
                          "this method, then its values are obtained in each time step "
@@ -1254,7 +1233,7 @@ namespace aspect
                          "particles located on each cell. The time evolution therefore "
                          "happens because particles move along with the velocity field, "
                          "and particle properties can react with each other as well. "
-                         "See Section~\\ref{sec:particles} for more information about "
+                         "See Section~\\ref{sec:methods:particles} for more information about "
                          "how particles behave."
                          "\n"
                          "\\item ``volume of fluid``: If a compositional field "
@@ -1274,7 +1253,7 @@ namespace aspect
                          "advecting along the values of the previous time step using the "
                          "melt velocity, and applying reaction rates to it. In other words, "
                          "this corresponds to the usual notion of a composition field as "
-                         "mentioned in Section~\\ref{sec:compositional}, except that it is "
+                         "mentioned in Section~\\ref{sec:methods:compositional-fields}, except that it is "
                          "advected with the melt velocity instead of the solid velocity. "
                          "This method can only be chosen if melt transport is active in the "
                          "model."
@@ -1284,7 +1263,7 @@ namespace aspect
                          "advecting along the values of the previous time step using the "
                          "fluid velocity prescribed by Darcy's Law, and applying reaction rates "
                          "to it. In other words this corresponds to the usual notion of a composition "
-                         "field as mentioned in Section~\\ref{sec:compositional}, except that it is "
+                         "field as mentioned in Section~\\ref{sec:methods:compositional-fields}, except that it is "
                          "advected with the Darcy velocity instead of the solid velocity. This method "
                          "requires there to be a compositional field named porosity that is advected "
                          "the darcy field method. We calculate the fluid velocity $u_f$ using an "
@@ -1357,7 +1336,7 @@ namespace aspect
                          "\n\n"
                          "The process of averaging, and where it may be used, is "
                          "discussed in more detail in "
-                         "Section~\\ref{sec:sinker-with-averaging}."
+                         "Section~\\ref{sec:cookbooks:sinker-with-averaging}."
                          "\n\n"
                          "More averaging schemes are available in the averaging material "
                          "model. This material model is a ``compositing material model'' "
@@ -1500,6 +1479,10 @@ namespace aspect
     start_time              = prm.get_double ("Start time");
     if (convert_to_years == true)
       start_time *= year_in_seconds;
+
+    end_time = prm.get_double ("End time");
+    if (convert_to_years == true)
+      end_time *= year_in_seconds;
 
     output_directory        = prm.get ("Output directory");
     if (output_directory.size() == 0)
@@ -1891,11 +1874,32 @@ namespace aspect
       if (x_compositional_field_types.size() == 1)
         x_compositional_field_types = std::vector<std::string> (n_compositional_fields, x_compositional_field_types[0]);
 
-      // For backwards compatibility, convert a field named "density_field" without type to a density field
-      const unsigned int density_index = std::find(names_of_compositional_fields.begin(), names_of_compositional_fields.end(), "density_field")
-                                         - names_of_compositional_fields.begin();
-      if (density_index != n_compositional_fields && x_compositional_field_types[density_index] == "unspecified")
-        x_compositional_field_types[density_index] = "density";
+      for (unsigned int i=0; i<n_compositional_fields; ++i)
+        if (x_compositional_field_types[i] == "unspecified")
+          {
+            // Loop over various possibilities before
+            // choosing "chemical composition" as the standard field name
+            // stress, strain, grain_size, porosity, density
+            if (names_of_compositional_fields[i].find("stress") != std::string::npos)
+              x_compositional_field_types[i] = "stress";
+            else if ((names_of_compositional_fields[i].find("strain") != std::string::npos)
+                     || (std::regex_match(names_of_compositional_fields[i],std::regex("s[1-3][1-3]"))))
+              x_compositional_field_types[i] = "strain";
+            else if (names_of_compositional_fields[i].find("grain_size") != std::string::npos)
+              x_compositional_field_types[i] = "grain size";
+            else if (names_of_compositional_fields[i].find("entropy") != std::string::npos)
+              x_compositional_field_types[i] = "entropy";
+            else if (names_of_compositional_fields[i] == "porosity")
+              x_compositional_field_types[i] = "porosity";
+            else if (names_of_compositional_fields[i] == "density_field")
+              x_compositional_field_types[i] = "density";
+            else
+              x_compositional_field_types[i] = "chemical composition";
+          }
+
+      // If only one method is specified apply this to all fields
+      if (x_compositional_field_types.size() == 1)
+        x_compositional_field_types = std::vector<std::string> (n_compositional_fields, x_compositional_field_types[0]);
 
       AssertThrow (std::count(x_compositional_field_types.begin(), x_compositional_field_types.end(), "density") < 2,
                    ExcMessage("There can only be one field of type 'density' in a simulation!"));
@@ -2194,31 +2198,6 @@ namespace aspect
               while ((key_and_comp.size()>0) && (key_and_comp[key_and_comp.size()-1] == ' '))
                 key_and_comp.erase (--key_and_comp.end());
             }
-
-          // finally, try to translate the key into a boundary_id. then
-          // make sure we haven't seen it yet
-          types::boundary_id boundary_id;
-          try
-            {
-              boundary_id = geometry_model.translate_symbolic_boundary_name_to_id(key_and_comp);
-            }
-          catch (const std::string &error)
-            {
-              AssertThrow (false, ExcMessage ("While parsing the entry <Boundary traction model/Prescribed "
-                                              "traction indicators>, there was an error. Specifically, "
-                                              "the conversion function complained as follows:\n\n"
-                                              + error));
-            }
-
-          AssertThrow (prescribed_traction_boundary_indicators.find(boundary_id)
-                       == prescribed_traction_boundary_indicators.end(),
-                       ExcMessage ("Boundary indicator <" + Utilities::int_to_string(boundary_id) +
-                                   "> appears more than once in the list of indicators "
-                                   "for nonzero traction boundaries."));
-
-          // finally, put it into the list
-          prescribed_traction_boundary_indicators[boundary_id] =
-            std::pair<std::string,std::string>(comp,value);
         }
     }
     prm.leave_subsection ();
@@ -2270,7 +2249,7 @@ namespace aspect
     BoundaryComposition::Manager<dim>::declare_parameters (prm);
     AdiabaticConditions::declare_parameters<dim> (prm);
     BoundaryVelocity::Manager<dim>::declare_parameters (prm);
-    BoundaryTraction::declare_parameters<dim> (prm);
+    BoundaryTraction::Manager<dim>::declare_parameters (prm);
     BoundaryHeatFlux::declare_parameters<dim> (prm);
   }
 }
@@ -2281,7 +2260,7 @@ namespace aspect
 {
 #define INSTANTIATE(dim) \
   template Parameters<dim>::Parameters (ParameterHandler &prm, \
-                                        MPI_Comm mpi_communicator); \
+                                        const MPI_Comm mpi_communicator); \
   template void Parameters<dim>::declare_parameters (ParameterHandler &prm); \
   template void Parameters<dim>::parse_parameters(ParameterHandler &prm, \
                                                   const MPI_Comm mpi_communicator); \

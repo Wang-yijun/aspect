@@ -21,7 +21,9 @@
 
 #include <aspect/geometry_model/box.h>
 #include <aspect/geometry_model/initial_topography_model/zero_topography.h>
+#include <aspect/mesh_deformation/interface.h>
 #include <aspect/simulator_signals.h>
+#include <aspect/utilities.h>
 
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/tria_iterator.h>
@@ -39,6 +41,7 @@ namespace aspect
     {
       // Get pointer to initial topography model
       topo_model = const_cast<InitialTopographyModel::Interface<dim>*>(&this->get_initial_topography_model());
+
       // Check that initial topography is required.
       // If so, connect the initial topography function
       // to the right signals: It should be applied after
@@ -111,7 +114,7 @@ namespace aspect
     {
       // Get the surface x (,y) point
       Point<dim-1> surface_point;
-      for (unsigned int d=0; d<dim-1; d++)
+      for (unsigned int d=0; d<dim-1; ++d)
         surface_point[d] = x_y_z[d];
 
       // Get the surface topography at this point
@@ -150,35 +153,32 @@ namespace aspect
         {
           case 2:
           {
-            static const std::pair<std::string,types::boundary_id> mapping[]
-              = { std::pair<std::string,types::boundary_id>("left",   0),
-                  std::pair<std::string,types::boundary_id>("right",  1),
-                  std::pair<std::string,types::boundary_id>("bottom", 2),
-                  std::pair<std::string,types::boundary_id>("top",    3)
-                };
-
-            return std::map<std::string,types::boundary_id> (std::begin(mapping),
-                                                             std::end(mapping));
+            return
+            {
+              {"left",   0},
+              {"right",  1},
+              {"bottom", 2},
+              {"top",    3}
+            };
           }
 
           case 3:
           {
-            static const std::pair<std::string,types::boundary_id> mapping[]
-              = { std::pair<std::string,types::boundary_id>("left",   0),
-                  std::pair<std::string,types::boundary_id>("right",  1),
-                  std::pair<std::string,types::boundary_id>("front",  2),
-                  std::pair<std::string,types::boundary_id>("back",   3),
-                  std::pair<std::string,types::boundary_id>("bottom", 4),
-                  std::pair<std::string,types::boundary_id>("top",    5)
-                };
+            return
+            {
+              {"left",   0},
+              {"right",  1},
+              {"front",  2},
+              {"back",   3},
+              {"bottom", 4},
+              {"top",    5}
 
-            return std::map<std::string,types::boundary_id> (std::begin(mapping),
-                                                             std::end(mapping));
+            };
           }
         }
 
       Assert (false, ExcNotImplemented());
-      return std::map<std::string,types::boundary_id>();
+      return {};
     }
 
 
@@ -199,7 +199,8 @@ namespace aspect
     template <int dim>
     void
     Box<dim>::adjust_positions_for_periodicity (Point<dim> &position,
-                                                const ArrayView<Point<dim>> &connected_positions) const
+                                                const ArrayView<Point<dim>> &connected_positions,
+                                                const ArrayView<Tensor<1, dim>> &/*connected_velocities*/) const
     {
       for (unsigned int i = 0; i < dim; ++i)
         if (periodic[i])
@@ -226,6 +227,13 @@ namespace aspect
     Box<dim>::get_extents () const
     {
       return extents;
+    }
+
+    template <int dim>
+    const std::array<unsigned int, dim> &
+    Box<dim>::get_repetitions () const
+    {
+      return repetitions;
     }
 
     template <int dim>
@@ -311,20 +319,53 @@ namespace aspect
     bool
     Box<dim>::point_is_in_domain(const Point<dim> &point) const
     {
-      AssertThrow(!this->get_parameters().mesh_deformation_enabled ||
-                  this->simulator_is_past_initialization() == false,
-                  ExcMessage("After displacement of the free surface, this function can no longer be used to determine whether a point lies in the domain or not."));
+      // If mesh deformation is enabled, we have to loop over all the current
+      // grid cells to see if the given point lies in the domain.
+      // If mesh deformation is not enabled, or has not happened yet,
+      // we can use the global extents of the model domain with or without
+      // initial topography instead.
+      // This function only checks if the given point lies in the domain
+      // in its current shape at the current time. It can be called before
+      // mesh deformation is applied in the first timestep (e.g., by the boundary
+      // traction plugins), and therefore there is no guarantee
+      // that the point will still lie in the domain after initial mesh deformation.
+      if (this->get_parameters().mesh_deformation_enabled &&
+          this->simulator_is_past_initialization())
+        {
+          return Utilities::point_is_in_triangulation<dim>(this->get_mapping(),
+                                                           this->get_triangulation(),
+                                                           point,
+                                                           this->get_mpi_communicator());
+        }
+      // Without mesh deformation enabled, it is much cheaper to check whether the point lies in the domain.
+      else
+        {
+          // The maximal extents of the unperturbed box domain.
+          Point<dim> max_point = extents+box_origin;
 
-      AssertThrow(Plugins::plugin_type_matches<const InitialTopographyModel::ZeroTopography<dim>>(this->get_initial_topography_model()),
-                  ExcMessage("After adding topography, this function can no longer be used "
-                             "to determine whether a point lies in the domain or not."));
+          // If mesh deformation is not enabled, but initial topography
+          // was/will be applied to the mesh, include this topography in the
+          // extent of the domain.
+          if (!Plugins::plugin_type_matches<const InitialTopographyModel::ZeroTopography<dim>>(this->get_initial_topography_model()))
+            {
+              // Get the surface x (,y) point
+              Point<dim-1> surface_point;
+              for (unsigned int d=0; d<dim-1; ++d)
+                surface_point[d] = point[d];
 
-      for (unsigned int d = 0; d < dim; d++)
-        if (point[d] > extents[d]+box_origin[d]+std::numeric_limits<double>::epsilon()*extents[d] ||
-            point[d] < box_origin[d]-std::numeric_limits<double>::epsilon()*extents[d])
-          return false;
+              // Get the surface topography at this point
+              const double topo = topo_model->value(surface_point);
+              max_point[dim-1] += topo;
+            }
 
-      return true;
+          // Check whether point lies within the min/max coordinates of the domain including initial topography.
+          for (unsigned int d = 0; d < dim; ++d)
+            if (point[d] > max_point[d]+std::numeric_limits<double>::epsilon()*extents[d] ||
+                point[d] < box_origin[d]-std::numeric_limits<double>::epsilon()*extents[d])
+              return false;
+
+          return true;
+        }
     }
 
     template <int dim>
@@ -332,7 +373,7 @@ namespace aspect
     Box<dim>::cartesian_to_natural_coordinates(const Point<dim> &position_point) const
     {
       std::array<double,dim> position_array;
-      for (unsigned int i = 0; i < dim; i++)
+      for (unsigned int i = 0; i < dim; ++i)
         position_array[i] = position_point(i);
 
       return position_array;
@@ -352,7 +393,7 @@ namespace aspect
     Box<dim>::natural_to_cartesian_coordinates(const std::array<double,dim> &position_tensor) const
     {
       Point<dim> position_point;
-      for (unsigned int i = 0; i < dim; i++)
+      for (unsigned int i = 0; i < dim; ++i)
         position_point[i] = position_tensor[i];
 
       return position_point;

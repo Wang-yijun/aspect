@@ -9,7 +9,7 @@
 ### __Parameter name:__ List of model names
 **Default value:**
 
-**Pattern:** [MultipleSelection S40RTS perturbation|SAVANI perturbation|adiabatic|adiabatic boundary|ascii data|ascii data layered|ascii profile|continental geotherm|function|harmonic perturbation|inclusion shape perturbation|lithosphere mask|mandelbox|patch on S40RTS|perturbed box|polar box|spherical gaussian perturbation|spherical hexagonal perturbation|world builder ]
+**Pattern:** [MultipleSelection S40RTS perturbation|SAVANI perturbation|adiabatic|adiabatic boundary|ascii data|ascii data layered|ascii profile|continental geotherm|function|harmonic perturbation|inclusion shape perturbation|lithosphere mask|mandelbox|patch on S40RTS|perturbed box|polar box|prescribed temperature|random Gaussian perturbation|spherical gaussian perturbation|spherical hexagonal perturbation|world builder ]
 
 **Documentation:** A comma-separated list of initial temperature models that will be used to initialize the temperature. These plugins are loaded in the order given, and modify the existing temperature field via the operators listed in &rsquo;List of model operators&rsquo;.
 
@@ -38,7 +38,7 @@ For any depths below the depth of the LAB, a unrealistically high temperature is
 Note that the current implementation only works for a 3-layer lithosphere, even though in principle the heat conduction equation can be solved for any number of layers. The naming of the compositional fields that represent the layers is also very specific, namely &lsquo;upper\_crust&rsquo;, &lsquo;lower\_crust&rsquo;, and &lsquo;lithospheric\_mantle&rsquo;.
 Make sure the top and bottom temperatures of the lithosphere agree with temperatures set in for example the temperature boundary conditions.
 
-&lsquo;function&rsquo;: Specify the initial temperature in terms of an explicit formula. The format of these functions follows the syntax understood by the muparser library, see Section~\ref{sec:muparser-format}.
+&lsquo;function&rsquo;: Specify the initial temperature in terms of an explicit formula. The format of these functions follows the syntax understood by the muparser library, see {ref}`sec:run-aspect:parameters-overview:muparser-format`.
 
 &lsquo;harmonic perturbation&rsquo;: An initial temperature field in which the temperature is perturbed following a harmonic function (spherical harmonic or sine depending on geometry and dimension) in lateral and radial direction from an otherwise constant temperature (incompressible model) or adiabatic reference profile (compressible model).
 
@@ -53,6 +53,10 @@ Make sure the top and bottom temperatures of the lithosphere agree with temperat
 &lsquo;perturbed box&rsquo;: An initial temperature field in which the temperature is perturbed slightly from an otherwise constant value equal to one. The perturbation is chosen in such a way that the initial temperature is constant to one along the entire boundary.
 
 &lsquo;polar box&rsquo;: An initial temperature field in which the temperature is perturbed slightly from an otherwise constant value equal to one. The perturbation is such that there are two poles on opposing corners of the box.
+
+&lsquo;prescribed temperature&rsquo;: This model fixes the initial temperature to the prescribed temperature outputs computed by the material model. This only works if the material model implements prescribed temperature outputs.
+
+&lsquo;random Gaussian perturbation&rsquo;: An initial temperature field in which the temperature is perturbed from a temperature of zero following a given number of Gaussian perturbations placed randomly throughout the model domain. The number, width, and maximum magnitude of the perturbations can be chosen as model parameters. This plugin is meant to be used in combination with another initial temperature model that determines the background temperature (such as the &rsquo;function&rsquo; or the &rsquo;adiabatic&rsquo; plugin) using the &rsquo;add&rsquo; operator to combine them.
 
 &lsquo;spherical gaussian perturbation&rsquo;: An initial temperature field in which the temperature is perturbed by a single Gaussian added to an otherwise spherically symmetric state. Additional parameters are read from the parameter file in subsection &rsquo;Spherical gaussian perturbation&rsquo;.
 
@@ -72,7 +76,7 @@ Make sure the top and bottom temperatures of the lithosphere agree with temperat
 ### __Parameter name:__ Model name
 **Default value:** unspecified
 
-**Pattern:** [Selection S40RTS perturbation|SAVANI perturbation|adiabatic|adiabatic boundary|ascii data|ascii data layered|ascii profile|continental geotherm|function|harmonic perturbation|inclusion shape perturbation|lithosphere mask|mandelbox|patch on S40RTS|perturbed box|polar box|spherical gaussian perturbation|spherical hexagonal perturbation|world builder|unspecified ]
+**Pattern:** [Selection S40RTS perturbation|SAVANI perturbation|adiabatic|adiabatic boundary|ascii data|ascii data layered|ascii profile|continental geotherm|function|harmonic perturbation|inclusion shape perturbation|lithosphere mask|mandelbox|patch on S40RTS|perturbed box|polar box|prescribed temperature|random Gaussian perturbation|spherical gaussian perturbation|spherical hexagonal perturbation|world builder|unspecified ]
 
 **Documentation:** Select one of the following models:
 
@@ -99,7 +103,7 @@ For any depths below the depth of the LAB, a unrealistically high temperature is
 Note that the current implementation only works for a 3-layer lithosphere, even though in principle the heat conduction equation can be solved for any number of layers. The naming of the compositional fields that represent the layers is also very specific, namely &lsquo;upper\_crust&rsquo;, &lsquo;lower\_crust&rsquo;, and &lsquo;lithospheric\_mantle&rsquo;.
 Make sure the top and bottom temperatures of the lithosphere agree with temperatures set in for example the temperature boundary conditions.
 
-&lsquo;function&rsquo;: Specify the initial temperature in terms of an explicit formula. The format of these functions follows the syntax understood by the muparser library, see Section~\ref{sec:muparser-format}.
+&lsquo;function&rsquo;: Specify the initial temperature in terms of an explicit formula. The format of these functions follows the syntax understood by the muparser library, see {ref}`sec:run-aspect:parameters-overview:muparser-format`.
 
 &lsquo;harmonic perturbation&rsquo;: An initial temperature field in which the temperature is perturbed following a harmonic function (spherical harmonic or sine depending on geometry and dimension) in lateral and radial direction from an otherwise constant temperature (incompressible model) or adiabatic reference profile (compressible model).
 
@@ -114,6 +118,10 @@ Make sure the top and bottom temperatures of the lithosphere agree with temperat
 &lsquo;perturbed box&rsquo;: An initial temperature field in which the temperature is perturbed slightly from an otherwise constant value equal to one. The perturbation is chosen in such a way that the initial temperature is constant to one along the entire boundary.
 
 &lsquo;polar box&rsquo;: An initial temperature field in which the temperature is perturbed slightly from an otherwise constant value equal to one. The perturbation is such that there are two poles on opposing corners of the box.
+
+&lsquo;prescribed temperature&rsquo;: This model fixes the initial temperature to the prescribed temperature outputs computed by the material model. This only works if the material model implements prescribed temperature outputs.
+
+&lsquo;random Gaussian perturbation&rsquo;: An initial temperature field in which the temperature is perturbed from a temperature of zero following a given number of Gaussian perturbations placed randomly throughout the model domain. The number, width, and maximum magnitude of the perturbations can be chosen as model parameters. This plugin is meant to be used in combination with another initial temperature model that determines the background temperature (such as the &rsquo;function&rsquo; or the &rsquo;adiabatic&rsquo; plugin) using the &rsquo;add&rsquo; operator to combine them.
 
 &lsquo;spherical gaussian perturbation&rsquo;: An initial temperature field in which the temperature is perturbed by a single Gaussian added to an otherwise spherically symmetric state. Additional parameters are read from the parameter file in subsection &rsquo;Spherical gaussian perturbation&rsquo;.
 
@@ -213,7 +221,7 @@ Make sure the top and bottom temperatures of the lithosphere agree with temperat
 
 **Documentation:** If this value is larger than 0, the initial temperature profile will not be adiabatic, but subadiabatic. This value gives the maximal deviation from adiabaticity. Set to 0 for an adiabatic temperature profile. Units: \si{\kelvin}.
 
-The function object in the Function subsection represents the compositional fields that will be used as a reference profile for calculating the thermal diffusivity. This function is one-dimensional and depends only on depth. The format of this functions follows the syntax understood by the muparser library, see Section~\ref{sec:muparser-format}.
+The function object in the Function subsection represents the compositional fields that will be used as a reference profile for calculating the thermal diffusivity. This function is one-dimensional and depends only on depth. The format of this functions follows the syntax understood by the muparser library, see {ref}`sec:run-aspect:parameters-overview:muparser-format`.
 
 (parameters:Initial_20temperature_20model/Adiabatic/Top_20boundary_20layer_20age_20model)=
 ### __Parameter name:__ Top boundary layer age model
@@ -698,6 +706,32 @@ If the function you are describing represents a vector-valued function with mult
 **Pattern:** [Double -MAX_DOUBLE...MAX_DOUBLE (inclusive)]
 
 **Documentation:** Scalar factor, which is applied to the model data. You might want to use this to scale the input to a reference model. Another way to use this factor is to convert units of the input files. For instance, if you provide velocities in cm/yr set this factor to 0.01.
+
+(parameters:Initial_20temperature_20model/Random_20Gaussian_20perturbation)=
+## **Subsection:** Initial temperature model / Random Gaussian perturbation
+(parameters:Initial_20temperature_20model/Random_20Gaussian_20perturbation/Maximum_20magnitude)=
+### __Parameter name:__ Maximum magnitude
+**Default value:** 25.0
+
+**Pattern:** [Double 0...MAX_DOUBLE (inclusive)]
+
+**Documentation:** The maximum magnitude of the Gaussian perturbation. For each perturbation, a random magnitude between plus and minus the maximum magnitude will be chosen. Units: \si{\kelvin}.
+
+(parameters:Initial_20temperature_20model/Random_20Gaussian_20perturbation/Number_20of_20perturbations)=
+### __Parameter name:__ Number of perturbations
+**Default value:** 100
+
+**Pattern:** [Integer range -2147483648...2147483647 (inclusive)]
+
+**Documentation:** Total number of perturbations to be introduced into the model. Perturbations will be placed at random locations within the model domain.
+
+(parameters:Initial_20temperature_20model/Random_20Gaussian_20perturbation/Width)=
+### __Parameter name:__ Width
+**Default value:** 1000.0
+
+**Pattern:** [Double 0...MAX_DOUBLE (inclusive)]
+
+**Documentation:** The Gaussian RMS width of the perturbations. Units: \si{\meter}.
 
 (parameters:Initial_20temperature_20model/S40RTS_20perturbation)=
 ## **Subsection:** Initial temperature model / S40RTS perturbation

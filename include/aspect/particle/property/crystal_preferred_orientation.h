@@ -401,7 +401,7 @@ namespace aspect
            */
           inline
           double get_volume_fractions_grains(const unsigned int cpo_data_position,
-                                             const ArrayView<double> &data,
+                                             const ArrayView<const double> &data,
                                              const unsigned int mineral_i,
                                              const unsigned int grain_i) const
           {
@@ -438,7 +438,7 @@ namespace aspect
            */
           inline
           Tensor<2,3> get_rotation_matrix_grains(const unsigned int cpo_data_position,
-                                                 const ArrayView<double> &data,
+                                                 const ArrayView<const double> &data,
                                                  const unsigned int mineral_i,
                                                  const unsigned int grain_i) const
           {
@@ -585,11 +585,6 @@ namespace aspect
            * Backward Euler and Crank-Nicolson iterations.
            */
           unsigned int property_advection_max_iterations;
-
-          /**
-           * The tensor representation of the permutation symbol.
-           */
-          Tensor<3,3> permutation_operator_3d;
 
           /**
            * @name D-Rex variables

@@ -56,6 +56,7 @@ namespace aspect
     using namespace dealii;
     using namespace dealii::Utilities;
 
+
     /**
      * Given an array @p values, consider three cases:
      * - If it has size @p N, return the original array.
@@ -356,6 +357,19 @@ namespace aspect
 
 
 
+    /**
+     * Given a point @p point, find out if any of the MPI
+     * processes own the cell in which this point lies. If
+     * not, the point lies outside the @p triangulation.
+     */
+    template <int dim>
+    bool
+    point_is_in_triangulation(const Mapping<dim> &mapping,
+                              const parallel::distributed::Triangulation<dim> &triangulation,
+                              const Point<dim> &point,
+                              const MPI_Comm mpi_communicator);
+
+
     namespace Coordinates
     {
 
@@ -369,10 +383,14 @@ namespace aspect
       WGS84_coordinates(const dealii::Point<dim> &position);
 
       /**
-       * Returns spherical coordinates of a Cartesian point. The returned array
-       * is filled with radius, phi and theta (polar angle). If the dimension is
-       * set to 2 theta is omitted. Phi is always normalized to [0,2*pi].
-       *
+       * Returns spherical coordinates of a Cartesian point. If `dim==3`, then
+       * the returned array contains the three values radius, phi, and theta
+       * (polar angle). In other words, the two angles correspond to longitude
+       * and *colatitude* (instead of latitude). If `dim==2`, then theta is omitted.
+       * The longitude Phi is always considered in the interval $[0,2\pi]$. Note
+       * that that implies that input files that use spherical coordinates also
+       * have to provide data using this convention, rather than providing their
+       * data from $-\pi$ (=180 degrees west) to $+\pi$ (=180 degrees east).
        */
       template <int dim>
       std::array<double,dim>
@@ -576,7 +594,7 @@ namespace aspect
      * @param comm MPI communicator to use.
      */
     bool fexists(const std::string &filename,
-                 MPI_Comm comm);
+                 const MPI_Comm comm);
 
     /**
      * Checks to see if the user is trying to use data from a url.
@@ -606,7 +624,7 @@ namespace aspect
      */
     std::string
     read_and_distribute_file_content(const std::string &filename,
-                                     const MPI_Comm &comm);
+                                     const MPI_Comm comm);
 
     /**
      * Collect the content of @p file_content using MPI_Gather to process 0.
@@ -623,7 +641,7 @@ namespace aspect
     void
     collect_and_write_file_content(const std::string &filename,
                                    const std::string &file_content,
-                                   const MPI_Comm &comm);
+                                   const MPI_Comm comm);
 
     /**
      * Creates a path as if created by the shell command "mkdir -p", therefore
@@ -652,7 +670,7 @@ namespace aspect
      * to true.
      */
     void create_directory(const std::string &pathname,
-                          const MPI_Comm &comm,
+                          const MPI_Comm comm,
                           bool silent);
 
     /**
@@ -1006,13 +1024,17 @@ namespace aspect
      * @p mpi_communicator The MPI Communicator of the problem.
      * @p output_filename An optional file name into which (if present) the solver history will
      *   be written.
+     *
+     * @return This function never returns normally. It always exits via an exception, either
+     *   of type ExcMessage (on rank 0 of the parallel computation) or QuietException (on all
+     *   other ranks).
      */
-    void linear_solver_failed(const std::string &solver_name,
-                              const std::string &function_name,
-                              const std::vector<SolverControl> &solver_controls,
-                              const std::exception &exc,
-                              const MPI_Comm &mpi_communicator,
-                              const std::string &output_filename = "");
+    void throw_linear_solver_failure_exception(const std::string &solver_name,
+                                               const std::string &function_name,
+                                               const std::vector<SolverControl> &solver_controls,
+                                               const std::exception &exc,
+                                               const MPI_Comm mpi_communicator,
+                                               const std::string &output_filename = "");
 
     /**
      * Conversion object where one can provide a function that returns
@@ -1109,6 +1131,26 @@ namespace aspect
                                                    const std::vector<Tensor<2,3>> rotation_matrices,
                                                    const unsigned int n_output_matrices,
                                                    std::mt19937 &random_number_generator);
+
+    /**
+    * Wraps angle between 0 and 360 degrees.
+    */
+    double wrap_angle(const double angle);
+
+    /**
+     * Compute Z-X-Z Euler angles (https://en.wikipedia.org/wiki/Euler_angles) from rotation matrix.
+     * The Z-X-Z indicates the order of axis rotations to generate the Euler angles.
+     */
+    std::array<double,3> zxz_euler_angles_from_rotation_matrix(const Tensor<2,3> &rotation_matrix);
+
+    /**
+     * Compute rotation matrix from Z-X-Z Euler angles (https://en.wikipedia.org/wiki/Euler_angles)
+     * The Z-X-Z indicates the order of axis axis rotations to generate the Euler angles.
+     */
+    Tensor<2,3> zxz_euler_angles_to_rotation_matrix(const double phi1,
+                                                    const double theta,
+                                                    const double phi2);
+
   }
 }
 
@@ -1196,6 +1238,73 @@ namespace aspect
         return vector[i];
       });
       return sorted_vec;
+    }
+
+    /**
+     * Contains utility functions related to tensors.
+     */
+    namespace Tensors
+    {
+
+      /**
+       * Rotate a 3D 4th order tensor representing the full stiffnexx matrix using a 3D 2nd order rotation tensor
+       */
+      SymmetricTensor<4,3>
+      rotate_full_stiffness_tensor(const Tensor<2,3> &rotation_tensor, const SymmetricTensor<4,3> &input_tensor);
+
+      /**
+       * Rotate a 6x6 voigt stiffness matrix using a 2nd order Voigt stiffness tensor.
+       * See https://en.wikipedia.org/wiki/Voigt_notation for more info on the Voigt notation.
+       */
+      SymmetricTensor<2,6>
+      rotate_voigt_stiffness_matrix(const Tensor<2,3> &rotation_tensor, const SymmetricTensor<2,6> &input_tensor);
+
+      /**
+       * Transform a 4th order full stiffness tensor into a 6x6 Voigt stiffness matrix.
+       * See https://en.wikipedia.org/wiki/Voigt_notation for more info on the Voigt notation.
+       */
+      SymmetricTensor<2,6>
+      to_voigt_stiffness_matrix(const SymmetricTensor<4,3> &input_tensor);
+
+      /**
+       * Transform a 6x6 Voigt stiffness matrix into a 4th order full stiffness tensor.
+       * See https://en.wikipedia.org/wiki/Voigt_notation for more info on the Voigt notation.
+       */
+      SymmetricTensor<4,3>
+      to_full_stiffness_tensor(const SymmetricTensor<2,6> &input_tensor);
+
+      /**
+       * Form a 21D voigt stiffness vector from a 6x6 Voigt stiffness matrix.
+       * See https://en.wikipedia.org/wiki/Voigt_notation for more info on the Voigt notation.
+       */
+      Tensor<1,21>
+      to_voigt_stiffness_vector(const SymmetricTensor<2,6> &input_tensor);
+
+      /**
+       * Form a 21D voigt stiffness vector from a 6x6 Voigt stiffness matrix.
+       * See https://en.wikipedia.org/wiki/Voigt_notation for more info on the Voigt notation.
+       */
+      SymmetricTensor<2,6>
+      to_voigt_stiffness_matrix(const Tensor<1,21> &input_tensor);
+
+      /**
+       * Transform a 4th order full stiffness tensor into a 21D Voigt stiffness vector.
+       * See https://en.wikipedia.org/wiki/Voigt_notation for more info on the Voigt notation.
+       */
+      Tensor<1,21>
+      to_voigt_stiffness_vector(const SymmetricTensor<4,3> &input);
+
+
+      /**
+       * Return the Levi-Civita tensor, also called a permutation or "totally antisymmetric" tensor.
+       * See https://en.wikipedia.org/wiki/Levi-Civita_symbol for a definition.
+       */
+      template <int dim>
+      const Tensor<dim,dim> &levi_civita();
+
+      // Declare the existence of a specialization:
+      template <>
+      const Tensor<3,3> &levi_civita<3>();
     }
 
   }

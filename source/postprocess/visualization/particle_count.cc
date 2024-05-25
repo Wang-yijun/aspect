@@ -42,7 +42,7 @@ namespace aspect
 
 
       template <int dim>
-      std::pair<std::string, Vector<float> *>
+      std::pair<std::string, std::unique_ptr<Vector<float>>>
       ParticleCount<dim>::execute() const
       {
         const Postprocess::Particles<dim> &particle_postprocessor =
@@ -51,9 +51,9 @@ namespace aspect
         const Particle::ParticleHandler<dim> &particle_handler =
           particle_postprocessor.get_particle_world().get_particle_handler();
 
-        std::pair<std::string, Vector<float> *>
+        std::pair<std::string, std::unique_ptr<Vector<float>>>
         return_value ("particles_per_cell",
-                      new Vector<float>(this->get_triangulation().n_active_cells()));
+                      std::make_unique<Vector<float>>(this->get_triangulation().n_active_cells()));
 
         // loop over all of the cells and count particles in them
         for (const auto &cell : this->get_dof_handler().active_cell_iterators())
@@ -71,7 +71,7 @@ namespace aspect
       std::list<std::string>
       ParticleCount<dim>::required_other_postprocessors() const
       {
-        return std::list<std::string> (1, "particles");
+        return {"particles"};
       }
     }
   }

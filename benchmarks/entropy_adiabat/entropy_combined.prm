@@ -11,17 +11,11 @@
 include ./entropy_adiabat.prm
 
 set Additional shared libraries            = ./plugins/libentropy_plugins.so
-
 set Dimension                              = 2
-
 set End time                               = 2.5e8
 set Output directory                       = output-entropy-combined
-
-
 set Surface pressure                       = 0
 set Adiabatic surface temperature          = 1600.1243896484375
-
-
 
 # We start at the same entropy as the one used for the
 # adiabatic profile.
@@ -34,7 +28,6 @@ subsection Initial composition model
   end
 end
 
-
 # We increase the thermal conductivity compared to the
 # entropy adiabat example. We choose a very large value
 # here because the thermal diffusion effects only become
@@ -43,6 +36,7 @@ subsection Material model
   set Model name = entropy model
 
   subsection Entropy model
+    set Thermal conductivity formulation = constant
     set Thermal conductivity             = 50
   end
 end

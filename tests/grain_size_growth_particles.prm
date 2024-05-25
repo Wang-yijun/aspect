@@ -2,7 +2,7 @@
 # that the implementation of the grain growth
 # laws are correct. All parameters, including
 # temperature and pressure, are set to constant
-# values and no dynamic recrystallisation is
+# values and no dynamic recrystallization is
 # included (the reciprocal required strain is
 # set to zero). Material flows in from the left
 # and flows out at the right boundary with a constant
@@ -26,6 +26,7 @@ set Dimension                              = 2
 set End time                               = 50000
 
 include $ASPECT_SOURCE_DIR/tests/grain_size_growth.prm
+
 
 subsection Postprocess
   set List of postprocessors = composition statistics,temperature statistics, velocity statistics, particles

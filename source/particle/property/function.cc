@@ -37,7 +37,7 @@ namespace aspect
       Function<dim>::initialize_one_particle_property(const Point<dim> &position,
                                                       std::vector<double> &data) const
       {
-        for (unsigned int i = 0; i < n_components; i++)
+        for (unsigned int i = 0; i < n_components; ++i)
           data.push_back(function->value(position, i));
       }
 
@@ -122,7 +122,8 @@ namespace aspect
                                         "function is defined in the parameters in section "
                                         "``Particles|Function''. The format of these "
                                         "functions follows the syntax understood by the "
-                                        "muparser library, see Section~\\ref{sec:muparser-format}.")
+                                        "muparser library, see "
+                                        "{ref}\\`sec:run-aspect:parameters-overview:muparser-format\\`.")
     }
   }
 }
