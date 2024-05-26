@@ -69,7 +69,6 @@
 DEAL_II_DISABLE_EXTRA_DIAGNOSTICS
 #include <boost/random.hpp>
 DEAL_II_ENABLE_EXTRA_DIAGNOSTICS
-//#include <aspect/postprocess/particle_lpo.h>
 
 #include <deal.II/base/symmetric_tensor.h>
 #include <deal.II/base/signaling_nan.h>
@@ -518,26 +517,26 @@ namespace aspect
       AssertThrow((dim==3),
                   ExcMessage("Olivine has 3 independent slip systems, allowing for deformation in 3 independent directions, hence these models only work in 3D"));
 
-      lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvector_a1"));
-      lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvector_a2"));
-      lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvector_a3"));
-      lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a1"));
-      lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a2"));
-      lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a3"));
+      cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvector_a1"));
+      cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvector_a2"));
+      cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvector_a3"));
+      cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a1"));
+      cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a2"));
+      cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a3"));
 
-      lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b1"));
-      lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b2"));
-      lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b3"));
-      lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b1"));
-      lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b2"));
-      lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b3"));
+      cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b1"));
+      cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b2"));
+      cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b3"));
+      cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b1"));
+      cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b2"));
+      cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b3"));
 
-      lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c1"));
-      lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c2"));
-      lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c3"));
-      lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c1"));
-      lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c2"));
-      lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c3"));
+      cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c1"));
+      cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c2"));
+      cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c3"));
+      cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c1"));
+      cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c2"));
+      cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c3"));
 
 
     }
@@ -617,11 +616,6 @@ namespace aspect
           out.entropy_derivative_pressure[q] = 0.0;
           out.entropy_derivative_temperature[q] = 0.0;
 
-          //Create constant value to use for AV
-          const double A_o = 1.1e5*exp(-530000/(8.314*in.temperature[q]));
-          const double n = 3.5;
-          const double Gamma = (A_o/(std::pow(grain_size,0.73)));
-          
           //Calculate effective viscosity         
           const std::vector<double> &composition = in.composition[q];
           const SymmetricTensor<2,dim> strain_rate = in.strain_rate[q];
@@ -663,29 +657,34 @@ namespace aspect
                   // std::cout << "Isotropic stress " << stress << std::endl;
                 }
 
+              //Create constant value to use for AV
+              const double A_o = 1.1e5*exp(-530000/(8.314*in.temperature[q]));
+              const double n = 3.5;
+              const double Gamma = (A_o/(std::pow(grain_size,0.73)));
+
               //Get rotation matrix from eigen vectors in compositional fields
               Tensor<2,3> R_CPO;
-              R_CPO[0][0] = composition[lpo_bingham_avg_a[0]];
-              R_CPO[1][0] = composition[lpo_bingham_avg_a[1]];
-              R_CPO[2][0] = composition[lpo_bingham_avg_a[2]];
-              R_CPO[0][1] = composition[lpo_bingham_avg_b[0]];
-              R_CPO[1][1] = composition[lpo_bingham_avg_b[1]];
-              R_CPO[2][1] = composition[lpo_bingham_avg_b[2]];
-              R_CPO[0][2] = composition[lpo_bingham_avg_c[0]];
-              R_CPO[1][2] = composition[lpo_bingham_avg_c[1]];
-              R_CPO[2][2] = composition[lpo_bingham_avg_c[2]];
+              R_CPO[0][0] = composition[cpo_bingham_avg_a[0]];
+              R_CPO[1][0] = composition[cpo_bingham_avg_a[1]];
+              R_CPO[2][0] = composition[cpo_bingham_avg_a[2]];
+              R_CPO[0][1] = composition[cpo_bingham_avg_b[0]];
+              R_CPO[1][1] = composition[cpo_bingham_avg_b[1]];
+              R_CPO[2][1] = composition[cpo_bingham_avg_b[2]];
+              R_CPO[0][2] = composition[cpo_bingham_avg_c[0]];
+              R_CPO[1][2] = composition[cpo_bingham_avg_c[1]];
+              R_CPO[2][2] = composition[cpo_bingham_avg_c[2]];
               // std::cout << "R_CPO " << R_CPO <<std::endl;
 
               //Get eigen values from compositional fields
-              const double eigvalue_a1 = composition[lpo_bingham_avg_a[3]];
-              const double eigvalue_b1 = composition[lpo_bingham_avg_b[3]];
-              const double eigvalue_c1 = composition[lpo_bingham_avg_c[3]];
-              const double eigvalue_a2 = composition[lpo_bingham_avg_a[4]];
-              const double eigvalue_b2 = composition[lpo_bingham_avg_b[4]];
-              const double eigvalue_c2 = composition[lpo_bingham_avg_c[4]];
-              const double eigvalue_a3 = composition[lpo_bingham_avg_a[5]];
-              const double eigvalue_b3 = composition[lpo_bingham_avg_b[5]];
-              const double eigvalue_c3 = composition[lpo_bingham_avg_c[5]];
+              const double eigvalue_a1 = composition[cpo_bingham_avg_a[3]];
+              const double eigvalue_b1 = composition[cpo_bingham_avg_b[3]];
+              const double eigvalue_c1 = composition[cpo_bingham_avg_c[3]];
+              const double eigvalue_a2 = composition[cpo_bingham_avg_a[4]];
+              const double eigvalue_b2 = composition[cpo_bingham_avg_b[4]];
+              const double eigvalue_c2 = composition[cpo_bingham_avg_c[4]];
+              const double eigvalue_a3 = composition[cpo_bingham_avg_a[5]];
+              const double eigvalue_b3 = composition[cpo_bingham_avg_b[5]];
+              const double eigvalue_c3 = composition[cpo_bingham_avg_c[5]];
 
               //Convert rotation matrix to euler angles phi1, theta, phi2
               Tensor<2,3> Rot = transpose(R_CPO);
@@ -801,10 +800,10 @@ namespace aspect
               Tensor<2,3> S_CPO=transpose(R)*stress*R;
               // std::cout << "S_CPO " << S_CPO <<std::endl;
               double Jhill = F*pow((S_CPO[0][0]-S_CPO[1][1]),2) + G*pow((S_CPO[1][1]-S_CPO[2][2]),2) + H*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);
-              // if (Jhill < 0)
-              //   {
-              //     Jhill = std::abs(F)*pow((S_CPO[0][0]-S_CPO[1][1]),2) + std::abs(G)*pow((S_CPO[1][1]-S_CPO[2][2]),2) + std::abs(H)*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);            
-              //   }              
+              if (Jhill < 0)
+                {
+                  Jhill = std::abs(F)*pow((S_CPO[0][0]-S_CPO[1][1]),2) + std::abs(G)*pow((S_CPO[1][1]-S_CPO[2][2]),2) + std::abs(H)*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);            
+                }              
               // std::cout << "Jhill " << Jhill <<std::endl;
 
               AssertThrow(isfinite(Jhill),

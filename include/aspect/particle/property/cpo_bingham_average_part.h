@@ -146,7 +146,7 @@ namespace aspect
            * axis associated with the densest clustering of points for each axis. the a to c axis vectors
            * are stored in the first to last array respectively.
            */
-          std::array<std::array<double,3>,3>
+          std::array<std::array<double,6>,3>
           compute_bingham_average(std::vector<Tensor<2,3>> matrices) const;
 
           /**
