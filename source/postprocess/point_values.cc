@@ -57,7 +57,7 @@ namespace aspect
 
       // see if output is requested at this time
       if (this->get_time() < last_output_time + output_interval)
-        return std::pair<std::string,std::string>();
+        return {"", ""};
 
       // evaluate the solution at all of our evaluation points
       std::vector<Vector<double>>
@@ -264,7 +264,7 @@ namespace aspect
               if (use_natural_coordinates)
                 evaluation_points_cartesian[p] = this->get_geometry_model().natural_to_cartesian_coordinates(evaluation_points[p]);
               else
-                for (unsigned int i = 0; i < dim; i++)
+                for (unsigned int i = 0; i < dim; ++i)
                   evaluation_points_cartesian[p][i] = evaluation_points[p][i];
             }
         }
@@ -356,12 +356,14 @@ namespace aspect
                                   "set, in years. In the latter case, the velocity is also converted "
                                   "to meters/year, instead of meters/second."
                                   "\n\n"
-                                  "\\note{Evaluating the solution of a finite element field at "
+                                  ":::{note}\n"
+                                  "Evaluating the solution of a finite element field at "
                                   "arbitrarily chosen points is an expensive process. Using this "
                                   "postprocessor will only be efficient if the number of evaluation "
                                   "points or output times is relatively small. If you need a very large number of "
                                   "evaluation points, you should consider extracting this "
                                   "information from the visualization program you use to display "
-                                  "the output of the `visualization' postprocessor.}")
+                                  "the output of the `visualization' postprocessor.\n"
+                                  ":::")
   }
 }

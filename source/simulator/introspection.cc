@@ -207,7 +207,7 @@ namespace aspect
       variables.push_back(
         VariableDeclaration<dim>(
           "pressure",
-          std::shared_ptr<FiniteElement<dim>>(new FE_Q<dim>(parameters.stokes_velocity_degree)),
+          std::make_shared<FE_Q<dim>>(parameters.stokes_velocity_degree),
           1,
           1));
 
@@ -255,8 +255,17 @@ namespace aspect
     temperature_method(parameters.temperature_method),
     compositional_field_methods(parameters.compositional_field_methods),
     composition_names(parameters.names_of_compositional_fields),
-    composition_descriptions(parameters.composition_descriptions)
-  {}
+    composition_descriptions(parameters.composition_descriptions),
+    composition_names_for_type(CompositionalFieldDescription::n_types),
+    composition_indices_for_type(CompositionalFieldDescription::n_types)
+  {
+    // Set up the indices for the different types of compositional fields
+    for (unsigned int c=0; c<composition_descriptions.size(); ++c)
+      {
+        composition_indices_for_type[composition_descriptions[c].type].push_back(c);
+        composition_names_for_type[composition_descriptions[c].type].push_back(composition_names[c]);
+      }
+  }
 
 
 
@@ -366,13 +375,39 @@ namespace aspect
 
 
   template <int dim>
+  const std::vector<std::string> &
+  Introspection<dim>::chemical_composition_field_names () const
+  {
+    return get_names_for_fields_of_type(CompositionalFieldDescription::chemical_composition);
+  }
+
+
+
+  template <int dim>
+  const std::vector<unsigned int> &
+  Introspection<dim>::chemical_composition_field_indices () const
+  {
+    return get_indices_for_fields_of_type(CompositionalFieldDescription::chemical_composition);
+  }
+
+
+
+  template <int dim>
+  unsigned int
+  Introspection<dim>::n_chemical_composition_fields () const
+  {
+    return get_number_of_fields_of_type(CompositionalFieldDescription::Type::chemical_composition);
+  }
+
+
+
+  template <int dim>
   bool
   Introspection<dim>::composition_type_exists (const CompositionalFieldDescription::Type &type) const
   {
-    for (unsigned int c=0; c<composition_descriptions.size(); ++c)
-      if (composition_descriptions[c].type == type)
-        return true;
-    return false;
+    Assert(type < composition_indices_for_type.size(), ExcInternalError());
+
+    return composition_indices_for_type[type].size() > 0;
   }
 
 
@@ -381,9 +416,11 @@ namespace aspect
   unsigned int
   Introspection<dim>::find_composition_type (const typename CompositionalFieldDescription::Type &type) const
   {
-    for (unsigned int c=0; c<composition_descriptions.size(); ++c)
-      if (composition_descriptions[c].type == type)
-        return c;
+    Assert(type < composition_indices_for_type.size(), ExcInternalError());
+
+    if (composition_indices_for_type[type].size() > 0)
+      return composition_indices_for_type[type][0];
+
     return composition_descriptions.size();
   }
 
@@ -403,31 +440,31 @@ namespace aspect
 
 
   template <int dim>
-  const std::vector<unsigned int>
+  const std::vector<unsigned int> &
   Introspection<dim>::get_indices_for_fields_of_type (const CompositionalFieldDescription::Type &type) const
   {
-    std::vector<unsigned int> indices;
-
-    for (unsigned int i=0; i<n_compositional_fields; ++i)
-      if (composition_descriptions[i].type == type)
-        indices.push_back(i);
-
-    return indices;
+    Assert(type < composition_indices_for_type.size(), ExcInternalError());
+    return composition_indices_for_type[type];
   }
 
 
 
   template <int dim>
-  const std::vector<std::string>
+  const std::vector<std::string> &
   Introspection<dim>::get_names_for_fields_of_type (const CompositionalFieldDescription::Type &type) const
   {
-    std::vector<std::string> names;
+    Assert(type < composition_names_for_type.size(), ExcInternalError());
+    return composition_names_for_type[type];
+  }
 
-    for (unsigned int i=0; i<n_compositional_fields; ++i)
-      if (composition_descriptions[i].type == type)
-        names.push_back(composition_names[i]);
 
-    return names;
+
+  template <int dim>
+  unsigned int
+  Introspection<dim>::get_number_of_fields_of_type (const CompositionalFieldDescription::Type &type) const
+  {
+    Assert(type < composition_indices_for_type.size(), ExcInternalError());
+    return composition_indices_for_type[type].size();
   }
 
 

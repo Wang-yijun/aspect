@@ -395,7 +395,7 @@ namespace aspect
      * verify some of the input arguments.
      */
     Parameters (ParameterHandler &prm,
-                MPI_Comm mpi_communicator);
+                const MPI_Comm mpi_communicator);
 
     /**
      * Declare the run-time parameters this class takes, and call the
@@ -456,6 +456,7 @@ namespace aspect
     double                         nonlinear_tolerance;
     bool                           resume_computation;
     double                         start_time;
+    double                         end_time;
     double                         CFL_number;
     double                         maximum_time_step;
     double                         maximum_relative_increase_time_step;
@@ -497,6 +498,7 @@ namespace aspect
     unsigned int                   n_expensive_stokes_solver_steps;
     double                         linear_solver_A_block_tolerance;
     bool                           use_full_A_block_preconditioner;
+    bool                           force_nonsymmetric_A_block_solver;
     double                         linear_solver_S_block_tolerance;
     unsigned int                   stokes_gmres_restart_length;
 
@@ -676,6 +678,8 @@ namespace aspect
     unsigned int                   n_compositional_fields;
     std::vector<std::string>       names_of_compositional_fields;
     std::vector<aspect::CompositionalFieldDescription>  composition_descriptions;
+    unsigned int                   n_chemical_compositions;
+    std::vector<unsigned int>      chemical_composition_indices;
 
     /**
      * A vector that contains the advection field method for every compositional

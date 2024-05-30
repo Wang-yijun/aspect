@@ -41,6 +41,8 @@
 #include <deal.II/lac/solver_gmres.h>
 #include <deal.II/lac/read_write_vector.templates.h>
 #include <deal.II/lac/solver_idr.h>
+#include <deal.II/lac/solver_cg.h>
+#include <deal.II/lac/solver_bicgstab.h>
 
 #include <deal.II/grid/manifold.h>
 
@@ -57,41 +59,17 @@ namespace aspect
      */
     namespace ChangeVectorTypes
     {
-      void import(TrilinosWrappers::MPI::Vector &out,
-                  const dealii::LinearAlgebra::ReadWriteVector<double> &rwv,
-                  const VectorOperation::values                 operation)
-      {
-        Assert(out.size() == rwv.size(),
-               ExcMessage("Both vectors need to have the same size for import() to work!"));
-
-        Assert(out.locally_owned_elements() == rwv.get_stored_elements(),
-               ExcNotImplemented());
-
-        if (operation == VectorOperation::insert)
-          {
-            for (const auto idx : out.locally_owned_elements())
-              out[idx] = rwv[idx];
-          }
-        else if (operation == VectorOperation::add)
-          {
-            for (const auto idx : out.locally_owned_elements())
-              out[idx] += rwv[idx];
-          }
-        else
-          AssertThrow(false, ExcNotImplemented());
-
-        out.compress(operation);
-      }
-
-
       void copy(TrilinosWrappers::MPI::Vector &out,
                 const dealii::LinearAlgebra::distributed::Vector<double> &in)
       {
         dealii::LinearAlgebra::ReadWriteVector<double> rwv(out.locally_owned_elements());
+#if DEAL_II_VERSION_GTE(9,5,0)
+        rwv.import_elements(in, VectorOperation::insert);
+        out.import_elements(rwv,VectorOperation::insert);
+#else
         rwv.import(in, VectorOperation::insert);
-        //This import function doesn't exist until after dealii 9.0
-        //Implemented above
-        import(out, rwv,VectorOperation::insert);
+        out.import(rwv,VectorOperation::insert);
+#endif
       }
 
       void copy(dealii::LinearAlgebra::distributed::Vector<double> &out,
@@ -140,6 +118,7 @@ namespace aspect
          *     the matrix $A_block$, or only apply one preconditioner step with it.
          * @param do_solve_Schur_complement A flag indicating whether we should actually solve with
          *     the matrix $Schur_complement_block$, or only apply one preconditioner step with it.
+         * @param A_block_is_symmetric A flag indicating whether the A block is symmetric.
          * @param A_block_tolerance The tolerance for the CG solver which computes
          *     the inverse of the A block.
          * @param Schur_complement_tolerance The tolerance for the CG solver which computes
@@ -152,6 +131,7 @@ namespace aspect
                                      const SchurComplementPreconditionerType &Schur_complement_preconditioner,
                                      const bool                               do_solve_A,
                                      const bool                               do_solve_Schur_complement,
+                                     const bool                               A_block_is_symmetric,
                                      const double                             A_block_tolerance,
                                      const double                             Schur_complement_tolerance);
 
@@ -181,6 +161,7 @@ namespace aspect
          */
         const bool                                                      do_solve_A;
         const bool                                                      do_solve_Schur_complement;
+        const bool                                                      A_block_is_symmetric;
         mutable unsigned int                                            n_iterations_A_;
         mutable unsigned int                                            n_iterations_Schur_complement_;
         const double                                                    A_block_tolerance;
@@ -199,6 +180,7 @@ namespace aspect
                                                              const SchurComplementPreconditionerType &Schur_complement_preconditioner,
                                                              const bool                               do_solve_A,
                                                              const bool                               do_solve_Schur_complement,
+                                                             const bool                               A_block_symmetric,
                                                              const double                             A_block_tolerance,
                                                              const double                             Schur_complement_tolerance)
                                   :
@@ -209,6 +191,7 @@ namespace aspect
                                   Schur_complement_preconditioner (Schur_complement_preconditioner),
                                   do_solve_A                      (do_solve_A),
                                   do_solve_Schur_complement       (do_solve_Schur_complement),
+                                  A_block_is_symmetric            (A_block_symmetric),
                                   n_iterations_A_                 (0),
                                   n_iterations_Schur_complement_  (0),
                                   A_block_tolerance               (A_block_tolerance),
@@ -281,11 +264,11 @@ namespace aspect
               // processors
               catch (const std::exception &exc)
                 {
-                  Utilities::linear_solver_failed("iterative (bottom right) solver",
-                                                  "BlockSchurGMGPreconditioner::vmult",
-                                                  std::vector<SolverControl> {solver_control},
-                                                  exc,
-                                                  src.block(0).get_mpi_communicator());
+                  Utilities::throw_linear_solver_failure_exception("iterative (bottom right) solver",
+                                                                   "BlockSchurGMGPreconditioner::vmult",
+                                                                   std::vector<SolverControl> {solver_control},
+                                                                   exc,
+                                                                   src.block(0).get_mpi_communicator());
                 }
             }
         }
@@ -310,11 +293,30 @@ namespace aspect
       if (do_solve_A == true)
         {
           SolverControl solver_control(1000, utmp.block(0).l2_norm() * A_block_tolerance);
-          SolverCG<dealii::LinearAlgebra::distributed::Vector<double>> solver(solver_control);
+          PrimitiveVectorMemory<dealii::LinearAlgebra::distributed::Vector<double>> mem;
+
           try
             {
-              solver.solve(A_block, dst.block(0), utmp.block(0),
-                           A_block_preconditioner);
+              if (A_block_is_symmetric)
+                {
+                  SolverCG<dealii::LinearAlgebra::distributed::Vector<double>> solver(solver_control,mem);
+                  solver.solve(A_block, dst.block(0), utmp.block(0),
+                               A_block_preconditioner);
+                }
+              else
+                {
+                  // Use BiCGStab for non-symmetric matrices.
+                  // BiCGStab can also solve indefinite systems if necessary.
+                  // Do not compute the exact residual, as this
+                  // is more expensive, and we only need an approximate solution.
+                  SolverBicgstab<dealii::LinearAlgebra::distributed::Vector<double>>
+                  solver(solver_control,
+                         mem,
+                         SolverBicgstab<dealii::LinearAlgebra::distributed::Vector<double>>::AdditionalData(/*exact_residual=*/ false));
+                  solver.solve(A_block, dst.block(0), utmp.block(0),
+                               A_block_preconditioner);
+                }
+
               n_iterations_A_ += solver_control.last_step();
             }
           // if the solver fails, report the error from processor 0 with some additional
@@ -322,11 +324,11 @@ namespace aspect
           // processors
           catch (const std::exception &exc)
             {
-              Utilities::linear_solver_failed("iterative (top left) solver",
-                                              "BlockSchurGMGPreconditioner::vmult",
-                                              std::vector<SolverControl> {solver_control},
-                                              exc,
-                                              src.block(0).get_mpi_communicator());
+              Utilities::throw_linear_solver_failure_exception("iterative (top left) solver",
+                                                               "BlockSchurGMGPreconditioner::vmult",
+                                                               std::vector<SolverControl> {solver_control},
+                                                               exc,
+                                                               src.block(0).get_mpi_communicator());
             }
         }
       else
@@ -357,11 +359,10 @@ namespace aspect
     OperatorCellData<dim,number>::clear()
     {
       enable_newton_derivatives = false;
-      // TODO: use Table::clear() once implemented in 10.0.pre
-      viscosity.reinit(TableIndices<2>(0,0));
-      newton_factor_wrt_pressure_table.reinit(TableIndices<2>(0,0));
-      strain_rate_table.reinit(TableIndices<2>(0,0));
-      newton_factor_wrt_strain_rate_table.reinit(TableIndices<2>(0,0));
+      viscosity.clear();
+      newton_factor_wrt_pressure_table.clear();
+      strain_rate_table.clear();
+      newton_factor_wrt_strain_rate_table.clear();
     }
   }
 
@@ -411,80 +412,98 @@ namespace aspect
   template <int dim, int degree_v, typename number>
   void
   MatrixFreeStokesOperators::StokesOperator<dim,degree_v,number>
-  ::local_apply (const dealii::MatrixFree<dim, number>                 &data,
+  ::local_apply (const dealii::MatrixFree<dim, number>                         &data,
                  dealii::LinearAlgebra::distributed::BlockVector<number>       &dst,
                  const dealii::LinearAlgebra::distributed::BlockVector<number> &src,
-                 const std::pair<unsigned int, unsigned int>           &cell_range) const
+                 const std::pair<unsigned int, unsigned int>                   &cell_range) const
   {
-    FEEvaluation<dim,degree_v,degree_v+1,dim,number> velocity (data, 0);
-    FEEvaluation<dim,degree_v-1,  degree_v+1,1,  number> pressure (data, /*dofh*/1);
+    FEEvaluation<dim,degree_v,degree_v+1,dim,number> u_eval(data, 0);
+    FEEvaluation<dim,degree_v-1,degree_v+1,1,number> p_eval(data, /*dofh*/1);
 
     const bool use_viscosity_at_quadrature_points
-      = (cell_data->viscosity.size(1) == velocity.n_q_points);
+      = (cell_data->viscosity.size(1) == u_eval.n_q_points);
 
     for (unsigned int cell=cell_range.first; cell<cell_range.second; ++cell)
       {
-        VectorizedArray<number> viscosity_x_2 = 2.0*cell_data->viscosity(cell, 0);
+        VectorizedArray<number> viscosity_x_2 = 2. * cell_data->viscosity(cell,0);
 
-        velocity.reinit (cell);
-        velocity.gather_evaluate (src.block(0), EvaluationFlags::gradients);
+        u_eval.reinit(cell);
+        u_eval.gather_evaluate(src.block(0), EvaluationFlags::gradients);
 
-        pressure.reinit (cell);
-        pressure.gather_evaluate (src.block(1), EvaluationFlags::values);
+        p_eval.reinit(cell);
+        p_eval.gather_evaluate(src.block(1), EvaluationFlags::values);
 
-        for (unsigned int q=0; q<velocity.n_q_points; ++q)
+        // Store the symmetric gradients of the velocity field and the
+        // values of the pressure field
+        AlignedVector<SymmetricTensor<2,dim,VectorizedArray<number>>> sym_grad_u;
+        AlignedVector<VectorizedArray<number>> val_p;
+        if (cell_data->enable_newton_derivatives)
+          {
+            sym_grad_u.resize(u_eval.n_q_points);
+            val_p.resize(u_eval.n_q_points);
+            for (const unsigned int r : u_eval.quadrature_point_indices())
+              {
+                sym_grad_u[r] = u_eval.get_symmetric_gradient(r);
+                val_p[r]      = p_eval.get_value(r);
+              }
+          }
+
+        for (const unsigned int q : u_eval.quadrature_point_indices())
           {
             // Only update the viscosity if a Q1 projection is used.
             if (use_viscosity_at_quadrature_points)
-              viscosity_x_2 = 2.0*cell_data->viscosity(cell, q);
+              viscosity_x_2 = 2. * cell_data->viscosity(cell,q);
 
-            SymmetricTensor<2,dim,VectorizedArray<number>> sym_grad_u =
-              velocity.get_symmetric_gradient (q);
-            const VectorizedArray<number> pres = pressure.get_value(q);
-            const VectorizedArray<number> div = trace(sym_grad_u);
+            const SymmetricTensor<2,dim,VectorizedArray<number>>
+            sym_grad_u_q = u_eval.get_symmetric_gradient(q);
+            const VectorizedArray<number> div_u_q = trace(sym_grad_u_q);
+            const VectorizedArray<number> val_p_q = p_eval.get_value(q);
 
-            if (cell_data->enable_newton_derivatives)
-              {
-                // Note that derivative_scaling_factor has already been multiplied to newton_factor_wrt_pressure_table.
-                const VectorizedArray<number> newton_pressure_term =
-                  cell_data->pressure_scaling * 2.0
-                  * cell_data->newton_factor_wrt_pressure_table(cell,q)
-                  * (sym_grad_u * cell_data->strain_rate_table(cell,q));
-                pressure.submit_value(-cell_data->pressure_scaling*div + newton_pressure_term, q);
-              }
-            else
-              pressure.submit_value(-cell_data->pressure_scaling*div, q);
+            // Terms to be tested by phi_p:
+            const VectorizedArray<number> pressure_terms =
+              -cell_data->pressure_scaling * div_u_q;
 
-
-            sym_grad_u *= viscosity_x_2;
+            // Terms to be tested by the symmetric gradients of phi_u:
+            SymmetricTensor<2,dim,VectorizedArray<number>>
+            velocity_terms = viscosity_x_2 * sym_grad_u_q;
 
             for (unsigned int d=0; d<dim; ++d)
-              sym_grad_u[d][d] -= cell_data->pressure_scaling*pres;
+              velocity_terms[d][d] -= cell_data->pressure_scaling * val_p_q;
 
             if (cell_data->is_compressible)
               for (unsigned int d=0; d<dim; ++d)
-                sym_grad_u[d][d] -= viscosity_x_2/3.0*div;
+                velocity_terms[d][d] -= viscosity_x_2 / 3. * div_u_q;
 
+            // Add the Newton derivatives if required.
             if (cell_data->enable_newton_derivatives)
               {
-                const SymmetricTensor<2,dim,VectorizedArray<number>> grads_phi_u_i = velocity.get_symmetric_gradient (q);
+                VectorizedArray<number> deta_deps_times_sym_grad_u(0.);
+                VectorizedArray<number> eps_times_sym_grad_u(0.);
+                VectorizedArray<number> deta_dp_times_p(0.);
+                for (const unsigned int r : u_eval.quadrature_point_indices())
+                  {
+                    deta_deps_times_sym_grad_u += cell_data->newton_factor_wrt_strain_rate_table(cell,r)
+                                                  * sym_grad_u[r];
+                    deta_dp_times_p += cell_data->newton_factor_wrt_pressure_table(cell,r) * val_p[r];
+                    if (cell_data->symmetrize_newton_system)
+                      eps_times_sym_grad_u += cell_data->strain_rate_table(cell,r) * sym_grad_u[r];
+                  }
 
-                SymmetricTensor<2,dim,VectorizedArray<number>> newton_velocity_term =
-                  (grads_phi_u_i * cell_data->strain_rate_table(cell,q))
-                  * cell_data->newton_factor_wrt_strain_rate_table(cell,q);
-
-                if (cell_data->symmetrize_newton_system)
-                  newton_velocity_term +=
-                    (cell_data->newton_factor_wrt_strain_rate_table(cell,q)*grads_phi_u_i)
-                    * cell_data->strain_rate_table(cell,q);
-                velocity.submit_symmetric_gradient(sym_grad_u + newton_velocity_term, q);
+                velocity_terms +=
+                  ( cell_data->symmetrize_newton_system ?
+                    ( cell_data->strain_rate_table(cell,q) * deta_deps_times_sym_grad_u +
+                      cell_data->newton_factor_wrt_strain_rate_table(cell,q) * eps_times_sym_grad_u ) :
+                    2. * cell_data->strain_rate_table(cell,q) * deta_deps_times_sym_grad_u )
+                  +
+                  2. * cell_data->strain_rate_table(cell,q) * deta_dp_times_p;
               }
-            else
-              velocity.submit_symmetric_gradient(sym_grad_u, q);
+
+            u_eval.submit_symmetric_gradient(velocity_terms, q);
+            p_eval.submit_value(pressure_terms, q);
           }
 
-        velocity.integrate_scatter (EvaluationFlags::gradients, dst.block(0));
-        pressure.integrate_scatter (EvaluationFlags::values, dst.block(1));
+        u_eval.integrate_scatter(EvaluationFlags::gradients, dst.block(0));
+        p_eval.integrate_scatter(EvaluationFlags::values, dst.block(1));
       }
   }
 
@@ -526,7 +545,7 @@ namespace aspect
         velocity.reinit(face);
         velocity.gather_evaluate (src.block(0), EvaluationFlags::values);
 
-        for (unsigned int q = 0; q < velocity.n_q_points; ++q)
+        for (const unsigned int q : velocity.quadrature_point_indices())
           {
             const Tensor<1, dim, VectorizedArray<number>> phi_u_i = velocity.get_value(q);
             const auto &normal_vector = velocity.get_normal_vector(q);
@@ -623,7 +642,7 @@ namespace aspect
         pressure.reinit (cell);
         pressure.gather_evaluate (src, EvaluationFlags::values);
 
-        for (unsigned int q=0; q<pressure.n_q_points; ++q)
+        for (const unsigned int q : pressure.quadrature_point_indices())
           {
             // Only update the viscosity if a Q1 projection is used.
             if (use_viscosity_at_quadrature_points)
@@ -734,7 +753,7 @@ namespace aspect
 
             pressure.evaluate (EvaluationFlags::values);
 
-            for (unsigned int q=0; q<pressure.n_q_points; ++q)
+            for (const unsigned int q : pressure.quadrature_point_indices())
               {
                 // Only update the viscosity if a Q1 projection is used.
                 if (use_viscosity_at_quadrature_points)
@@ -810,7 +829,7 @@ namespace aspect
     const unsigned int cell = velocity.get_current_cell_index();
     VectorizedArray<number> viscosity_x_2 = 2.0*cell_data->viscosity(cell, 0);
 
-    for (unsigned int q=0; q<velocity.n_q_points; ++q)
+    for (const unsigned int q : velocity.quadrature_point_indices())
       {
         // Only update the viscosity if a Q1 projection is used.
         if (use_viscosity_at_quadrature_points)
@@ -1036,11 +1055,6 @@ namespace aspect
     // sanity check:
     Assert(sim.introspection.variable("velocity").block_index==0, ExcNotImplemented());
     Assert(sim.introspection.variable("pressure").block_index==1, ExcNotImplemented());
-
-    // This is not terribly complicated, but we need to check that constraints
-    // are set correctly, that the preconditioner converges, and requires
-    // testing.
-    AssertThrow(sim.geometry_model->get_periodic_boundary_pairs().size()==0, ExcNotImplemented());
 
     // We currently only support averaging of the viscosity to a constant or Q1:
     using avg = MaterialModel::MaterialAveraging::AveragingOperation;
@@ -1270,7 +1284,8 @@ namespace aspect
     // Project the active level viscosity vector to multilevel vector representations
     // using MG transfer objects. This transfer is based on the same linear operator used to
     // transfer data inside a v-cycle.
-    MGTransferMatrixFree<dim,GMGNumberType> transfer;
+    MGTransferMF<dim,GMGNumberType> transfer;
+
     transfer.build(dof_handler_projection);
 
     transfer.interpolate_to_mg(dof_handler_projection,
@@ -1368,6 +1383,9 @@ namespace aspect
           MaterialModel::MaterialModelInputs<dim> in(fe_values.n_quadrature_points, sim.introspection.n_compositional_fields);
           MaterialModel::MaterialModelOutputs<dim> out(fe_values.n_quadrature_points, sim.introspection.n_compositional_fields);
           sim.newton_handler->create_material_model_outputs(out);
+          if (sim.parameters.enable_elasticity &&
+              out.template get_additional_output<MaterialModel::ElasticOutputs<dim>>() == nullptr)
+            out.additional_outputs.push_back(std::make_unique<MaterialModel::ElasticOutputs<dim>>(out.n_evaluation_points()));
 
           const unsigned int n_cells = stokes_matrix.get_matrix_free()->n_cell_batches();
           const unsigned int n_q_points = quadrature_formula.size();
@@ -1390,11 +1408,16 @@ namespace aspect
                                                                                 &(sim.dof_handler));
 
                   fe_values.reinit(simulator_cell);
-                  in.reinit(fe_values, simulator_cell, sim.introspection, sim.current_linearization_point,
-                            true /* = compute_strain_rate */);
+                  in.reinit(fe_values, simulator_cell, sim.introspection, sim.current_linearization_point);
 
                   sim.material_model->fill_additional_material_model_inputs(in, sim.current_linearization_point, fe_values, sim.introspection);
                   sim.material_model->evaluate(in, out);
+
+                  MaterialModel::MaterialAveraging::average(sim.parameters.material_averaging,
+                                                            in.current_cell,
+                                                            fe_values.get_quadrature(),
+                                                            *sim.mapping,
+                                                            out);
 
                   Assert(std::isfinite(in.strain_rate[0].norm()),
                          ExcMessage("Invalid strain_rate in the MaterialModelInputs. This is likely because it was "
@@ -1407,32 +1430,51 @@ namespace aspect
                          ExcMessage ("Error: The Newton method requires the material to "
                                      "compute derivatives."));
 
+                  const MaterialModel::ElasticOutputs<dim> *elastic_out
+                    = out.template get_additional_output<MaterialModel::ElasticOutputs<dim>>();
+
                   for (unsigned int q=0; q<n_q_points; ++q)
                     {
+                      const SymmetricTensor<2,dim> effective_strain_rate =
+                        elastic_out == nullptr ? deviator(in.strain_rate[q]) : elastic_out->viscoelastic_strain_rate[q];
+
                       // use the spd factor when the stabilization is PD or SPD.
                       const double alpha =  (sim.newton_handler->parameters.velocity_block_stabilization
                                              & Newton::Parameters::Stabilization::PD)
                                             != Newton::Parameters::Stabilization::none
                                             ?
                                             Utilities::compute_spd_factor<dim>(out.viscosities[q],
-                                                                               in.strain_rate[q],
+                                                                               effective_strain_rate,
                                                                                derivatives->viscosity_derivative_wrt_strain_rate[q],
                                                                                sim.newton_handler->parameters.SPD_safety_factor)
                                             :
                                             1.0;
 
                       active_cell_data.newton_factor_wrt_pressure_table(cell,q)[i]
-                        = derivatives->viscosity_derivative_wrt_pressure[q] * newton_derivative_scaling_factor;
+                        = derivatives->viscosity_derivative_wrt_pressure[q] *
+                          derivatives->viscosity_derivative_averaging_weights[q] *
+                          newton_derivative_scaling_factor;
+                      Assert(std::isfinite(active_cell_data.newton_factor_wrt_pressure_table(cell,q)[i]),
+                             ExcMessage("active_cell_data.newton_factor_wrt_pressure_table is not finite: " + std::to_string(active_cell_data.newton_factor_wrt_pressure_table(cell,q)[i]) +
+                                        ". Relevant variables are derivatives->viscosity_derivative_wrt_pressure[q] = " + std::to_string(derivatives->viscosity_derivative_wrt_pressure[q]) +
+                                        ", derivatives->viscosity_derivative_averaging_weights[q] = " + std::to_string(derivatives->viscosity_derivative_averaging_weights[q]) +
+                                        ", and newton_derivative_scaling_factor = " + std::to_string(newton_derivative_scaling_factor)));
 
                       for (unsigned int m=0; m<dim; ++m)
                         for (unsigned int n=0; n<dim; ++n)
                           {
                             active_cell_data.strain_rate_table(cell, q)[m][n][i]
-                              = in.strain_rate[q][m][n];
+                              = effective_strain_rate[m][n];
 
                             active_cell_data.newton_factor_wrt_strain_rate_table(cell, q)[m][n][i]
-                              = derivatives->viscosity_derivative_wrt_strain_rate[q][m][n]
-                                * newton_derivative_scaling_factor * alpha;
+                              = derivatives->viscosity_derivative_wrt_strain_rate[q][m][n] *
+                                derivatives->viscosity_derivative_averaging_weights[q] *
+                                newton_derivative_scaling_factor * alpha;
+
+                            Assert(std::isfinite(active_cell_data.strain_rate_table(cell, q)[m][n][i]),
+                                   ExcMessage("active_cell_data.strain_rate_table has an element which is not finite: " + std::to_string(active_cell_data.strain_rate_table(cell, q)[m][n][i])));
+                            Assert(std::isfinite(active_cell_data.newton_factor_wrt_strain_rate_table(cell, q)[m][n][i]),
+                                   ExcMessage("active_cell_data.newton_factor_wrt_strain_rate_table has an element which is not finite: " + std::to_string(active_cell_data.newton_factor_wrt_strain_rate_table(cell, q)[m][n][i])));
                           }
                     }
                 }
@@ -1526,8 +1568,7 @@ namespace aspect
                   face_material_inputs.reinit  (fe_face_values,
                                                 simulator_cell,
                                                 sim.introspection,
-                                                sim.solution,
-                                                false);
+                                                sim.solution);
                   face_material_inputs.requested_properties = MaterialModel::MaterialProperties::density;
                   sim.material_model->evaluate(face_material_inputs, face_material_outputs);
 
@@ -1569,11 +1610,23 @@ namespace aspect
     stokes_matrix.initialize_dof_vector(rhs_correction);
     stokes_matrix.initialize_dof_vector(u0);
 
-    // The vector u0 is a zero vector, but with correct boundary values.
+    // The vector u0 is a zero vector, but we need to ensure that it
+    // has the correct boundary values:
     u0 = 0;
-    rhs_correction = 0;
+
+#if DEAL_II_VERSION_GTE(9,6,0)
+    IndexSet stokes_dofs (sim.dof_handler.n_dofs());
+    stokes_dofs.add_range (0, u0.size());
+    const AffineConstraints<double> current_stokes_constraints
+      = sim.current_constraints.get_view (stokes_dofs);
+    current_stokes_constraints.distribute(u0);
+#else
     sim.current_constraints.distribute(u0);
+#endif
+
     u0.update_ghost_values();
+
+    rhs_correction = 0;
 
     FEEvaluation<dim,velocity_degree,velocity_degree+1,dim,double>
     velocity (*stokes_matrix.get_matrix_free(), 0);
@@ -1602,7 +1655,7 @@ namespace aspect
         pressure.read_dof_values_plain (u0.block(1));
         pressure.evaluate (EvaluationFlags::values);
 
-        for (unsigned int q=0; q<velocity.n_q_points; ++q)
+        for (const unsigned int q : velocity.quadrature_point_indices())
           {
             // Only update the viscosity if a Q1 projection is used.
             if (use_viscosity_at_quadrature_points)
@@ -1653,7 +1706,7 @@ namespace aspect
             velocity_boundary.read_dof_values_plain (u0.block(0));
             velocity_boundary.evaluate (EvaluationFlags::values);
 
-            for (unsigned int q = 0; q < velocity_boundary.n_q_points; ++q)
+            for (const unsigned int q : velocity_boundary.quadrature_point_indices())
               {
                 const Tensor<1, dim, VectorizedArray<double>> phi_u_i = velocity_boundary.get_value(q);
                 const auto &normal_vector = velocity_boundary.get_normal_vector(q);
@@ -1746,7 +1799,7 @@ namespace aspect
 
     // Estimate the eigenvalues for the Chebyshev smoothers.
 
-    types::global_dof_index coarse_A_size, coarse_S_size;
+    types::global_dof_index coarse_A_size = numbers::invalid_dof_index, coarse_S_size = numbers::invalid_dof_index;
 
     //TODO: The setup for the smoother (as well as the entire GMG setup) should
     //       be moved to an assembly timing block instead of the Stokes solve
@@ -1829,7 +1882,7 @@ namespace aspect
     mg_Schur.set_edge_matrices(mg_interface_Schur, mg_interface_Schur);
 
     // GMG Preconditioner for ABlock and Schur complement
-    using GMGPreconditioner = PreconditionMG<dim, VectorType, MGTransferMatrixFree<dim,GMGNumberType>>;
+    using GMGPreconditioner = PreconditionMG<dim, VectorType, MGTransferMF<dim,GMGNumberType>>;
     GMGPreconditioner prec_A(dof_handler_v, mg_A, mg_transfer_A_block);
     GMGPreconditioner prec_Schur(dof_handler_p, mg_Schur, mg_transfer_Schur_complement);
 
@@ -1988,6 +2041,7 @@ namespace aspect
                           prec_A, prec_Schur,
                           /*do_solve_A*/false,
                           /*do_solve_Schur*/false,
+                          sim.stokes_A_block_is_symmetric(),
                           sim.parameters.linear_solver_A_block_tolerance,
                           sim.parameters.linear_solver_S_block_tolerance);
 
@@ -1997,6 +2051,7 @@ namespace aspect
                               prec_A, prec_Schur,
                               /*do_solve_A*/true,
                               /*do_solve_Schur*/true,
+                              sim.stokes_A_block_is_symmetric(),
                               sim.parameters.linear_solver_A_block_tolerance,
                               sim.parameters.linear_solver_S_block_tolerance);
 
@@ -2044,8 +2099,14 @@ namespace aspect
           dealii::LinearAlgebra::distributed::BlockVector<double> tmp_dst = solution_copy;
           dealii::LinearAlgebra::distributed::BlockVector<double> tmp_src = rhs_copy;
           time_this("stokes_vmult", 10,
-                    [&] {stokes_matrix.vmult(tmp_dst, tmp_src);},
-                    [&] {tmp_src = tmp_dst;}
+                    [&] ()
+          {
+            stokes_matrix.vmult(tmp_dst, tmp_src);
+          },
+          [&] ()
+          {
+            tmp_src = tmp_dst;
+          }
                    );
         }
 
@@ -2054,8 +2115,14 @@ namespace aspect
           dealii::LinearAlgebra::distributed::BlockVector<double> tmp_dst = solution_copy;
           dealii::LinearAlgebra::distributed::BlockVector<double> tmp_src = rhs_copy;
           time_this("stokes_preconditioner", 1,
-                    [&] {preconditioner_cheap.vmult(tmp_dst, tmp_src);},
-                    [&] {tmp_src = tmp_dst;}
+                    [&] ()
+          {
+            preconditioner_cheap.vmult(tmp_dst, tmp_src);
+          },
+          [&] ()
+          {
+            tmp_src = tmp_dst;
+          }
                    );
         }
         // A preconditioner
@@ -2063,8 +2130,14 @@ namespace aspect
           dealii::LinearAlgebra::distributed::BlockVector<double> tmp_dst = solution_copy;
           dealii::LinearAlgebra::distributed::BlockVector<double> tmp_src = rhs_copy;
           time_this("A_preconditioner", 1,
-                    [&] {prec_A.vmult(tmp_dst.block(0), tmp_src.block(0));},
-                    [&] {tmp_src = tmp_dst;}
+                    [&] ()
+          {
+            prec_A.vmult(tmp_dst.block(0), tmp_src.block(0));
+          },
+          [&] ()
+          {
+            tmp_src = tmp_dst;
+          }
                    );
         }
         // S preconditioner
@@ -2072,8 +2145,14 @@ namespace aspect
           dealii::LinearAlgebra::distributed::BlockVector<double> tmp_dst = solution_copy;
           dealii::LinearAlgebra::distributed::BlockVector<double> tmp_src = rhs_copy;
           time_this("S_preconditioner", 5,
-                    [&] {prec_Schur.vmult(tmp_dst.block(1), tmp_src.block(1));},
-                    [&] {tmp_src = tmp_dst;}
+                    [&] ()
+          {
+            prec_Schur.vmult(tmp_dst.block(1), tmp_src.block(1));
+          },
+          [&] ()
+          {
+            tmp_src = tmp_dst;
+          }
                    );
         }
         // Solve
@@ -2096,7 +2175,10 @@ namespace aspect
             tmp_src,
             preconditioner_cheap);
           },
-          [&] {tmp_dst = solution_copy;}
+          [&] ()
+          {
+            tmp_dst = solution_copy;
+          }
                    );
 
           time_this("Stokes_solve_cheap_gmres", 1,
@@ -2113,7 +2195,10 @@ namespace aspect
             tmp_src,
             preconditioner_cheap);
           },
-          [&] {tmp_dst = solution_copy;}
+          [&] ()
+          {
+            tmp_dst = solution_copy;
+          }
                    );
         }
       }
@@ -2229,12 +2314,12 @@ namespace aspect
             if (sim.parameters.n_expensive_stokes_solver_steps > 0)
               solver_controls.push_back(solver_control_expensive);
 
-            Utilities::linear_solver_failed("iterative Stokes solver",
-                                            "StokesMatrixFreeHandlerImplementation::solve",
-                                            solver_controls,
-                                            exc,
-                                            sim.mpi_communicator,
-                                            sim.parameters.output_directory+"solver_history.txt");
+            Utilities::throw_linear_solver_failure_exception("iterative Stokes solver",
+                                                             "StokesMatrixFreeHandlerImplementation::solve",
+                                                             solver_controls,
+                                                             exc,
+                                                             sim.mpi_communicator,
+                                                             sim.parameters.output_directory+"solver_history.txt");
           }
       }
 
@@ -2249,7 +2334,15 @@ namespace aspect
     solution_copy.update_ghost_values();
     internal::ChangeVectorTypes::copy(distributed_stokes_solution,solution_copy);
 
-    sim.current_constraints.distribute (distributed_stokes_solution);
+#if DEAL_II_VERSION_GTE(9,6,0)
+    IndexSet stokes_dofs (sim.dof_handler.n_dofs());
+    stokes_dofs.add_range (0, distributed_stokes_solution.size());
+    const AffineConstraints<double> current_stokes_constraints
+      = sim.current_constraints.get_view (stokes_dofs);
+    current_stokes_constraints.distribute(distributed_stokes_solution);
+#else
+    sim.current_constraints.distribute(distributed_stokes_solution);
+#endif
 
     // now rescale the pressure back to real physical units
     distributed_stokes_solution.block(block_p) *= sim.pressure_scaling;
@@ -2293,6 +2386,29 @@ namespace aspect
   template <int dim, int velocity_degree>
   void StokesMatrixFreeHandlerImplementation<dim, velocity_degree>::setup_dofs()
   {
+    // Periodic boundary conditions with hanging nodes on the boundary currently
+    // cause the GMG not to converge. We catch this case early to provide the
+    // user with a reasonable error message:
+    {
+      bool have_periodic_hanging_nodes = false;
+      for (const auto &cell : sim.triangulation.active_cell_iterators())
+        if (cell->is_locally_owned())
+          for (const auto f : cell->face_indices())
+            {
+              if (cell->has_periodic_neighbor(f))
+                {
+                  const auto &neighbor = cell->periodic_neighbor(f);
+                  // This way, we can only detect the case where the neighbor is coarser,
+                  // but this is fine as the other owner covers that situation:
+                  if (neighbor->level()<cell->level())
+                    have_periodic_hanging_nodes = true;
+                }
+            }
+
+      have_periodic_hanging_nodes = (dealii::Utilities::MPI::max(have_periodic_hanging_nodes ? 1 : 0, sim.triangulation.get_communicator())) == 1;
+      AssertThrow(have_periodic_hanging_nodes==false, ExcNotImplemented());
+    }
+
     // This vector will be refilled with the new MatrixFree objects below:
     matrix_free_objects.clear();
 
@@ -2303,11 +2419,27 @@ namespace aspect
 
       DoFRenumbering::hierarchical(dof_handler_v);
 
-      constraints_v.clear();
       IndexSet locally_relevant_dofs;
       DoFTools::extract_locally_relevant_dofs (dof_handler_v,
                                                locally_relevant_dofs);
+#if DEAL_II_VERSION_GTE(9,6,0)
+      constraints_v.reinit(dof_handler_v.locally_owned_dofs(), locally_relevant_dofs);
+#else
       constraints_v.reinit(locally_relevant_dofs);
+#endif
+
+      {
+        const auto &pbs = sim.geometry_model->get_periodic_boundary_pairs();
+
+        for (const auto &p: pbs)
+          {
+            DoFTools::make_periodicity_constraints(dof_handler_v,
+                                                   p.first.first,  // first boundary id
+                                                   p.first.second, // second boundary id
+                                                   p.second,       // cartesian direction for translational symmetry
+                                                   constraints_v);
+          }
+      }
       DoFTools::make_hanging_node_constraints (dof_handler_v, constraints_v);
       sim.compute_initial_velocity_boundary_constraints(constraints_v);
       sim.compute_current_velocity_boundary_constraints(constraints_v);
@@ -2329,11 +2461,26 @@ namespace aspect
 
       DoFRenumbering::hierarchical(dof_handler_p);
 
-      constraints_p.clear();
       IndexSet locally_relevant_dofs;
       DoFTools::extract_locally_relevant_dofs (dof_handler_p,
                                                locally_relevant_dofs);
-      constraints_p.reinit(locally_relevant_dofs);
+      constraints_p.reinit(
+#if DEAL_II_VERSION_GTE(9,6,0)
+        dof_handler_p.locally_owned_dofs(),
+#endif
+        locally_relevant_dofs);
+      {
+        const auto &pbs = sim.geometry_model->get_periodic_boundary_pairs();
+
+        for (const auto &p: pbs)
+          {
+            DoFTools::make_periodicity_constraints(dof_handler_p,
+                                                   p.first.first,  // first boundary id
+                                                   p.first.second, // second boundary id
+                                                   p.second,       // cartesian direction for translational symmetry
+                                                   constraints_p);
+          }
+      }
       DoFTools::make_hanging_node_constraints (dof_handler_p, constraints_p);
       constraints_p.close();
     }
@@ -2469,8 +2616,14 @@ namespace aspect
           {
             IndexSet relevant_dofs;
             DoFTools::extract_locally_relevant_level_dofs(dof_handler_v, level, relevant_dofs);
+#if DEAL_II_VERSION_GTE(9,6,0)
+            level_constraints_v.reinit(dof_handler_v.locally_owned_mg_dofs(level), relevant_dofs);
+            for (const auto index : mg_constrained_dofs_A_block.get_boundary_indices(level))
+              level_constraints_v.constrain_dof_to_zero(index);
+#else
             level_constraints_v.reinit(relevant_dofs);
             level_constraints_v.add_lines(mg_constrained_dofs_A_block.get_boundary_indices(level));
+#endif
             level_constraints_v.close();
 
             std::set<types::boundary_id> no_flux_boundary
@@ -2478,8 +2631,11 @@ namespace aspect
             if (!no_flux_boundary.empty())
               {
                 AffineConstraints<double> user_level_constraints;
+#if DEAL_II_VERSION_GTE(9,6,0)
+                user_level_constraints.reinit(dof_handler_v.locally_owned_mg_dofs(level), relevant_dofs);
+#else
                 user_level_constraints.reinit(relevant_dofs);
-
+#endif
                 const IndexSet &refinement_edge_indices =
                   mg_constrained_dofs_A_block.get_refinement_edge_indices(level);
                 dealii::VectorTools::compute_no_normal_flux_constraints_on_level(
@@ -2502,7 +2658,13 @@ namespace aspect
           {
             IndexSet relevant_dofs;
             DoFTools::extract_locally_relevant_level_dofs(dof_handler_p, level, relevant_dofs);
+
+#if DEAL_II_VERSION_GTE(9,6,0)
+            level_constraints_p.reinit(dof_handler_p.locally_owned_mg_dofs(level), relevant_dofs);
+#else
             level_constraints_p.reinit(relevant_dofs);
+#endif
+
             level_constraints_p.close();
           }
 
@@ -2608,7 +2770,7 @@ namespace aspect
 
 
   template <int dim, int velocity_degree>
-  const MGTransferMatrixFree<dim,GMGNumberType> &
+  const MGTransferMF<dim,GMGNumberType> &
   StokesMatrixFreeHandlerImplementation<dim, velocity_degree>::get_mg_transfer_A() const
   {
     return mg_transfer_A_block;
@@ -2617,7 +2779,7 @@ namespace aspect
 
 
   template <int dim, int velocity_degree>
-  const MGTransferMatrixFree<dim,GMGNumberType> &
+  const MGTransferMF<dim,GMGNumberType> &
   StokesMatrixFreeHandlerImplementation<dim, velocity_degree>::get_mg_transfer_S() const
   {
     return mg_transfer_Schur_complement;

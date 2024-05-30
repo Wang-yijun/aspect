@@ -47,7 +47,7 @@ namespace aspect
 {
   namespace Postprocess
   {
-    namespace internal
+    namespace
     {
       /**
        * This Postprocessor will generate the output variables of velocity,
@@ -262,7 +262,7 @@ namespace aspect
       std::list<std::string>
       Interface<dim>::required_other_postprocessors () const
       {
-        return std::list<std::string>();
+        return {};
       }
 
 
@@ -754,7 +754,7 @@ namespace aspect
       if ((this->get_time() < last_output_time + output_interval)
           && (this->get_timestep_number() < last_output_timestep + maximum_timesteps_between_outputs)
           && (this->get_timestep_number() != 0))
-        return std::pair<std::string,std::string>();
+        return {"", ""};
 
       // up the counter of the number of the file by one, but not in
       // the very first output step. if we run postprocessors on all
@@ -765,7 +765,7 @@ namespace aspect
       else if (increase_file_number)
         ++output_file_number;
 
-      internal::BaseVariablePostprocessor<dim> base_variables;
+      BaseVariablePostprocessor<dim> base_variables;
       base_variables.initialize_simulator (this->get_simulator());
 
       // Keep a list of the names of all output variables
@@ -778,8 +778,8 @@ namespace aspect
                                          base_variables.get_physical_units(),
                                          visualization_field_names_and_units);
 
-      std::unique_ptr<internal::MeshDeformationPostprocessor<dim>> mesh_deformation_velocity;
-      std::unique_ptr<internal::MeshDeformationPostprocessor<dim>> mesh_deformation_displacement;
+      std::unique_ptr<MeshDeformationPostprocessor<dim>> mesh_deformation_velocity;
+      std::unique_ptr<MeshDeformationPostprocessor<dim>> mesh_deformation_displacement;
 
       DataOut<dim> data_out;
       data_out.attach_dof_handler (this->get_dof_handler());
@@ -805,7 +805,7 @@ namespace aspect
       // If there is a deforming mesh, also attach the mesh velocity object
       if ( this->get_parameters().mesh_deformation_enabled && output_mesh_velocity)
         {
-          mesh_deformation_velocity = std::make_unique<internal::MeshDeformationPostprocessor<dim>>("mesh_velocity", true);
+          mesh_deformation_velocity = std::make_unique<MeshDeformationPostprocessor<dim>>("mesh_velocity", true);
           mesh_deformation_velocity->initialize_simulator(this->get_simulator());
 
           // Insert mesh deformation variable names into set of all output field names
@@ -819,7 +819,7 @@ namespace aspect
 
       if ( this->get_parameters().mesh_deformation_enabled && output_mesh_displacement)
         {
-          mesh_deformation_displacement = std::make_unique<internal::MeshDeformationPostprocessor<dim>>("mesh_displacement", false);
+          mesh_deformation_displacement = std::make_unique<MeshDeformationPostprocessor<dim>>("mesh_displacement", false);
           mesh_deformation_displacement->initialize_simulator(this->get_simulator());
 
           // Insert mesh deformation variable names into set of all output field names
@@ -871,7 +871,7 @@ namespace aspect
                          (& *p))
                 {
                   // get the data produced here
-                  const std::pair<std::string, Vector<float> *>
+                  std::pair<std::string, std::unique_ptr<Vector<float>>>
                   cell_data = cell_data_creator->execute();
                   Assert (cell_data.second->size() ==
                           this->get_triangulation().n_active_cells(),
@@ -884,16 +884,15 @@ namespace aspect
                                                      visualization_field_names_and_units);
 
                   // store the pointer, then attach the vector to the DataOut object
-                  cell_data_vectors.push_back (std::unique_ptr<Vector<float>>
-                                               (cell_data.second));
+                  cell_data_vectors.push_back (std::move(cell_data.second));
 
                   if (dynamic_cast<const VisualizationPostprocessors::SurfaceOnlyVisualization<dim>*>
                       (& *p) == nullptr)
-                    data_out.add_data_vector (*cell_data.second,
+                    data_out.add_data_vector (*cell_data_vectors.back(),
                                               cell_data.first,
                                               DataOut<dim>::type_cell_data);
                   else
-                    data_out_faces.add_data_vector (*cell_data.second,
+                    data_out_faces.add_data_vector (*cell_data_vectors.back(),
                                                     cell_data.first,
                                                     DataOutFaces<dim>::type_cell_data);
                 }
@@ -1068,7 +1067,7 @@ namespace aspect
 
       AssertThrow (out, ExcMessage(std::string("Trying to write to file <") +
                                    filename +
-                                   ">, but the file can't be opened!"))
+                                   ">, but the file can't be opened!"));
 
       // now write and then move the tmp file to its final destination
       // if necessary
@@ -1175,7 +1174,7 @@ namespace aspect
                              "\n\n"
                              "The effect of using this option can be seen in the following "
                              "picture showing a variation of the output produced with the "
-                             "input files from Section~\\ref{sec:shell-simple-2d}:"
+                             "input files from Section~\\ref{sec:cookbooks:shell_simple_2d}:"
                              "\n\n"
                              "\\begin{center}"
                              "  \\includegraphics[width=0.5\\textwidth]{viz/parameters/build-patches}"
@@ -1230,7 +1229,8 @@ namespace aspect
                              "output properties. Activating this function reduces the disk space "
                              "by about a factor of $2^{dim}$ for HDF5 output, and currently has no "
                              "effect on other output formats. "
-                             "\\note{\\textbf{Warning:} Setting this flag to true will result in "
+                             ":::{warning}\n"
+                             "Setting this flag to true will result in "
                              "visualization output that does not accurately represent discontinuous "
                              "fields. This may be because you are using a discontinuous finite "
                              "element for the pressure, temperature, or compositional variables, "
@@ -1238,7 +1238,8 @@ namespace aspect
                              "quantities as discontinuous fields (e.g., the strain rate, viscosity, "
                              "etc.). These will then all be visualized as \\textit{continuous} "
                              "quantities even though, internally, \\aspect{} considers them as "
-                             "discontinuous fields.}");
+                             "discontinuous fields.\n"
+                             ":::");
 
           prm.declare_entry ("Output mesh velocity", "false",
                              Patterns::Bool(),

@@ -21,7 +21,9 @@
 
 #include <aspect/global.h>
 #include <aspect/simulator_access.h>
+#include <aspect/structured_data.h>
 
+#include <aspect/geometry_model/interface.h>
 #include <aspect/adiabatic_conditions/interface.h>
 #include <aspect/gravity_model/interface.h>
 
@@ -303,7 +305,7 @@ namespace aspect
         HeFESToReader::HeFESToReader(const std::string &material_filename,
                                      const std::string &derivatives_filename,
                                      const bool interpol,
-                                     const MPI_Comm &comm)
+                                     const MPI_Comm comm)
         {
           /* Initializing variables */
           interpolation = interpol;
@@ -349,7 +351,7 @@ namespace aspect
                 std::getline(in, temp);
                 if (in.eof())
                   break;
-                i++;
+                ++i;
               }
 
             in.clear();
@@ -435,7 +437,7 @@ namespace aspect
                 vs_values[i/n_pressure][i%n_pressure]=vs;
                 enthalpy_values[i/n_pressure][i%n_pressure]=h;
 
-                i++;
+                ++i;
               }
 
             delta_temp = (max_temp - min_temp) / (n_temperature - 1);
@@ -502,14 +504,14 @@ namespace aspect
                   specific_heat_values[i/n_pressure][i%n_pressure]=cp;
                   thermal_expansivity_values[i/n_pressure][i%n_pressure]=alpha_eff;
 
-                  i++;
+                  ++i;
                 }
             }
         }
 
         PerplexReader::PerplexReader(const std::string &filename,
                                      const bool interpol,
-                                     const MPI_Comm &comm)
+                                     const MPI_Comm comm)
         {
           /* Initializing variables */
           interpolation = interpol;
@@ -553,7 +555,7 @@ namespace aspect
 
           std::getline(in, temp); // get next line, either T(K) or P(bar)
 
-          for (unsigned int i=0; i<2; i++)
+          for (unsigned int i=0; i<2; ++i)
             {
               std::string natural_variable;
               in >> natural_variable;
@@ -606,20 +608,20 @@ namespace aspect
             {
               first_natural_variable = column_name;
               in >> column_name;
-              AssertThrow(column_name == "T(K)", ExcMessage("The second column name in PerpleX lookup file " + filename + " should be T(K)."))
+              AssertThrow(column_name == "T(K)", ExcMessage("The second column name in PerpleX lookup file " + filename + " should be T(K)."));
             }
           else if (column_name == "T(K)")
             {
               first_natural_variable = column_name;
               in >> column_name;
-              AssertThrow(column_name == "P(bar)", ExcMessage("The second column name in PerpleX lookup file " + filename + " should be P(bar)."))
+              AssertThrow(column_name == "P(bar)", ExcMessage("The second column name in PerpleX lookup file " + filename + " should be P(bar)."));
             }
           else
             {
-              AssertThrow(false, ExcMessage("The first column name in the PerpleX lookup file " + filename + " should be P(bar) or T(K)."))
+              AssertThrow(false, ExcMessage("The first column name in the PerpleX lookup file " + filename + " should be P(bar) or T(K)."));
             }
 
-          for (unsigned int n=2; n<n_columns; n++)
+          for (unsigned int n=2; n<n_columns; ++n)
             {
               in >> column_name;
               if (column_name == "rho,kg/m3")
@@ -702,7 +704,7 @@ namespace aspect
               std::vector<double> row_values(n_columns);
               std::string phase;
 
-              for (unsigned int n=0; n<n_columns; n++)
+              for (unsigned int n=0; n<n_columns; ++n)
                 {
                   if (n == dominant_phase_column_index)
                     in >> phase;
@@ -712,7 +714,7 @@ namespace aspect
                   // P-T grids created with PerpleX-werami sometimes contain rows
                   // filled with NaNs at extreme P-T conditions where the thermodynamic
                   // models break down. These P-T regions are typically not relevant to
-                  // geodynamic modelling (they most commonly appear above
+                  // geodynamic modeling (they most commonly appear above
                   // mantle liquidus temperatures at low pressures).
                   // More frustratingly, PerpleX-vertex occasionally fails to find a
                   // valid mineral assemblage in small, isolated regions within the domain,
@@ -756,7 +758,7 @@ namespace aspect
                       dominant_phase_indices[i%n_temperature][i/n_temperature] = std::distance(dominant_phase_names.begin(), it);
                     }
 
-                  for (unsigned int n=0; n<phase_volume_fractions.size(); n++)
+                  for (unsigned int n=0; n<phase_volume_fractions.size(); ++n)
                     {
                       phase_volume_fractions[n][i%n_temperature][i/n_temperature]=row_values[phase_column_indices[n]];
                     }
@@ -776,16 +778,100 @@ namespace aspect
                       dominant_phase_indices[i/n_pressure][i%n_pressure] = std::distance(dominant_phase_names.begin(), it);
                     }
 
-                  for (unsigned int n=0; n<phase_volume_fractions.size(); n++)
+                  for (unsigned int n=0; n<phase_volume_fractions.size(); ++n)
                     {
                       phase_volume_fractions[n][i/n_pressure][i%n_pressure]=row_values[phase_column_indices[n]];
                     }
                 }
-              i++;
+              ++i;
             }
           AssertThrow(i == n_temperature*n_pressure, ExcMessage("Material table size not consistent with header."));
 
         }
+
+
+
+        void
+        EntropyReader::initialize(const MPI_Comm comm,
+                                  const std::string data_directory,
+                                  const std::string material_file_name)
+        {
+          material_lookup = std::make_unique<Utilities::StructuredDataLookup<2>>(7,1.0);
+          material_lookup->load_file(data_directory+material_file_name,
+                                     comm);
+        }
+
+
+
+        double
+        EntropyReader::specific_heat(const double entropy,
+                                     const double pressure) const
+        {
+          const double specific_heat = material_lookup->get_data({entropy,pressure}, 3);
+          return specific_heat;
+        }
+
+
+
+        double
+        EntropyReader::density(const double entropy,
+                               const double pressure) const
+        {
+          const double density = material_lookup->get_data({entropy,pressure}, 1);
+          return density;
+        }
+
+
+
+        double
+        EntropyReader::thermal_expansivity(const double entropy,
+                                           const double pressure) const
+        {
+          const double thermal_expansivity = material_lookup->get_data({entropy,pressure}, 2);
+          return thermal_expansivity;
+        }
+
+
+
+        double
+        EntropyReader::temperature(const double entropy,
+                                   const double pressure) const
+        {
+          const double temperature = material_lookup->get_data({entropy,pressure}, 0);
+          return temperature;
+        }
+
+
+
+        double
+        EntropyReader::seismic_vp(const double entropy,
+                                  const double pressure) const
+        {
+          const double seismic_vp = material_lookup->get_data({entropy,pressure}, 4);
+          return seismic_vp;
+        }
+
+
+
+        double
+        EntropyReader::seismic_vs(const double entropy,
+                                  const double pressure) const
+        {
+          const double seismic_vs = material_lookup->get_data({entropy,pressure}, 5);
+          return seismic_vs;
+        }
+
+
+
+        Tensor<1, 2>
+        EntropyReader::density_gradient(const double entropy,
+                                        const double pressure) const
+        {
+          const Tensor<1, 2> density_gradient= material_lookup->get_gradients({entropy,pressure}, 1);
+          return density_gradient;
+        }
+
+
       }
 
 
@@ -881,7 +967,12 @@ namespace aspect
       {
         Assert(masses.size() == densities.size(),
                ExcMessage ("The mass fractions and densities vectors used for computing "
-                           "volumes from masses have to have the same length!"));
+                           "volumes from masses have to have the same length! "
+                           "You have provided "
+                           + Utilities::int_to_string(masses.size()) +
+                           " mass fractions and "
+                           + Utilities::int_to_string(densities.size()) +
+                           " densities."));
 
         const unsigned int n_fields = masses.size();
         std::vector<double> volumes(n_fields);
@@ -942,7 +1033,11 @@ namespace aspect
       {
         Assert(volume_fractions.size() == parameter_values.size(),
                ExcMessage ("The volume fractions and parameter values vectors used for averaging "
-                           "have to have the same length!"));
+                           "have to have the same length! You have provided "
+                           + Utilities::int_to_string(volume_fractions.size()) +
+                           " volume fractions and "
+                           + Utilities::int_to_string(parameter_values.size()) +
+                           " parameter values."));
 
         double averaged_parameter = 0.0;
 

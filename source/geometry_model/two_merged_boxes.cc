@@ -164,41 +164,37 @@ namespace aspect
         {
           case 2:
           {
-            static const std::pair<std::string,types::boundary_id> mapping[]
-              = { std::pair<std::string,types::boundary_id>("left",   0),
-                  std::pair<std::string,types::boundary_id>("right",  1),
-                  std::pair<std::string,types::boundary_id>("bottom", 2),
-                  std::pair<std::string,types::boundary_id>("top",    3),
-                  std::pair<std::string,types::boundary_id>("left lithosphere", 4),
-                  std::pair<std::string,types::boundary_id>("right lithosphere",5)
-                };
-
-            return std::map<std::string,types::boundary_id> (std::begin(mapping),
-                                                             std::end(mapping));
+            return
+            {
+              {"left",   0},
+              {"right",  1},
+              {"bottom", 2},
+              {"top",    3},
+              {"left lithosphere", 4},
+              {"right lithosphere",5}
+            };
           }
 
           case 3:
           {
-            static const std::pair<std::string,types::boundary_id> mapping[]
-              = { std::pair<std::string,types::boundary_id>("left",   0),
-                  std::pair<std::string,types::boundary_id>("right",  1),
-                  std::pair<std::string,types::boundary_id>("front",  2),
-                  std::pair<std::string,types::boundary_id>("back",   3),
-                  std::pair<std::string,types::boundary_id>("bottom", 4),
-                  std::pair<std::string,types::boundary_id>("top",    5),
-                  std::pair<std::string,types::boundary_id>("left lithosphere",  6),
-                  std::pair<std::string,types::boundary_id>("right lithosphere", 7),
-                  std::pair<std::string,types::boundary_id>("front lithosphere", 8),
-                  std::pair<std::string,types::boundary_id>("back lithosphere",  9)
-                };
-
-            return std::map<std::string,types::boundary_id> (std::begin(mapping),
-                                                             std::end(mapping));
+            return
+            {
+              {"left",   0},
+              {"right",  1},
+              {"front",  2},
+              {"back",   3},
+              {"bottom", 4},
+              {"top",    5},
+              {"left lithosphere",  6},
+              {"right lithosphere", 7},
+              {"front lithosphere", 8},
+              {"back lithosphere",  9}
+            };
           }
         }
 
       Assert (false, ExcNotImplemented());
-      return std::map<std::string,types::boundary_id>();
+      return {};
     }
 
 
@@ -223,7 +219,8 @@ namespace aspect
     template <int dim>
     void
     TwoMergedBoxes<dim>::adjust_positions_for_periodicity (Point<dim> &position,
-                                                           const ArrayView<Point<dim>> &connected_positions) const
+                                                           const ArrayView<Point<dim>> &connected_positions,
+                                                           const ArrayView<Tensor<1, dim>> &/*connected_velocities*/) const
     {
       for (unsigned int i = 0; i < dim; ++i)
         if (periodic[i])
@@ -330,7 +327,7 @@ namespace aspect
       AssertThrow(Plugins::plugin_type_matches<const InitialTopographyModel::ZeroTopography<dim>>(this->get_initial_topography_model()),
                   ExcMessage("After adding topography, this function can no longer be used to determine whether a point lies in the domain or not."));
 
-      for (unsigned int d = 0; d < dim; d++)
+      for (unsigned int d = 0; d < dim; ++d)
         if (point[d] > extents[d]+lower_box_origin[d]+std::numeric_limits<double>::epsilon()*extents[d] ||
             point[d] < lower_box_origin[d]-std::numeric_limits<double>::epsilon()*extents[d])
           return false;
@@ -352,7 +349,7 @@ namespace aspect
     TwoMergedBoxes<dim>::cartesian_to_natural_coordinates(const Point<dim> &position_point) const
     {
       std::array<double,dim> position_array;
-      for (unsigned int i = 0; i < dim; i++)
+      for (unsigned int i = 0; i < dim; ++i)
         position_array[i] = position_point(i);
 
       return position_array;
@@ -365,7 +362,7 @@ namespace aspect
     TwoMergedBoxes<dim>::natural_to_cartesian_coordinates(const std::array<double,dim> &position_tensor) const
     {
       Point<dim> position_point;
-      for (unsigned int i = 0; i < dim; i++)
+      for (unsigned int i = 0; i < dim; ++i)
         position_point[i] = position_tensor[i];
 
       return position_point;

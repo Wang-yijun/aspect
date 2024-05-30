@@ -43,10 +43,11 @@ namespace aspect
 
 
       template<int dim>
-      std::pair<std::string, Vector<float> *> ISARotationTimescale<dim>::execute() const
+      std::pair<std::string, std::unique_ptr<Vector<float>>>
+      ISARotationTimescale<dim>::execute() const
       {
-        std::pair<std::string, Vector<float> *> return_value("ISA_rotation_timescale",
-                                                             new Vector<float>(this->get_triangulation().n_active_cells()));
+        std::pair<std::string, std::unique_ptr<Vector<float>>> return_value("ISA_rotation_timescale",
+                                                                              std::make_unique<Vector<float>>(this->get_triangulation().n_active_cells()));
 
         const QMidpoint<dim> quadrature_formula;
         const unsigned int n_q_points = quadrature_formula.size();
@@ -69,7 +70,7 @@ namespace aspect
               // Fill the material model objects for the cell (for strain rate)
               fe_values.reinit(cell);
               in.reinit(fe_values, cell, this->introspection(),
-                        this->get_solution(), true);
+                        this->get_solution());
 
               // Calculate eigenvalues of strain rate and take maximum (absolute value)
               // to get tauISA, the timescale for grain rotation toward the infinite strain axis

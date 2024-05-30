@@ -30,8 +30,10 @@
 #include <aspect/geometry_model/initial_topography_model/ascii_data.h>
 #include <aspect/geometry_model/two_merged_chunks.h>
 
-#include <boost/lexical_cast.hpp>
 #include <deal.II/base/exceptions.h>
+
+#include <boost/lexical_cast.hpp>
+#include <regex>
 
 #ifdef ASPECT_WITH_NETCDF
 
@@ -54,12 +56,12 @@ namespace aspect
   {
 
     template <int dim>
-    StructuredDataLookup<dim>::StructuredDataLookup(const unsigned int components,
+    StructuredDataLookup<dim>::StructuredDataLookup(const unsigned int n_components,
                                                     const double scale_factor)
       :
-      components(components),
-      data(components),
-      maximum_component_value(components),
+      n_components(n_components),
+      data(n_components),
+      maximum_component_value(n_components),
       scale_factor(scale_factor),
       coordinate_values_are_equidistant(false)
     {}
@@ -69,7 +71,7 @@ namespace aspect
     template <int dim>
     StructuredDataLookup<dim>::StructuredDataLookup(const double scale_factor)
       :
-      components(numbers::invalid_unsigned_int),
+      n_components(numbers::invalid_unsigned_int),
       data(),
       maximum_component_value(),
       scale_factor(scale_factor),
@@ -189,7 +191,7 @@ namespace aspect
     StructuredDataLookup<dim>::reinit(const std::vector<std::string> &column_names,
                                       std::vector<std::vector<double>> &&coordinate_values_,
                                       std::vector<Table<dim,double>> &&data_table,
-                                      const MPI_Comm &mpi_communicator,
+                                      const MPI_Comm mpi_communicator,
                                       const unsigned int root_process)
     {
       // If this is the root process, or if the user did not request
@@ -210,17 +212,17 @@ namespace aspect
               table_points[d] = this->coordinate_values[d].size();
             }
 
-          components = column_names.size();
+          n_components = column_names.size();
           data_component_names = column_names;
-          Assert(data_table.size() == components,
+          Assert(data_table.size() == n_components,
                  ExcMessage("Error: Incorrect number of columns specified."));
-          for (unsigned int c=0; c<components; ++c)
+          for (unsigned int c=0; c<n_components; ++c)
             Assert(data_table[c].size() == table_points,
                    ExcMessage("Error: One of the data tables has an incorrect size."));
 
           // compute maximum_component_value for each component:
-          maximum_component_value = std::vector<double>(components,-std::numeric_limits<double>::max());
-          for (unsigned int c=0; c<components; ++c)
+          maximum_component_value = std::vector<double>(n_components,-std::numeric_limits<double>::max());
+          for (unsigned int c=0; c<n_components; ++c)
             {
               const std::size_t n_elements = data_table[c].n_elements();
               for (std::size_t idx=0; idx<n_elements; ++idx)
@@ -246,9 +248,9 @@ namespace aspect
           coordinate_values                 = Utilities::MPI::broadcast (mpi_communicator,
                                                                          coordinate_values,
                                                                          root_process);
-          components                        = Utilities::MPI::broadcast (mpi_communicator,
-                                                                         components,
-                                                                         root_process);
+          n_components                        = Utilities::MPI::broadcast (mpi_communicator,
+                                                                           n_components,
+                                                                           root_process);
           data_component_names              = Utilities::MPI::broadcast (mpi_communicator,
                                                                          data_component_names,
                                                                          root_process);
@@ -264,22 +266,22 @@ namespace aspect
 
           // We can then also prepare the data tables for sharing between
           // processes
-          for (unsigned int c = 0; c < components; ++c)
+          for (unsigned int c = 0; c < n_components; ++c)
             data_table[c].replicate_across_communicator (mpi_communicator,
                                                          root_process);
         }
 
-      Assert(data_table.size() == components,
+      Assert(data_table.size() == n_components,
              ExcMessage("Error: Incorrect number of columns specified."));
-      for (unsigned int c=0; c<components; ++c)
+      for (unsigned int c=0; c<n_components; ++c)
         Assert(data_table[c].size() == table_points,
                ExcMessage("Error: One of the data tables has an incorrect size."));
 
 
       // For each data component, set up a GridData,
       // its type depending on the read-in grid.
-      data.resize(components);
-      for (unsigned int c = 0; c < components; ++c)
+      data.resize(n_components);
+      for (unsigned int c = 0; c < n_components; ++c)
         {
           if (coordinate_values_are_equidistant)
             {
@@ -332,8 +334,8 @@ namespace aspect
 
     template <int dim>
     void
-    StructuredDataLookup<dim>::load_file(const std::string &filename,
-                                         const MPI_Comm &comm)
+    StructuredDataLookup<dim>::load_ascii(const std::string &filename,
+                                          const MPI_Comm comm)
     {
       const unsigned int root_process = 0;
 
@@ -365,7 +367,7 @@ namespace aspect
               std::string word;
               while (linestream >> word)
                 if (word == "POINTS:")
-                  for (unsigned int i = 0; i < dim; i++)
+                  for (unsigned int i = 0; i < dim; ++i)
                     {
                       unsigned int temp_index;
                       linestream >> temp_index;
@@ -381,7 +383,7 @@ namespace aspect
                     }
             }
 
-          for (unsigned int i = 0; i < dim; i++)
+          for (unsigned int i = 0; i < dim; ++i)
             {
               AssertThrow(new_table_points[i] != 0,
                           ExcMessage("Could not successfully read in the file header of the "
@@ -412,19 +414,19 @@ namespace aspect
                   temp_data = boost::lexical_cast<double>(column_name_or_data);
 
                   // If there was no exception we have left the line containing names
-                  // and have read the first data field. Save number of components, and
-                  // make sure there is no contradiction if the components were already given to
+                  // and have read the first data field. Save number of n_components, and
+                  // make sure there is no contradiction if the n_components were already given to
                   // the constructor of this class.
-                  if (components == numbers::invalid_unsigned_int)
-                    components = name_column_index - dim;
+                  if (n_components == numbers::invalid_unsigned_int)
+                    n_components = name_column_index - dim;
                   else if (name_column_index != 0)
-                    AssertThrow (components+dim == name_column_index,
+                    AssertThrow (n_components+dim == name_column_index,
                                  ExcMessage("The number of expected data columns and the "
                                             "list of column names at the beginning of the data file "
                                             + filename + " do not match. The file should contain "
                                             + Utilities::int_to_string(name_column_index) + " column "
                                             "names (one for each dimension and one per data column), "
-                                            "but it only has " + Utilities::int_to_string(components+dim) +
+                                            "but it only has " + Utilities::int_to_string(n_components+dim) +
                                             " column names."));
                   break;
                 }
@@ -454,12 +456,12 @@ namespace aspect
           // argument.
           Table<dim,double> data_table;
           data_table.TableBase<dim,double>::reinit(new_table_points);
-          AssertThrow (components != numbers::invalid_unsigned_int,
-                       ExcMessage("ERROR: number of components in " + filename + " could not be "
+          AssertThrow (n_components != numbers::invalid_unsigned_int,
+                       ExcMessage("ERROR: number of n_components in " + filename + " could not be "
                                   "determined automatically. Either add a header with column "
                                   "names or pass the number of columns in the StructuredData "
                                   "constructor."));
-          data_tables.resize(components, data_table);
+          data_tables.resize(n_components, data_table);
 
           for (unsigned int d=0; d<dim; ++d)
             coordinate_values[d].resize(new_table_points[d]);
@@ -467,7 +469,7 @@ namespace aspect
           if (column_names.size()==0)
             {
               // set default column names:
-              for (unsigned int c=0; c<components; ++c)
+              for (unsigned int c=0; c<n_components; ++c)
                 column_names.push_back("column " + Utilities::int_to_string(c,2));
             }
 
@@ -499,8 +501,8 @@ namespace aspect
           do
             {
               // what row and column of the file are we in?
-              const std::size_t column_num = read_data_entries%(components+dim);
-              const std::size_t row_num = read_data_entries/(components+dim);
+              const std::size_t column_num = read_data_entries%(n_components+dim);
+              const std::size_t row_num = read_data_entries/(n_components+dim);
               const TableIndices<dim> idx = compute_table_indices(new_table_points, row_num);
 
               if (column_num < dim)
@@ -538,7 +540,7 @@ namespace aspect
                                   "Please check for malformed data values (e.g. NaN) or superfluous "
                                   "lines at the end of the data file."));
 
-          const std::size_t n_expected_data_entries = (components + dim) * data_table.n_elements();
+          const std::size_t n_expected_data_entries = (n_components + dim) * data_table.n_elements();
           AssertThrow(read_data_entries == n_expected_data_entries,
                       ExcMessage ("While reading the data file '" + filename + "' the ascii data "
                                   "plugin has reached the end of the file, but has not found the "
@@ -548,11 +550,11 @@ namespace aspect
                                   "lines against the POINTS header in the file."));
         }
 
-      // If deal.II is new enough to support sharing data (since 9.4), then we have
+      // deal.II supports sharing data (since 9.4), so we have to
       // set up member variables on the root process, but not on any of
       // the other processes. So broadcast the data to the remaining
       // processes -- the code above really only wrote into one
-      // member variable ('components'), so that is the only one we
+      // member variable ('n_components'), so that is the only one we
       // have to broadcast.
       //
       // The first three arguments to the call to reinit() below will
@@ -562,9 +564,9 @@ namespace aspect
       // an array of the right size, though, even though the array
       // contains only empty tables.
       {
-        components = Utilities::MPI::broadcast (comm,
-                                                components,
-                                                root_process);
+        n_components = Utilities::MPI::broadcast (comm,
+                                                  n_components,
+                                                  root_process);
         coordinate_values = Utilities::MPI::broadcast (comm,
                                                        coordinate_values,
                                                        root_process);
@@ -573,7 +575,7 @@ namespace aspect
                                                   root_process);
 
         if (Utilities::MPI::this_mpi_process(comm) != root_process)
-          data_tables.resize (components);
+          data_tables.resize (n_components);
       }
 
       // Finally create the data. We want to call the move-version of reinit() so
@@ -823,7 +825,7 @@ namespace aspect
                 for (int i=0; i<dim; ++i)
                   ind_to_use[i] = ind[dimids_to_use[i]];
 
-                data_tables[var](ind) = raw_data[n];
+                data_tables[var](ind) = scale_factor * raw_data[n];
               }
           }
 
@@ -839,11 +841,23 @@ namespace aspect
     }
 
     template <int dim>
+    void
+    StructuredDataLookup<dim>::load_file(const std::string &filename,
+                                         const MPI_Comm communicator)
+    {
+      const bool is_netcdf_filename = std::regex_search(filename, std::regex("\\.(nc|NC)$"));
+      if (is_netcdf_filename)
+        load_netcdf(filename);
+      else
+        load_ascii(filename, communicator);
+    }
+
+    template <int dim>
     double
     StructuredDataLookup<dim>::get_data(const Point<dim> &position,
                                         const unsigned int component) const
     {
-      Assert(component<components, ExcMessage("Invalid component index"));
+      Assert(component<n_components, ExcMessage("Invalid component index"));
       return data[component]->value(position);
     }
 
@@ -967,7 +981,7 @@ namespace aspect
     template <int dim>
     void
     AsciiDataBoundary<dim>::initialize(const std::set<types::boundary_id> &boundary_ids,
-                                       const unsigned int components)
+                                       const unsigned int n_components)
     {
       check_supported_geometry_models(this->get_geometry_model());
 
@@ -975,7 +989,7 @@ namespace aspect
         {
           lookups.insert(std::make_pair(boundary_id,
                                         std::make_unique<Utilities::StructuredDataLookup<dim-1>>
-                                        (components,
+                                        (n_components,
                                          this->scale_factor)));
 
           // Set the first file number and load the first files
@@ -999,7 +1013,7 @@ namespace aspect
             {
               old_lookups.insert(std::make_pair(boundary_id,
                                                 std::make_unique<Utilities::StructuredDataLookup<dim-1>>
-                                                (components,
+                                                (n_components,
                                                  this->scale_factor)));
 
               const int next_file_number =
@@ -1331,7 +1345,7 @@ namespace aspect
        * data_coordinates_from_position() function above) into appropriate
        * coordinates on the boundary given by @p boundary_indicator.
        * Because all existing geometry models use boundaries that are aligned
-       * with natural coordinate directions this means finding the correct components
+       * with natural coordinate directions this means finding the correct n_components
        * of the input coordinates and returning a point with one dimension less
        * than the input point that is determined by these coordinates.
        */
@@ -1344,7 +1358,7 @@ namespace aspect
           get_boundary_dimensions<dim>(boundary_indicator);
 
         Point<dim-1> boundary_coordinates;
-        for (unsigned int i = 0; i < dim-1; i++)
+        for (unsigned int i = 0; i < dim-1; ++i)
           boundary_coordinates[i] = data_coordinates[boundary_dimensions[i]];
 
         return boundary_coordinates;
@@ -1526,7 +1540,7 @@ namespace aspect
 
     template <int dim>
     void
-    AsciiDataLayered<dim>::initialize(const unsigned int components)
+    AsciiDataLayered<dim>::initialize(const unsigned int n_components)
     {
       check_supported_geometry_models(this->get_geometry_model());
 
@@ -1542,7 +1556,7 @@ namespace aspect
                                   +
                                   "> not found!"));
 
-          lookups.push_back(std::make_unique<Utilities::StructuredDataLookup<dim-1>> (components,
+          lookups.push_back(std::make_unique<Utilities::StructuredDataLookup<dim-1>> (n_components,
                                                                                        this->scale_factor));
           lookups[i]->load_file(filename,this->get_mpi_communicator());
         }
@@ -1564,14 +1578,14 @@ namespace aspect
         {
           // in cartesian coordinates, the vertical component comes last
           vertical_position = data_coordinates[dim-1];
-          for (unsigned int i = 0; i < dim-1; i++)
+          for (unsigned int i = 0; i < dim-1; ++i)
             horizontal_position[i] = data_coordinates[i];
         }
       else
         {
           // in spherical coordinates, the vertical component comes first
           vertical_position = data_coordinates[0];
-          for (unsigned int i = 0; i < dim-1; i++)
+          for (unsigned int i = 0; i < dim-1; ++i)
             horizontal_position[i] = data_coordinates[i+1];
         }
 
@@ -1680,7 +1694,7 @@ namespace aspect
 
     template <int dim>
     void
-    AsciiDataInitial<dim>::initialize (const unsigned int components)
+    AsciiDataInitial<dim>::initialize (const unsigned int n_components)
     {
       const std::string filename = this->data_directory + this->data_file_name;
 
@@ -1697,13 +1711,13 @@ namespace aspect
 
       if (slice_data == true)
         {
-          slice_lookup = std::make_unique<Utilities::StructuredDataLookup<3>> (components,
+          slice_lookup = std::make_unique<Utilities::StructuredDataLookup<3>> (n_components,
                                                                                 this->scale_factor);
           slice_lookup->load_file(filename, this->get_mpi_communicator());
         }
       else
         {
-          lookup = std::make_unique<Utilities::StructuredDataLookup<dim>> (components,
+          lookup = std::make_unique<Utilities::StructuredDataLookup<dim>> (n_components,
                                                                             this->scale_factor);
           lookup->load_file(filename, this->get_mpi_communicator());
         }
@@ -1814,10 +1828,10 @@ namespace aspect
             Point<3> first_point_on_slice;
             Point<3> second_point_on_slice;
 
-            for (unsigned int d=0; d<3; d++)
+            for (unsigned int d=0; d<3; ++d)
               first_point_on_slice[d] = point_one[d];
 
-            for (unsigned int d=0; d<3; d++)
+            for (unsigned int d=0; d<3; ++d)
               second_point_on_slice[d] = point_two[d];
 
             rotation_matrix = Utilities::compute_rotation_matrix_for_slice(first_point_on_slice, second_point_on_slice);
@@ -1836,7 +1850,7 @@ namespace aspect
 
     template <int dim>
     void
-    AsciiDataProfile<dim>::initialize (const MPI_Comm &communicator)
+    AsciiDataProfile<dim>::initialize (const MPI_Comm communicator)
     {
       lookup = std::make_unique<Utilities::StructuredDataLookup<1>> (this->scale_factor);
 

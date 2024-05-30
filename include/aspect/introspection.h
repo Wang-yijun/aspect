@@ -57,16 +57,21 @@ namespace aspect
      */
     enum Type
     {
-      chemical_composition,
-      stress,
-      strain,
-      grain_size,
-      porosity,
-      density,
-      entropy,
-      generic,
-      unspecified
+      chemical_composition = 0,
+      stress = 1,
+      strain = 2,
+      grain_size = 3,
+      porosity = 4,
+      density = 5,
+      entropy = 6,
+      generic = 7,
+      unspecified = 8
     } type;
+
+    /**
+     * The number of different types defined in Type.
+    */
+    constexpr static unsigned int n_types = 9;
 
     /**
      * This function translates an input string into the
@@ -477,6 +482,35 @@ namespace aspect
       const std::vector<CompositionalFieldDescription> &
       get_composition_descriptions () const;
 
+      /**
+       * A function that returns the names of
+       * compositional fields that correspond to chemical compositions.
+       *
+       * This function is shorthand for
+       * get_names_for_fields_of_type(CompositionalFieldDescription::chemical_composition).
+       */
+      const std::vector<std::string> &
+      chemical_composition_field_names () const;
+
+      /**
+       * A function that returns the indices of
+       * compositional fields that correspond to chemical compositions.
+       *
+       * This function is shorthand for
+       * get_indices_for_fields_of_type(CompositionalFieldDescription::chemical_composition).
+       */
+      const std::vector<unsigned int> &
+      chemical_composition_field_indices () const;
+
+      /**
+       * A function that returns the number of
+       * compositional fields that correspond to chemical compositions.
+       *
+       * This function is shorthand for
+       * get_number_of_fields_of_type(CompositionalFieldDescription::chemical_composition).
+       */
+      unsigned int
+      n_chemical_composition_fields () const;
 
       /**
        * A function that gets the type of a compositional field as an input
@@ -489,7 +523,6 @@ namespace aspect
       bool
       composition_type_exists (const CompositionalFieldDescription::Type &type) const;
 
-
       /**
        * A function that gets the type of a compositional field as an input
        * parameter and returns the index of the first compositional field of
@@ -501,7 +534,6 @@ namespace aspect
        */
       unsigned int
       find_composition_type (const CompositionalFieldDescription::Type &type) const;
-
 
       /**
        * A function that gets the name of a compositional field as an input
@@ -518,15 +550,22 @@ namespace aspect
        * Get the indices of the compositional fields which are of a
        * particular type (chemical composition, porosity, etc.).
        */
-      const std::vector<unsigned int>
+      const std::vector<unsigned int> &
       get_indices_for_fields_of_type (const CompositionalFieldDescription::Type &type) const;
 
       /**
        * Get the names of the compositional fields which are of a
        * particular type (chemical composition, porosity, etc.).
        */
-      const std::vector<std::string>
+      const std::vector<std::string> &
       get_names_for_fields_of_type (const CompositionalFieldDescription::Type &type) const;
+
+      /**
+       * Get the number of compositional fields which are of a
+       * particular type (chemical composition, porosity, etc.).
+       */
+      unsigned int
+      get_number_of_fields_of_type (const CompositionalFieldDescription::Type &type) const;
 
       /**
        * A function that gets a component index as an input
@@ -552,6 +591,19 @@ namespace aspect
        */
       std::vector<CompositionalFieldDescription> composition_descriptions;
 
+      /**
+       * A vector of vectors of composition names that stores the
+       * names of the compositional fields corresponding to each field type
+       * given in CompositionalFieldDescription.
+       */
+      std::vector<std::vector<std::string>> composition_names_for_type;
+
+      /**
+       * A vector of vectors of composition indices that stores the
+       * indices of the compositional fields corresponding to each field type
+       * given in CompositionalFieldDescription.
+       */
+      std::vector<std::vector<unsigned int>> composition_indices_for_type;
   };
 }
 

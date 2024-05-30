@@ -93,30 +93,28 @@ namespace aspect
                                              const double pressure,
                                              const double effective_strain_rate,
                                              const double max_yield_stress,
-                                             const double pre_yield_viscosity) const
+                                             const double non_yielding_viscosity) const
       {
         const double yield_stress = compute_yield_stress(cohesion, angle_internal_friction, pressure, max_yield_stress);
 
-        const double strain_rate_effective_inv = 1./(2.*effective_strain_rate);
+        // If there is no damper, the yielding plastic element accommodates all the strain
+        double apparent_viscosity = yield_stress / (2. * effective_strain_rate);
 
-        double plastic_viscosity = yield_stress * strain_rate_effective_inv;
-
+        // If the plastic damper is used, the effective strain rate is partitioned between the
+        // viscoelastic and damped plastic (Bingham) elements. Assuming that the viscoelastic
+        // elements have viscosities that are not strain rate dependent, we have:
+        // edot_eff = tau_T / (2 * eta_ve) + (tau_T - tau_yield) / (2 * eta_d)
+        // The apparent viscosity is defined such that:
+        // tau_T = 2 * eta_app * edot_eff.
+        // Substituting one equation into the other and rearranging yields the expression
+        // eta_app = ((1 + tau_yield / (2 * eta_d * edot_eff)) / (1 / eta_d + 1 / eta_ve)).
         if (use_plastic_damper)
           {
-            const double total_stress = ( yield_stress + ( 2. * damper_viscosity * effective_strain_rate ) ) /
-                                        ( 1 + ( damper_viscosity / pre_yield_viscosity ) );
-
-            const double pre_yield_strain_rate = total_stress / ( 2. * pre_yield_viscosity);
-
-            const double plastic_strain_rate = effective_strain_rate - pre_yield_strain_rate;
-
-            plastic_viscosity = yield_stress / (2.*plastic_strain_rate) + damper_viscosity;
-
-            // Effective viscosity
-            plastic_viscosity = 1. / (1./plastic_viscosity + 1./pre_yield_viscosity);
+            apparent_viscosity = ((damper_viscosity + apparent_viscosity) /
+                                  (1. + damper_viscosity / non_yielding_viscosity));
           }
 
-        return plastic_viscosity;
+        return apparent_viscosity;
       }
 
 
@@ -172,13 +170,15 @@ namespace aspect
         prm.declare_entry ("Angles of internal friction", "0.",
                            Patterns::Anything(),
                            "List of angles of internal friction, $\\phi$, for background material and compositional fields, "
-                           "for a total of N+1 values, where N is the number of compositional fields. "
+                           "for a total of N+1 values, where N is the number of all compositional fields or only "
+                           "those corresponding to chemical compositions. "
                            "For a value of zero, in 2d the von Mises criterion is retrieved. "
                            "Angles higher than 30 degrees are harder to solve numerically. Units: degrees.");
         prm.declare_entry ("Cohesions", "1e20",
                            Patterns::Anything(),
                            "List of cohesions, $C$, for background material and compositional fields, "
-                           "for a total of N+1 values, where N is the number of compositional fields. "
+                           "for a total of N+1 values, where N is the number of all compositional fields or only "
+                           "those corresponding to chemical compositions. "
                            "The extremely large default cohesion value (1e20 Pa) prevents the viscous stress from "
                            "exceeding the yield stress. Units: \\si{\\pascal}.");
         prm.declare_entry ("Maximum yield stress", "1e12", Patterns::Double (0.),
@@ -205,27 +205,39 @@ namespace aspect
                                             const std::unique_ptr<std::vector<unsigned int>> &expected_n_phases_per_composition)
       {
         // Retrieve the list of composition names
-        const std::vector<std::string> list_of_composition_names = this->introspection().get_composition_names();
-        // Establish that a background field is required here
-        const bool has_background_field = true;
+        std::vector<std::string> compositional_field_names = this->introspection().get_composition_names();
 
-        angles_internal_friction = Utilities::parse_map_to_double_array(prm.get("Angles of internal friction"),
-                                                                        list_of_composition_names,
-                                                                        has_background_field,
-                                                                        "Angles of internal friction",
-                                                                        true,
-                                                                        expected_n_phases_per_composition);
+        // Retrieve the list of names of fields that represent chemical compositions, and not, e.g.,
+        // plastic strain
+        std::vector<std::string> chemical_field_names = this->introspection().chemical_composition_field_names();
+
+        // Establish that a background field is required here
+        compositional_field_names.insert(compositional_field_names.begin(), "background");
+        chemical_field_names.insert(chemical_field_names.begin(), "background");
+
+        Utilities::MapParsing::Options options(chemical_field_names, "Angles of internal friction");
+        options.list_of_allowed_keys = compositional_field_names;
+
+        if (expected_n_phases_per_composition)
+          {
+            options.allow_multiple_values_per_key = true;
+            options.n_values_per_key = *expected_n_phases_per_composition;
+
+            // check_values_per_key is required to be true to duplicate single values
+            // if they are to be used for all phases associated with a given key.
+            options.check_values_per_key = true;
+          }
+
+        angles_internal_friction = Utilities::MapParsing::parse_map_to_double_array(prm.get("Angles of internal friction"),
+                                                                                    options);
 
         // Convert angles from degrees to radians
         for (double &angle : angles_internal_friction)
           angle *= constants::degree_to_radians;
 
-        cohesions = Utilities::parse_map_to_double_array(prm.get("Cohesions"),
-                                                         list_of_composition_names,
-                                                         has_background_field,
-                                                         "Cohesions",
-                                                         true,
-                                                         expected_n_phases_per_composition);
+        options.property_name = "Cohesions";
+        cohesions = Utilities::MapParsing::parse_map_to_double_array(prm.get("Cohesions"),
+                                                                     options);
 
         // Limit maximum value of the Drucker-Prager yield stress
         max_yield_stress = prm.get_double("Maximum yield stress");

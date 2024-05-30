@@ -75,7 +75,7 @@ void f(const aspect::SimulatorAccess<dim> &simulator_access,
   /**
    * We can't take to small strain-rates, because then the difference in the
    * visocisty will be too small for the double accuracy which stores
-   * the visocity solutions and the finite diference solution.
+   * the visocity solutions and the finite difference solution.
    */
   in_base.strain_rate[0] = SymmetricTensor<2,dim>();
   in_base.strain_rate[0][0][0] = 1e-12;
@@ -217,7 +217,7 @@ void f(const aspect::SimulatorAccess<dim> &simulator_access,
 
   if (Error)
     {
-      std::cout << "Some parts of the test where not successful." << std::endl;
+      std::cout << "Some parts of the test were not successful." << std::endl;
     }
   else
     {
