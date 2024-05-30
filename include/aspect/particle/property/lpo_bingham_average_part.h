@@ -18,8 +18,8 @@
  <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _aspect_particle_property_lpo_s_wave_anisotropy_h
-#define _aspect_particle_property_lpo_s_wave_anisotropy_h
+#ifndef _aspect_particle_property_lpo_s_wave_anisotropy_part_h
+#define _aspect_particle_property_lpo_s_wave_anisotropy_part_h
 
 #include <aspect/particle/property/interface.h>
 #include <aspect/simulator_access.h>

@@ -43,7 +43,7 @@ namespace aspect
        *  Sets the deformation type of the mineral to a Olivine A-E Fabric, which influences the relative strength of the slip planes. See table 1 in Fraters and Billen (2021).
        * enstatite: Only to be used with the D-Rex CPO Derivative algorithm. Sets the deformation type of the mineral to a enstatite Fabric, which influences the relative strength of the slip planes.
        */
-      enum class DeformationType
+      enum class DeformationType_CPO
       {
         passive, olivine_a_fabric, olivine_b_fabric, olivine_c_fabric, olivine_d_fabric, olivine_e_fabric, enstatite
       };
@@ -62,7 +62,7 @@ namespace aspect
        * enstatite: Only to be used with the D-Rex CPO Derivative algorithm. Sets the deformation type of the mineral to a enstatite Fabric, which influences the relative strength of the slip planes.
        * olivine_karato_2008: Only to be used with the D-Rex CPO Derivative algorithm. Sets the deformation type of the mineral to a olivine fabric based on the table in Karato 2008.
        */
-      enum class DeformationTypeSelector
+      enum class DeformationTypeSelector_CPO
       {
         passive, olivine_a_fabric, olivine_b_fabric, olivine_c_fabric, olivine_d_fabric, olivine_e_fabric, enstatite, olivine_karato_2008
       };
@@ -70,7 +70,7 @@ namespace aspect
       /**
        * @brief The type of Advection method used to advect the CPO properties.
        */
-      enum class AdvectionMethod
+      enum class AdvectionMethod_CPO
       {
         forward_euler, backward_euler
       };
@@ -295,8 +295,8 @@ namespace aspect
            * the function computes the appropriate deformation type at the given conditions
            * and returns the compute deformation type.
            */
-          DeformationType
-          determine_deformation_type(const DeformationTypeSelector deformation_type_selector,
+          DeformationType_CPO
+          determine_deformation_type(const DeformationTypeSelector_CPO deformation_type_selector,
                                      const Point<dim> &position,
                                      const double temperature,
                                      const double pressure,
@@ -310,7 +310,7 @@ namespace aspect
            * @brief Computes the deformation type given the stress and water content according to the
            * table in Karato 2008.
            */
-          DeformationType
+          DeformationType_CPO
           determine_deformation_type_karato_2008(const double stress,
                                                  const double water_content) const;
 
@@ -324,7 +324,7 @@ namespace aspect
            * but this could be generalized.
            */
           std::array<double,4>
-          reference_resolved_shear_stress_from_deformation_type(DeformationType deformation_type,
+          reference_resolved_shear_stress_from_deformation_type(DeformationType_CPO deformation_type,
                                                                 double max_value = 1e60) const;
 
           /**
@@ -557,7 +557,7 @@ namespace aspect
            * "Olivine: B-fabric", "Olivine: C-fabric", "Olivine: D-fabric", "Olivine: E-fabric",
            * "Enstatite" or "Passive".
            */
-          std::vector<DeformationTypeSelector> deformation_type_selector;
+          std::vector<DeformationTypeSelector_CPO> deformation_type_selector;
 
           /**
            * Store the volume fraction for each mineral.
@@ -567,7 +567,7 @@ namespace aspect
           /**
            * Advection method for particle properties
            */
-          AdvectionMethod advection_method;
+          AdvectionMethod_CPO advection_method;
 
           /**
            * What algorithm to use to compute the derivatives

@@ -306,7 +306,7 @@ namespace aspect
 
             switch (advection_method)
               {
-                case AdvectionMethod::forward_euler:
+                case AdvectionMethod_CPO::forward_euler:
 
                   sum_volume_mineral = this->advect_forward_euler(data_position,
                                                                   data,
@@ -316,7 +316,7 @@ namespace aspect
 
                   break;
 
-                case AdvectionMethod::backward_euler:
+                case AdvectionMethod_CPO::backward_euler:
                   sum_volume_mineral = this->advect_backward_euler(data_position,
                                                                    data,
                                                                    mineral_i,
@@ -564,7 +564,7 @@ namespace aspect
             case CPODerivativeAlgorithm::drex_2004:
             {
 
-              const DeformationType deformation_type = determine_deformation_type(deformation_type_selector[mineral_i],
+              const DeformationType_CPO deformation_type = determine_deformation_type(deformation_type_selector[mineral_i],
                                                                                   position,
                                                                                   temperature,
                                                                                   pressure,
@@ -807,8 +807,8 @@ namespace aspect
 
 
       template<int dim>
-      DeformationType
-      CrystalPreferredOrientation<dim>::determine_deformation_type(const DeformationTypeSelector deformation_type_selector,
+      DeformationType_CPO
+      CrystalPreferredOrientation<dim>::determine_deformation_type(const DeformationTypeSelector_CPO deformation_type_selector,
                                                                    const Point<dim> &position,
                                                                    const double temperature,
                                                                    const double pressure,
@@ -821,21 +821,21 @@ namespace aspect
         // Now compute what type of deformation takes place.
         switch (deformation_type_selector)
           {
-            case DeformationTypeSelector::passive:
-              return DeformationType::passive;
-            case DeformationTypeSelector::olivine_a_fabric:
-              return DeformationType::olivine_a_fabric;
-            case DeformationTypeSelector::olivine_b_fabric:
-              return DeformationType::olivine_b_fabric;
-            case DeformationTypeSelector::olivine_c_fabric:
-              return DeformationType::olivine_c_fabric;
-            case DeformationTypeSelector::olivine_d_fabric:
-              return DeformationType::olivine_d_fabric;
-            case DeformationTypeSelector::olivine_e_fabric:
-              return DeformationType::olivine_e_fabric;
-            case DeformationTypeSelector::enstatite:
-              return DeformationType::enstatite;
-            case DeformationTypeSelector::olivine_karato_2008:
+            case DeformationTypeSelector_CPO::passive:
+              return DeformationType_CPO::passive;
+            case DeformationTypeSelector_CPO::olivine_a_fabric:
+              return DeformationType_CPO::olivine_a_fabric;
+            case DeformationTypeSelector_CPO::olivine_b_fabric:
+              return DeformationType_CPO::olivine_b_fabric;
+            case DeformationTypeSelector_CPO::olivine_c_fabric:
+              return DeformationType_CPO::olivine_c_fabric;
+            case DeformationTypeSelector_CPO::olivine_d_fabric:
+              return DeformationType_CPO::olivine_d_fabric;
+            case DeformationTypeSelector_CPO::olivine_e_fabric:
+              return DeformationType_CPO::olivine_e_fabric;
+            case DeformationTypeSelector_CPO::enstatite:
+              return DeformationType_CPO::enstatite;
+            case DeformationTypeSelector_CPO::olivine_karato_2008:
               // construct the material model inputs and outputs
               // Since this function is only evaluating one particle,
               // we use 1 for the amount of quadrature points.
@@ -860,12 +860,12 @@ namespace aspect
           }
 
         AssertThrow(false, ExcMessage("Internal error. Deformation type not implemented."));
-        return DeformationType::passive;
+        return DeformationType_CPO::passive;
       }
 
 
       template<int dim>
-      DeformationType
+      DeformationType_CPO
       CrystalPreferredOrientation<dim>::determine_deformation_type_karato_2008(const double stress, const double water_content) const
       {
         constexpr double MPa = 1e6;
@@ -874,28 +874,28 @@ namespace aspect
           {
             if (stress > (625. - 2.5 * water_content)*MPa)
               {
-                return DeformationType::olivine_b_fabric;
+                return DeformationType_CPO::olivine_b_fabric;
               }
             else
               {
-                return DeformationType::olivine_d_fabric;
+                return DeformationType_CPO::olivine_d_fabric;
               }
           }
         else
           {
             if (stress < (625.0 -2.5 * water_content)*MPa)
               {
-                return DeformationType::olivine_a_fabric;
+                return DeformationType_CPO::olivine_a_fabric;
               }
             else
               {
                 if (stress < (500.0 + ec_line_slope*-100. + ec_line_slope * water_content)*MPa)
                   {
-                    return DeformationType::olivine_e_fabric;
+                    return DeformationType_CPO::olivine_e_fabric;
                   }
                 else
                   {
-                    return DeformationType::olivine_c_fabric;
+                    return DeformationType_CPO::olivine_c_fabric;
                   }
               }
           }
@@ -904,7 +904,7 @@ namespace aspect
 
       template<int dim>
       std::array<double,4>
-      CrystalPreferredOrientation<dim>::reference_resolved_shear_stress_from_deformation_type(DeformationType deformation_type,
+      CrystalPreferredOrientation<dim>::reference_resolved_shear_stress_from_deformation_type(DeformationType_CPO deformation_type,
           double max_value) const
       {
         std::array<double,4> ref_resolved_shear_stress;
@@ -912,7 +912,7 @@ namespace aspect
           {
             // from Kaminski and Ribe, GJI 2004 and
             // Becker et al., 2007 (http://www-udc.ig.utexas.edu/external/becker/preprints/bke07.pdf)
-            case DeformationType::olivine_a_fabric :
+            case DeformationType_CPO::olivine_a_fabric :
               ref_resolved_shear_stress[0] = 1;
               ref_resolved_shear_stress[1] = 2;
               ref_resolved_shear_stress[2] = 3;
@@ -921,7 +921,7 @@ namespace aspect
 
             // from Kaminski and Ribe, GJI 2004 and
             // Becker et al., 2007 (http://www-udc.ig.utexas.edu/external/becker/preprints/bke07.pdf)
-            case DeformationType::olivine_b_fabric :
+            case DeformationType_CPO::olivine_b_fabric :
               ref_resolved_shear_stress[0] = 3;
               ref_resolved_shear_stress[1] = 2;
               ref_resolved_shear_stress[2] = 1;
@@ -930,7 +930,7 @@ namespace aspect
 
             // from Kaminski and Ribe, GJI 2004 and
             // Becker et al., 2007 (http://www-udc.ig.utexas.edu/external/becker/preprints/bke07.pdf)
-            case DeformationType::olivine_c_fabric :
+            case DeformationType_CPO::olivine_c_fabric :
               ref_resolved_shear_stress[0] = 3;
               ref_resolved_shear_stress[1] = max_value;
               ref_resolved_shear_stress[2] = 2;
@@ -939,7 +939,7 @@ namespace aspect
 
             // from Kaminski and Ribe, GRL 2002 and
             // Becker et al., 2007 (http://www-udc.ig.utexas.edu/external/becker/preprints/bke07.pdf)
-            case DeformationType::olivine_d_fabric :
+            case DeformationType_CPO::olivine_d_fabric :
               ref_resolved_shear_stress[0] = 1;
               ref_resolved_shear_stress[1] = 1;
               ref_resolved_shear_stress[2] = 3;
@@ -948,7 +948,7 @@ namespace aspect
 
             // Kaminski, Ribe and Browaeys, GJI, 2004 (same as in the matlab code) and
             // Becker et al., 2007 (http://www-udc.ig.utexas.edu/external/becker/preprints/bke07.pdf)
-            case DeformationType::olivine_e_fabric :
+            case DeformationType_CPO::olivine_e_fabric :
               ref_resolved_shear_stress[0] = 2;
               ref_resolved_shear_stress[1] = 1;
               ref_resolved_shear_stress[2] = max_value;
@@ -958,7 +958,7 @@ namespace aspect
             // from Kaminski and Ribe, GJI 2004.
             // Todo: this one is not used in practice, since there is an optimization in
             // the code. So maybe remove it in the future.
-            case DeformationType::enstatite :
+            case DeformationType_CPO::enstatite :
               ref_resolved_shear_stress[0] = max_value;
               ref_resolved_shear_stress[1] = max_value;
               ref_resolved_shear_stress[2] = max_value;
@@ -1142,11 +1142,11 @@ namespace aspect
               const std::string temp_advection_method = prm.get("Property advection method");
               if (temp_advection_method == "Forward Euler")
                 {
-                  advection_method = AdvectionMethod::forward_euler;
+                  advection_method = AdvectionMethod_CPO::forward_euler;
                 }
               else if (temp_advection_method == "Backward Euler")
                 {
-                  advection_method = AdvectionMethod::backward_euler;
+                  advection_method = AdvectionMethod_CPO::backward_euler;
                 }
               else
                 {
@@ -1168,35 +1168,35 @@ namespace aspect
                   {
                     if (temp_deformation_type_selector[mineral_i] == "Passive")
                       {
-                        deformation_type_selector[mineral_i] = DeformationTypeSelector::passive;
+                        deformation_type_selector[mineral_i] = DeformationTypeSelector_CPO::passive;
                       }
                     else if (temp_deformation_type_selector[mineral_i] == "Olivine: Karato 2008")
                       {
-                        deformation_type_selector[mineral_i] = DeformationTypeSelector::olivine_karato_2008;
+                        deformation_type_selector[mineral_i] = DeformationTypeSelector_CPO::olivine_karato_2008;
                       }
                     else if (temp_deformation_type_selector[mineral_i] ==  "Olivine: A-fabric")
                       {
-                        deformation_type_selector[mineral_i] = DeformationTypeSelector::olivine_a_fabric;
+                        deformation_type_selector[mineral_i] = DeformationTypeSelector_CPO::olivine_a_fabric;
                       }
                     else if (temp_deformation_type_selector[mineral_i] ==  "Olivine: B-fabric")
                       {
-                        deformation_type_selector[mineral_i] = DeformationTypeSelector::olivine_b_fabric;
+                        deformation_type_selector[mineral_i] = DeformationTypeSelector_CPO::olivine_b_fabric;
                       }
                     else if (temp_deformation_type_selector[mineral_i] ==  "Olivine: C-fabric")
                       {
-                        deformation_type_selector[mineral_i] = DeformationTypeSelector::olivine_c_fabric;
+                        deformation_type_selector[mineral_i] = DeformationTypeSelector_CPO::olivine_c_fabric;
                       }
                     else if (temp_deformation_type_selector[mineral_i] ==  "Olivine: D-fabric")
                       {
-                        deformation_type_selector[mineral_i] = DeformationTypeSelector::olivine_d_fabric;
+                        deformation_type_selector[mineral_i] = DeformationTypeSelector_CPO::olivine_d_fabric;
                       }
                     else if (temp_deformation_type_selector[mineral_i] ==  "Olivine: E-fabric")
                       {
-                        deformation_type_selector[mineral_i] = DeformationTypeSelector::olivine_e_fabric;
+                        deformation_type_selector[mineral_i] = DeformationTypeSelector_CPO::olivine_e_fabric;
                       }
                     else if (temp_deformation_type_selector[mineral_i] ==  "Enstatite")
                       {
-                        deformation_type_selector[mineral_i] = DeformationTypeSelector::enstatite;
+                        deformation_type_selector[mineral_i] = DeformationTypeSelector_CPO::enstatite;
                       }
                     else
                       {
