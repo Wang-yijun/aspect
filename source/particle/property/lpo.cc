@@ -1043,8 +1043,8 @@ namespace aspect
       DeformationType
       LPO<dim>::determine_deformation_type(const double stress, const double water_content) const
       {
-        constexpr double MPa = 1e6;
-        constexpr double ec_line_slope = -500./1050.;
+        const double MPa = 1e6;
+        const double ec_line_slope = -500./1050.;
         if (stress > (380. - 0.05 * water_content)*MPa)
           {
             if (stress > (625. - 2.5 * water_content)*MPa)
