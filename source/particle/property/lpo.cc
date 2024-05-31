@@ -64,23 +64,31 @@ namespace aspect
                                    std::vector<unsigned int> &deformation_type,
                                    std::vector<double> &volume_fraction_mineral,
                                    std::vector<std::vector<double>> &volume_fractions_grains,
-                                   std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_grains)
+                                   std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_grains,
+                                   std::vector<std::vector<std::array<double,4>>> &dislocation_densities,
+                                   std::vector<std::vector<std::array<double,4>>> &recrystalized_fraction)
       {
         // the layout of the data vector per perticle is the following (note that for this plugin the following dim's are always 3):
         // 1. M mineral times
         //    1.1  olivine deformation type   -> 1 double, at location
-        //                                      => data_position + 0 + mineral_i * (n_grains * 10 + 2)
+        //                                      => data_position + 0 + mineral_i * (n_grains * 18 + 2)
         //    2.1. Mineral volume fraction    -> 1 double, at location
-        //                                      => data_position + 1 + mineral_i *(n_grains * 10 + 2)
+        //                                      => data_position + 1 + mineral_i *(n_grains * 18 + 2)
         //    2.2. N grains times:
         //         2.1. volume fraction grain -> 1 double, at location:
-        //                                      => data_position + 2 + i_grain * 10 + mineral_i *(n_grains * 10 + 2), or
-        //                                      => data_position + 2 + i_grain * (2 * Tensor<2,3>::n_independent_components+ 2) + mineral_i * (n_grains * 10 + 2)
+        //                                      => data_position + 2 + i_grain * 18 + mineral_i * (n_grains * 18 + 2), or
+        //                                      => data_position + 2 + i_grain * (2 * Tensor<2,3>::n_independent_components+ 2) + mineral_i * (n_grains * 18 + 2)
         //         2.2. a_cosine_matrix grain -> 9 (Tensor<2,dim>::n_independent_components) doubles, starts at:
-        //                                      => data_position + 3 + i_grain * 10 + mineral_i * (n_grains * 10 + 2), or
-        //                                      => data_position + 3 + i_grain * (2 * Tensor<2,3>::n_independent_components+ 2) + mineral_i * (n_grains * 10 + 2)
+        //                                      => data_position + 3 + i_grain * 18 + mineral_i * (n_grains * 18 + 2), or
+        //                                      => data_position + 3 + i_grain * (2 * Tensor<2,3>::n_independent_components+ 2) + mineral_i * (n_grains * 18 + 2)
+        //         2.3 dislocation densities (s)=> 4 doubles
+        //                                      => data_position + 11 + i_grain * 18 + mineral_i * (n_grains * 18 + 2), or
+        //                                      => data_position + 11 + i_grain * (2 * Tensor<2,3>::n_independent_components+ 2) + mineral_i * (n_grains * 18 + 2)
+        //         2.3 dislocation densities (s)=> 4 doubles
+        //                                      => data_position + 14 + i_grain * 18 + mineral_i * (n_grains * 18 + 2), or
+        //                                      => data_position + 14 + i_grain * (2 * Tensor<2,3>::n_independent_components+ 2) + mineral_i * (n_grains * 18 + 2)
         //
-        // Last used data entry is data_position + 0 + n_minerals * (n_grains * 10 + 2);
+        // Last used data entry is data_position + 0 + n_minerals * (n_grains * 18 + 2);
         // An other note is that we store exactly the same amount of all minerals (e.g. olivine and enstatite
         // grains), although the volume may not be the same. This has to do with that we need a minimum amount
         // of grains per tracer to perform reliable statistics on it. This miminum should be the same for both
@@ -91,24 +99,39 @@ namespace aspect
         volume_fraction_mineral.resize(n_minerals);
         volume_fractions_grains.resize(n_minerals);
         a_cosine_matrices_grains.resize(n_minerals);
+        dislocation_densities.resize(n_minerals);
+        recrystalized_fraction.resize(n_minerals);
 
         for (size_t mineral_i = 0; mineral_i < n_minerals; mineral_i++)
           {
-            deformation_type[mineral_i] = data[lpo_data_position + 0 + mineral_i * (n_grains * 10 + 2)];
-            volume_fraction_mineral[mineral_i] = data[lpo_data_position + 1 + mineral_i * (n_grains * 10 + 2)];
+            deformation_type[mineral_i] = data[lpo_data_position + 0 + mineral_i * (n_grains * 18 + 2)];
+            volume_fraction_mineral[mineral_i] = data[lpo_data_position + 1 + mineral_i * (n_grains * 18 + 2)];
             volume_fractions_grains[mineral_i].resize(n_grains);
             a_cosine_matrices_grains[mineral_i].resize(n_grains);
+            dislocation_densities[mineral_i].resize(n_grains);
+            recrystalized_fraction[mineral_i].resize(n_grains);
             // loop over grains to store the data of each grain
             for (unsigned int grain_i = 0; grain_i < n_grains; ++grain_i)
               {
                 // store volume fraction for olivine grains
-                volume_fractions_grains[mineral_i][grain_i] = data[lpo_data_position + 2 + grain_i * 10 + mineral_i *(n_grains * 10 + 2)];
+                volume_fractions_grains[mineral_i][grain_i] = data[lpo_data_position + 2 + grain_i * 18 + mineral_i *(n_grains * 18 + 2)];
 
                 // store a_{ij} for olivine grains
                 for (unsigned int i = 0; i < Tensor<2,3>::n_independent_components ; ++i)
                   {
                     const dealii::TableIndices<2> index = Tensor<2,3>::unrolled_to_component_indices(i);
-                    a_cosine_matrices_grains[mineral_i][grain_i][index] = data[lpo_data_position + 3 + grain_i * 10 + mineral_i * (n_grains * 10 + 2) + i];
+                    a_cosine_matrices_grains[mineral_i][grain_i][index] = data[lpo_data_position + 3 + grain_i * 18 + mineral_i * (n_grains * 18 + 2) + i];
+                  }
+
+                // store dislocation_densities
+                for (unsigned int i = 0; i < 4; ++i)
+                  {
+                    dislocation_densities[mineral_i][grain_i][i] = data[lpo_data_position + 12 + grain_i * 18 + mineral_i * (n_grains * 18 + 2) + i];
+                  }
+                // store  recrystalized_fraction
+                for (unsigned int i = 0; i < 4; ++i)
+                  {
+                    recrystalized_fraction[mineral_i][grain_i][i] = data[lpo_data_position + 15 + grain_i * 18 + mineral_i * (n_grains * 18 + 2) + i];
                   }
               }
           }
@@ -124,14 +147,18 @@ namespace aspect
                                             std::vector<std::vector<double>> &volume_fractions_grains,
                                             std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_grains,
                                             std::vector<std::vector<double>> &volume_fractions_grains_derivatives,
-                                            std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_grains_derivatives) const
+                                            std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_grains_derivatives,
+                                            std::vector<std::vector<std::array<double,4>>> &dislocation_densities,
+                                            std::vector<std::vector<std::array<double,4>>> &recrystalized_fraction) const
       {
         load_particle_data(lpo_data_position,
                            data,
                            deformation_type,
                            volume_fraction_mineral,
                            volume_fractions_grains,
-                           a_cosine_matrices_grains);
+                           a_cosine_matrices_grains,
+                           dislocation_densities,
+                           recrystalized_fraction);
 
         // now store the derivatives if needed
         if (this->advection_method == AdvectionMethod::CrankNicolson)
@@ -168,23 +195,31 @@ namespace aspect
                                     std::vector<unsigned int> &deformation_type,
                                     std::vector<double> &volume_fraction_mineral,
                                     std::vector<std::vector<double>> &volume_fractions_grains,
-                                    std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_grains)
+                                    std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_grains,
+                                    std::vector<std::vector<std::array<double,4>>> &dislocation_densities,
+                                    std::vector<std::vector<std::array<double,4>>> &recrystalized_fraction)
       {
         // the layout of the data vector per perticle is the following (note that for this plugin the following dim's are always 3):
         // 1. M mineral times
         //    1.1  olivine deformation type   -> 1 double, at location
-        //                                      => data_position + 0 + mineral_i * (n_grains * 10 + 2)
+        //                                      => data_position + 0 + mineral_i * (n_grains * 18 + 2)
         //    2.1. Mineral volume fraction    -> 1 double, at location
-        //                                      => data_position + 1 + mineral_i *(n_grains * 10 + 2)
+        //                                      => data_position + 1 + mineral_i *(n_grains * 18 + 2)
         //    2.2. N grains times:
         //         2.1. volume fraction grain -> 1 double, at location:
-        //                                      => data_position + 2 + i_grain * 10 + mineral_i *(n_grains * 10 + 2), or
-        //                                      => data_position + 2 + i_grain * (2 * Tensor<2,3>::n_independent_components+ 2) + mineral_i * (n_grains * 10 + 2)
+        //                                      => data_position + 2 + i_grain * 18 + mineral_i * (n_grains * 18 + 2), or
+        //                                      => data_position + 2 + i_grain * (2 * Tensor<2,3>::n_independent_components+ 2) + mineral_i * (n_grains * 18 + 2)
         //         2.2. a_cosine_matrix grain -> 9 (Tensor<2,dim>::n_independent_components) doubles, starts at:
-        //                                      => data_position + 3 + i_grain * 10 + mineral_i * (n_grains * 10 + 2), or
-        //                                      => data_position + 3 + i_grain * (2 * Tensor<2,3>::n_independent_components+ 2) + mineral_i * (n_grains * 10 + 2)
+        //                                      => data_position + 3 + i_grain * 18 + mineral_i * (n_grains * 18 + 2), or
+        //                                      => data_position + 3 + i_grain * (2 * Tensor<2,3>::n_independent_components+ 2) + mineral_i * (n_grains * 18 + 2)
+        //         2.3 dislocation densities (s)=> 4 doubles
+        //                                      => data_position + 11 + i_grain * 18 + mineral_i * (n_grains * 18 + 2), or
+        //                                      => data_position + 11 + i_grain * (2 * Tensor<2,3>::n_independent_components+ 2) + mineral_i * (n_grains * 18 + 2)
+        //         2.3 dislocation densities (s)=> 4 doubles
+        //                                      => data_position + 14 + i_grain * 18 + mineral_i * (n_grains * 18 + 2), or
+        //                                      => data_position + 14 + i_grain * (2 * Tensor<2,3>::n_independent_components+ 2) + mineral_i * (n_grains * 18 + 2)
         //
-        // Last used data entry is data_position + 0 + n_minerals * (n_grains * 10 + 2);
+        // Last used data entry is data_position + 0 + n_minerals * (n_grains * 18 + 2);
         // An other note is that we store exactly the same amount of all minerals (e.g. olivine and enstatite
         // grains), although the volume may not be the same. This has to do with that we need a minimum amount
         // of grains per tracer to perform reliable statistics on it. This miminum should be the same for both
@@ -195,19 +230,30 @@ namespace aspect
           {
             Assert(volume_fractions_grains[mineral_i].size() == n_grains, ExcMessage("Internal error: volume_fractions_mineral[mineral_i] is not the same as n_grains."));
             Assert(a_cosine_matrices_grains[mineral_i].size() == n_grains, ExcMessage("Internal error: a_cosine_matrices_mineral[mineral_i] is not the same as n_grains."));
-            data[lpo_data_position + 0 + mineral_i * (n_grains * 10 + 2)] = deformation_type[mineral_i];
-            data[lpo_data_position + 1 + mineral_i *(n_grains * 10 + 2)] = volume_fraction_mineral[mineral_i];
+            data[lpo_data_position + 0 + mineral_i * (n_grains * 18 + 2)] = deformation_type[mineral_i];
+            data[lpo_data_position + 1 + mineral_i *(n_grains * 18 + 2)] = volume_fraction_mineral[mineral_i];
 
             // loop over grains to store the data of each grain
             for (unsigned int grain_i = 0; grain_i < n_grains; ++grain_i)
               {
                 // store volume fraction for olivine grains
-                data[lpo_data_position + 2 + grain_i * 10 + mineral_i *(n_grains * 10 + 2)] = volume_fractions_grains[mineral_i][grain_i];
+                data[lpo_data_position + 2 + grain_i * 18 + mineral_i *(n_grains * 18 + 2)] = volume_fractions_grains[mineral_i][grain_i];
                 // store a_{ij} for olivine grains
                 for (unsigned int i = 0; i < Tensor<2,3>::n_independent_components ; ++i)
                   {
                     const dealii::TableIndices<2> index = Tensor<2,3>::unrolled_to_component_indices(i);
-                    data[lpo_data_position + 3 + grain_i * 10 + mineral_i * (n_grains * 10 + 2) + i] = a_cosine_matrices_grains[mineral_i][grain_i][index];
+                    data[lpo_data_position + 3 + grain_i * 18 + mineral_i * (n_grains * 18 + 2) + i] = a_cosine_matrices_grains[mineral_i][grain_i][index];
+                  }
+
+                // store dislocation_densities
+                for (unsigned int i = 0; i < 4; ++i)
+                  {
+                    data[lpo_data_position + 12 + grain_i * 18 + mineral_i * (n_grains * 18 + 2) + i] = dislocation_densities[mineral_i][grain_i][i];
+                  }
+                // store  recrystalized_fraction
+                for (unsigned int i = 0; i < 4; ++i)
+                  {
+                    data[lpo_data_position + 15 + grain_i * 18 + mineral_i * (n_grains * 18 + 2) + i] = recrystalized_fraction[mineral_i][grain_i][i];
                   }
               }
           }
@@ -224,17 +270,21 @@ namespace aspect
                                              std::vector<std::vector<double>> &volume_fractions_grains,
                                              std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_grains,
                                              std::vector<std::vector<double>> &volume_fractions_grains_derivatives,
-                                             std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_grains_derivatives) const
+                                             std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_grains_derivatives,
+                                             std::vector<std::vector<std::array<double,4>>> &dislocation_densities,
+                                             std::vector<std::vector<std::array<double,4>>> &recrystalized_fraction) const
       {
         store_particle_data(lpo_data_position,
                             data,
                             deformation_type,
                             volume_fraction_mineral,
                             volume_fractions_grains,
-                            a_cosine_matrices_grains);
+                            a_cosine_matrices_grains,
+                            dislocation_densities,
+                            recrystalized_fraction);
         // now store the derivatives if needed. They are added after all the other data.
-        // lpo_data_position + 3 + n_grains * 10 + mineral_i * (n_grains * 10 + 2)
-        // data_position + 0 + n_minerals * (n_grains * 10 + 2)
+        // lpo_data_position + 3 + n_grains * 18 + mineral_i * (n_grains * 18 + 2)
+        // data_position + 0 + n_minerals * (n_grains * 18 + 2)
         if (this->advection_method == AdvectionMethod::CrankNicolson)
           {
             for (size_t mineral_i = 0; mineral_i < n_minerals; mineral_i++)
@@ -250,13 +300,13 @@ namespace aspect
                     for (unsigned int grain_i = 0; grain_i < n_grains; ++grain_i)
                       {
                         // store volume fraction for olivine grains
-                        data[lpo_data_position + n_minerals * (n_grains * 10 + 2) + mineral_i * (n_grains * 10)  + grain_i * 10] = volume_fractions_grains_derivatives[mineral_i][grain_i];
+                        data[lpo_data_position + n_minerals * (n_grains * 18 + 2) + mineral_i * (n_grains * 18)  + grain_i * 18] = volume_fractions_grains_derivatives[mineral_i][grain_i];
 
                         // store a_{ij} for olivine grains
                         for (unsigned int iii = 0; iii < Tensor<2,3>::n_independent_components ; ++iii)
                           {
                             const dealii::TableIndices<2> index = Tensor<2,3>::unrolled_to_component_indices(iii);
-                            data[lpo_data_position + n_minerals * (n_grains * 10 + 2) + mineral_i * (n_grains * 10)  + grain_i * 10  + 1 + iii] = a_cosine_matrices_grains_derivatives[mineral_i][grain_i][index];
+                            data[lpo_data_position + n_minerals * (n_grains * 18 + 2) + mineral_i * (n_grains * 18)  + grain_i * 18  + 1 + iii] = a_cosine_matrices_grains_derivatives[mineral_i][grain_i][index];
                           }
                       }
                   }
@@ -336,12 +386,23 @@ namespace aspect
               {
                 const double initial_volume_fraction = 1.0/n_grains;
                 boost::random::uniform_real_distribution<double> uniform_distribution(0,1);
+                boost::random::normal_distribution<double> normal_distribution(initialize_grains_with_normal_distribution_mean,
+                                                                               initialize_grains_with_normal_distribution_standard_deviation);
 
                 // it is 2 times the amount of grains because we have to compute for olivine and enstatite.
+                double grain_sizes_sum = 0.;
                 for (unsigned int grain_i = 0; grain_i < n_grains ; ++grain_i)
                   {
                     // set volume fraction
-                    volume_fractions_grains[mineral_i][grain_i] = initial_volume_fraction;
+                    if (initialize_grains_with_normal_distribution)
+                      {
+                        volume_fractions_grains[mineral_i][grain_i] = std::min(std::max(normal_distribution(this->random_number_generator),0.),1.);
+                        grain_sizes_sum += volume_fractions_grains[mineral_i][grain_i];
+                      }
+                    else
+                      {
+                        volume_fractions_grains[mineral_i][grain_i] = initial_volume_fraction;
+                      }
 
                     // set a uniform random a_cosine_matrix per grain
                     // This function is based on an article in Graphic Gems III, written by James Arvo, Cornell University (p 116-120).
@@ -401,6 +462,17 @@ namespace aspect
                     a_cosine_matrices_grains[mineral_i][grain_i][2][1] = Vz * Sy;
                     a_cosine_matrices_grains[mineral_i][grain_i][2][2] = 1.0 - z;   // This equals Vz * Vz - 1.0
 
+
+                  }
+
+
+                if (initialize_grains_with_normal_distribution)
+                  {
+                    const double inv_grain_sizes_sum = 1./grain_sizes_sum;
+                    for (unsigned int grain_i = 0; grain_i < n_grains ; ++grain_i)
+                      {
+                        volume_fractions_grains[mineral_i][grain_i] *= grain_sizes_sum;
+                      }
                   }
               }
           }
@@ -416,6 +488,10 @@ namespace aspect
                   {
                     const dealii::TableIndices<2> index = Tensor<2,3>::unrolled_to_component_indices(i);
                     data.emplace_back(a_cosine_matrices_grains[mineral_i][grain_i][index]);
+                  }
+                for (unsigned int i = 0; i < 8 ; ++i)
+                  {
+                    data.emplace_back(0.0);
                   }
 
               }
@@ -607,6 +683,8 @@ namespace aspect
         std::vector<std::vector<Tensor<2,3>>> a_cosine_matrices_grains;
         std::vector<std::vector<double>> volume_fractions_grains_derivatives;
         std::vector<std::vector<Tensor<2,3>>> a_cosine_matrices_grains_derivatives;
+        std::vector<std::vector<std::array<double,4>>> dislocation_densities;
+        std::vector<std::vector<std::array<double,4>>> recrystalized_fraction;
 
         load_particle_data_extended(data_position,
                                     data,
@@ -615,7 +693,9 @@ namespace aspect
                                     volume_fractions_grains,
                                     a_cosine_matrices_grains,
                                     volume_fractions_grains_derivatives,
-                                    a_cosine_matrices_grains_derivatives);
+                                    a_cosine_matrices_grains_derivatives,
+                                    dislocation_densities,
+                                    recrystalized_fraction);
 
 
         for (size_t mineral_i = 0; mineral_i < n_minerals; mineral_i++)
@@ -695,7 +775,7 @@ namespace aspect
               }
 
 
-            for (unsigned int grain_i = 0; grain_i < n_grains; ++grain_i)
+            /*for (unsigned int grain_i = 0; grain_i < n_grains; ++grain_i)
               {
                 for (size_t i = 0; i < 3; i++)
                   for (size_t j = 0; j < 3; j++)
@@ -705,7 +785,7 @@ namespace aspect
                                       + std::to_string(a_cosine_matrices_grains[mineral_i][grain_i][0][0]) + " " + std::to_string(a_cosine_matrices_grains[mineral_i][grain_i][0][1]) + " " + std::to_string(a_cosine_matrices_grains[mineral_i][grain_i][0][2]) + "\n"
                                       + std::to_string(a_cosine_matrices_grains[mineral_i][grain_i][1][0]) + " " + std::to_string(a_cosine_matrices_grains[mineral_i][grain_i][1][1]) + " " + std::to_string(a_cosine_matrices_grains[mineral_i][grain_i][1][2]) + "\n"
                                       + std::to_string(a_cosine_matrices_grains[mineral_i][grain_i][2][0]) + " " + std::to_string(a_cosine_matrices_grains[mineral_i][grain_i][2][1]) + " " + std::to_string(a_cosine_matrices_grains[mineral_i][grain_i][2][2])));
-              }
+              }*/
 
             /**
             * Now we have loaded all the data and can do the actual computation.
@@ -720,7 +800,9 @@ namespace aspect
                                                                                             strain_rate_3d,
                                                                                             velocity_gradient_3d,
                                                                                             volume_fraction_mineral[mineral_i],
-                                                                                            ref_resolved_shear_stress);
+                                                                                            ref_resolved_shear_stress,
+                                                                                            dislocation_densities[mineral_i],
+                                                                                            recrystalized_fraction[mineral_i]);
 
             for (unsigned int grain_i = 0; grain_i < n_grains; ++grain_i)
               {
@@ -760,6 +842,7 @@ namespace aspect
               }
 
             // normalize both the olivine and enstatite volume fractions
+            //std::cout << "sum_volume_mineral = " << sum_volume_mineral << std::endl;
             const double inv_sum_volume_mineral = 1.0/sum_volume_mineral;
 
             Assert(std::isfinite(inv_sum_volume_mineral),
@@ -773,6 +856,99 @@ namespace aspect
                        ExcMessage("volume_fractions_grains[mineral_i]" + std::to_string(grain_i) + "] is not finite: "
                                   + std::to_string(volume_fractions_grains[mineral_i][grain_i]) + ", inv_sum_volume_mineral = "
                                   + std::to_string(inv_sum_volume_mineral) + "."));
+              }
+
+            if (max_grain_size < 1.0)
+              {
+                // check all the grainsizes if they are smaller than max_grain_size.
+                double new_sum_volume_mineral = 0.;
+                for (unsigned int grain_i = 0; grain_i < n_grains; ++grain_i)
+                  {
+                    if (volume_fractions_grains[mineral_i][grain_i] > max_grain_size)
+                      {
+                        volume_fractions_grains[mineral_i][grain_i] = max_grain_size;
+                      }
+                    new_sum_volume_mineral += volume_fractions_grains[mineral_i][grain_i];
+                  }
+
+                const double new_inv_sum_volume_mineral = 1.0/new_sum_volume_mineral;
+
+                for (unsigned int grain_i = 0; grain_i < n_grains; ++grain_i)
+                  {
+                    volume_fractions_grains[mineral_i][grain_i] *= new_inv_sum_volume_mineral;
+                    Assert(isfinite(volume_fractions_grains[mineral_i][grain_i]),
+                           ExcMessage("volume_fractions_grains[mineral_i]" + std::to_string(grain_i) + "] is not finite: "
+                                      + std::to_string(volume_fractions_grains[mineral_i][grain_i]) + ", inv_sum_volume_mineral = "
+                                      + std::to_string(inv_sum_volume_mineral) + "."));
+                  }
+              }
+
+            if (randomize_small_grains)
+              {
+                for (unsigned int grain_i = 0; grain_i < n_grains; ++grain_i)
+                  {
+                    if (volume_fractions_grains[mineral_i][grain_i] < threshold_GBS/n_grains)
+                      {
+                        boost::random::uniform_real_distribution<double> uniform_distribution(0,1);
+                        // set a uniform random a_cosine_matrix per grain
+                        // This function is based on an article in Graphic Gems III, written by James Arvo, Cornell University (p 116-120).
+                        // The original code can be found on  http://www.realtimerendering.com/resources/GraphicsGems/gemsiii/rand_rotation.c
+                        // and is licenend accourding to this website with the following licence:
+                        //
+                        // "The Graphics Gems code is copyright-protected. In other words, you cannot claim the text of the code as your own and
+                        // resell it. Using the code is permitted in any program, product, or library, non-commercial or commercial. Giving credit
+                        // is not required, though is a nice gesture. The code comes as-is, and if there are any flaws or problems with any Gems
+                        // code, nobody involved with Gems - authors, editors, publishers, or webmasters - are to be held responsible. Basically,
+                        // don't be a jerk, and remember that anything free comes with no guarantee.""
+                        //
+                        // The book saids in the preface the following: "As in the first two volumes, all of the C and C++ code in this book is in
+                        // the public domain, and is yours to study, modify, and use."
+
+                        // first generate three random numbers between 0 and 1 and multiply them with 2 PI or 2 for z. Note that these are not the same as phi_1, theta and phi_2.
+                        double one = uniform_distribution(this->random_number_generator);
+                        double two = uniform_distribution(this->random_number_generator);
+                        double three = uniform_distribution(this->random_number_generator);
+
+                        double theta = 2.0 * M_PI * one; // Rotation about the pole (Z)
+                        double phi = 2.0 * M_PI * two; // For direction of pole deflection.
+                        double z = 2.0 * three; //For magnitude of pole deflection.
+
+                        // Compute a vector V used for distributing points over the sphere
+                        // via the reflection I - V Transpose(V).  This formulation of V
+                        // will guarantee that if x[1] and x[2] are uniformly distributed,
+                        // the reflected points will be uniform on the sphere.  Note that V
+                        // has length sqrt(2) to eliminate the 2 in the Householder matrix.
+
+                        double r  = std::sqrt( z );
+                        double Vx = std::sin( phi ) * r;
+                        double Vy = std::cos( phi ) * r;
+                        double Vz = std::sqrt( 2.0 - z );
+
+                        // Compute the row vector S = Transpose(V) * R, where R is a simple
+                        // rotation by theta about the z-axis.  No need to compute Sz since
+                        // it's just Vz.
+
+                        double st = std::sin( theta );
+                        double ct = std::cos( theta );
+                        double Sx = Vx * ct - Vy * st;
+                        double Sy = Vx * st + Vy * ct;
+
+                        // Construct the rotation matrix  ( V Transpose(V) - I ) R, which
+                        // is equivalent to V S - R.
+
+                        a_cosine_matrices_grains[mineral_i][grain_i][0][0] = Vx * Sx - ct;
+                        a_cosine_matrices_grains[mineral_i][grain_i][0][1] = Vx * Sy - st;
+                        a_cosine_matrices_grains[mineral_i][grain_i][0][2] = Vx * Vz;
+
+                        a_cosine_matrices_grains[mineral_i][grain_i][1][0] = Vy * Sx + st;
+                        a_cosine_matrices_grains[mineral_i][grain_i][1][1] = Vy * Sy - ct;
+                        a_cosine_matrices_grains[mineral_i][grain_i][1][2] = Vy * Vz;
+
+                        a_cosine_matrices_grains[mineral_i][grain_i][2][0] = Vz * Sx;
+                        a_cosine_matrices_grains[mineral_i][grain_i][2][1] = Vz * Sy;
+                        a_cosine_matrices_grains[mineral_i][grain_i][2][2] = 1.0 - z;   // This equals Vz * Vz - 1.0
+                      }
+                  }
               }
 
             for (unsigned int i = 0; i < n_grains; ++i)
@@ -804,6 +980,7 @@ namespace aspect
                       // I don't think this should happen with the projection, but D-Rex
                       // does not do the orthogonal projection, but just clamps the values
                       // to 1 and -1.
+
                       Assert(std::fabs(a_cosine_matrices_grains[mineral_i][grain_i][i][j])-1.0 <= 2.0 * std::numeric_limits<double>::epsilon(),
                              ExcMessage("The a_cosine_matrices_grains[mineral_i] has a entry asolute larger than 1:" + std::to_string(std::fabs(a_cosine_matrices_grains[mineral_i][grain_i][i][j])) +"."));
                     }
@@ -854,12 +1031,13 @@ namespace aspect
                                      volume_fractions_grains,
                                      a_cosine_matrices_grains,
                                      volume_fractions_grains_derivatives,
-                                     a_cosine_matrices_grains_derivatives);
+                                     a_cosine_matrices_grains_derivatives,
+                                     dislocation_densities,
+                                     recrystalized_fraction);
 
 
 
       }
-
 
 
       template<int dim>
@@ -934,8 +1112,8 @@ namespace aspect
             case DeformationType::OlivineDFabric :
               ref_resolved_shear_stress[0] = 1;
               ref_resolved_shear_stress[1] = 1;
-              ref_resolved_shear_stress[2] = max_value;
-              ref_resolved_shear_stress[3] = 3;
+              ref_resolved_shear_stress[2] = 3;
+              ref_resolved_shear_stress[3] = max_value;
               break;
 
             // Kaminski, Ribe and Browaeys, JGI, 2004 (same as in the matlab code)
@@ -1058,17 +1236,26 @@ namespace aspect
       LPO<dim>::get_property_information() const
       {
         std::vector<std::pair<std::string,unsigned int>> property_information;
-
+        
         for (size_t mineral_i = 0; mineral_i < n_minerals; mineral_i++)
           {
             property_information.push_back(std::make_pair("cpo mineral " + std::to_string(mineral_i) + " type",1));
             property_information.push_back(std::make_pair("cpo mineral " + std::to_string(mineral_i) + " volume fraction",1));
+            
             for (unsigned int grain_i = 0; grain_i < n_grains; ++grain_i)
               {
                 property_information.push_back(std::make_pair("cpo mineral " + std::to_string(mineral_i) + " grain " + std::to_string(grain_i) + " volume fraction",1));
                 for (unsigned int index = 0; index < Tensor<2,3>::n_independent_components; index++)
                   {
                     property_information.push_back(std::make_pair("cpo mineral " + std::to_string(mineral_i) + " grain " + std::to_string(grain_i) + " a_cosine_matrix " + std::to_string(index),1));
+                  }
+                for (unsigned int index = 0; index < 4; index++)
+                  {
+                    property_information.push_back(std::make_pair("cpo mineral " + std::to_string(mineral_i) + " grain " + std::to_string(grain_i) + " disl dens " + std::to_string(index),1));
+                  }
+                for (unsigned int index = 0; index < 4; index++)
+                  {
+                    property_information.push_back(std::make_pair("cpo mineral " + std::to_string(mineral_i) + " grain " + std::to_string(grain_i) + " recryst frac " + std::to_string(index),1));
                   }
               }
           }
@@ -1252,7 +1439,9 @@ namespace aspect
                                     const SymmetricTensor<2,3> &strain_rate,
                                     const Tensor<2,3> &velocity_gradient_tensor,
                                     const double volume_fraction_mineral,
-                                    const std::array<double,4> &ref_resolved_shear_stress) const
+                                    const std::array<double,4> &ref_resolved_shear_stress,
+                                    std::vector<std::array<double,4>> &dislocation_densities,
+                                    std::vector<std::array<double,4>> &recrystalized_fraction) const
       {
         //
         std::vector<double> k_volume_fractions_zero = volume_fractions;
@@ -1280,7 +1469,9 @@ namespace aspect
                                                         strain_rate,
                                                         velocity_gradient_tensor,
                                                         volume_fraction_mineral,
-                                                        ref_resolved_shear_stress);
+                                                        ref_resolved_shear_stress,
+                                                        dislocation_densities,
+                                                        recrystalized_fraction);
               break;
             default:
               AssertThrow(false, ExcMessage("Internal error."));
@@ -1314,6 +1505,8 @@ namespace aspect
                                              const Tensor<2,3> &velocity_gradient_tensor,
                                              const double volume_fraction_mineral,
                                              const std::array<double,4> &ref_resolved_shear_stress,
+                                             std::vector<std::array<double,4>> &dislocation_densities,
+                                             std::vector<std::array<double,4>> &recrystalized_fraction,
                                              const bool prevent_nondimensionalization) const
       {
         SymmetricTensor<2,3> strain_rate_nondimensional = strain_rate;
@@ -1480,21 +1673,36 @@ namespace aspect
             // Note tau = RRSS = (tau_m^s/tau_o), this why we get tau^(p-n)
             const double rhos1 = std::pow(tau[index_max_q],exponent_p-stress_exponent) *
                                  std::pow(std::abs(gamma*beta[index_max_q]),exponent_p/stress_exponent);
+            dislocation_densities[grain_i][0] = rhos1;
 
             const double rhos2 = std::pow(tau[index_intermediate_q],exponent_p-stress_exponent) *
                                  std::pow(std::abs(gamma*beta[index_intermediate_q]),exponent_p/stress_exponent);
+            dislocation_densities[grain_i][1] = rhos2;
 
             const double rhos3 = std::pow(tau[index_min_q],exponent_p-stress_exponent) *
                                  std::pow(std::abs(gamma*beta[index_min_q]),exponent_p/stress_exponent);
+            dislocation_densities[grain_i][2] = rhos3;
 
             const double rhos4 = std::pow(tau[index_inactive_q],exponent_p-stress_exponent) *
                                  std::pow(std::abs(gamma*beta[index_inactive_q]),exponent_p/stress_exponent);
+            dislocation_densities[grain_i][3] = rhos4;
 
             strain_energy[grain_i] = (rhos1 * exp(-nucleation_efficientcy * rhos1 * rhos1)
                                       + rhos2 * exp(-nucleation_efficientcy * rhos2 * rhos2)
                                       + rhos3 * exp(-nucleation_efficientcy * rhos3 * rhos3)
                                       + rhos4 * exp(-nucleation_efficientcy * rhos4 * rhos4));
 
+
+            recrystalized_fraction[grain_i][0] = exp(-nucleation_efficientcy * rhos1 * rhos1);
+            recrystalized_fraction[grain_i][1] = exp(-nucleation_efficientcy * rhos2 * rhos2);
+            recrystalized_fraction[grain_i][2] = exp(-nucleation_efficientcy * rhos3 * rhos3);
+            recrystalized_fraction[grain_i][3] = exp(-nucleation_efficientcy * rhos4 * rhos4);
+
+//std::cout << "strain_energy[" + std::to_string(grain_i) + "] is not finite: " + std::to_string(strain_energy[grain_i])
+//                                                                + ", rhos1 = " + std::to_string(rhos1) + ", rhos2 = " + std::to_string(rhos2) + ", rhos3 = " + std::to_string(rhos3)
+//                                                                + ", rhos4= " + std::to_string(rhos4) + ", nucleation_efficientcy = " + std::to_string(nucleation_efficientcy)
+//                                                                + ", recrist 1: " << exp(-nucleation_efficientcy * rhos1 * rhos1) << ", 2: " << exp(-nucleation_efficientcy * rhos2 * rhos2)
+//                                                                 << ", 3: " << exp(-nucleation_efficientcy * rhos3 * rhos3) << ", 4: " << exp(-nucleation_efficientcy * rhos4 * rhos4) << "." << std::endl;
 
             Assert(isfinite(strain_energy[grain_i]), ExcMessage("strain_energy[" + std::to_string(grain_i) + "] is not finite: " + std::to_string(strain_energy[grain_i])
                                                                 + ", rhos1 = " + std::to_string(rhos1) + ", rhos2 = " + std::to_string(rhos2) + ", rhos3 = " + std::to_string(rhos3)
@@ -1630,6 +1838,33 @@ namespace aspect
                                    Patterns::Double(0),
                                    "This is the grain-boundary sliding threshold. ");
 
+                prm.declare_entry ("Randomize direction below threshold GWB", "false",
+                                   Patterns::Bool(),
+                                   "Randomize the grain direction if the grain size falls below"
+                                   "the threshold GBS.");
+
+                prm.declare_entry ("Max grain size", "1.",
+                                   Patterns::Double(0),
+                                   "Force a maximum grain size. This action is performed after the normalization. "
+                                   "The result is normalized again afterwards, so in pratice the grain size may be "
+                                   "slightly larger than this max value.");
+
+
+                prm.declare_entry ("Initialize grain with normal distribution", "false",
+                                   Patterns::Bool(),
+                                   "Initialize grains grains with a normal distribution instead of a uniform distribution. "
+                                   "The value provided by the distribution is cut of between 0 and 1 and all values are normalized "
+                                   "between 0 and 1.");
+
+                prm.declare_entry ("Initial grains mean", "0.5",
+                                   Patterns::Double(0),
+                                   "The mean of the initial grain size.");
+
+                prm.declare_entry ("Initial grains standard deviation", "0.1",
+                                   Patterns::Double(0),
+                                   "The standard deviation of the initial grain size. "
+                                   "Note that values will be cut of and normalized between 0 and 1.");
+
                 prm.declare_entry ("Use World Builder", "false",
                                    Patterns::Anything(),
                                    "Whether to use the world builder for setting the LPO.");
@@ -1709,6 +1944,11 @@ namespace aspect
                 exponent_p = prm.get_double("Exponents p");
                 nucleation_efficientcy = prm.get_double("Nucleation efficientcy");
                 threshold_GBS = prm.get_double("Threshold GBS");
+                randomize_small_grains = prm.get_bool("Randomize direction below threshold GWB");
+                max_grain_size = prm.get_double("Max grain size");
+                initialize_grains_with_normal_distribution = prm.get_bool("Initialize grain with normal distribution");
+                initialize_grains_with_normal_distribution_mean= prm.get_double("Initial grains mean");
+                initialize_grains_with_normal_distribution_standard_deviation = prm.get_double("Initial grains standard deviation");
                 use_world_builder = prm.get_bool("Use World Builder");
 
                 const std::vector<std::string> temp_deformation_type_selector = dealii::Utilities::split_string_list(prm.get("Minerals"));

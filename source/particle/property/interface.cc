@@ -95,7 +95,6 @@ namespace aspect
         const std::vector<std::string>::const_iterator field = std::find(field_names.begin(),
                                                                          field_names.end(),
                                                                          name);
-
         AssertThrow(field != field_names.end(),
                     ExcMessage("The particle property manager was asked for a property "
                                "field with the name <" + name + ">, but no such field could "

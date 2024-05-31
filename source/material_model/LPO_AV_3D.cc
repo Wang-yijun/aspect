@@ -655,7 +655,7 @@ namespace aspect
                 }
               else
                 {
-                  stress = 2 * out.viscosities[q] * deviatoric_strain_rate /1e6;
+                  stress = 2 * out.viscosities[q] * deviatoric_strain_rate;
                   // std::cout << "deviatoric strain rate " << deviatoric_strain_rate << std::endl;
                   // std::cout << "out.viscosities[q] " << out.viscosities[q] << std::endl;
                   // std::cout << "Isotropic stress " << stress << std::endl;

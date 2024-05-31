@@ -27,6 +27,7 @@
 
 DEAL_II_DISABLE_EXTRA_DIAGNOSTICS
 #include <boost/random.hpp>
+#include <boost/math/distributions/normal.hpp>
 DEAL_II_ENABLE_EXTRA_DIAGNOSTICS
 
 namespace aspect
@@ -188,7 +189,9 @@ namespace aspect
                              std::vector<unsigned int> &deformation_type,
                              std::vector<double> &volume_fraction_mineral,
                              std::vector<std::vector<double>> &volume_fractions_mineral,
-                             std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_mineral);
+                             std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_mineral,
+                             std::vector<std::vector<std::array<double,4>>> &dislocation_densities,
+                             std::vector<std::vector<std::array<double,4>>> &recrystalized_fraction);
 
 
           /**
@@ -202,7 +205,9 @@ namespace aspect
                                       std::vector<std::vector<double>> &volume_fractions_mineral,
                                       std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_mineral,
                                       std::vector<std::vector<double>> &volume_fractions_mineral_derivatives,
-                                      std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_mineral_derivatives) const;
+                                      std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_mineral_derivatives,
+                                      std::vector<std::vector<std::array<double,4>>> &dislocation_densities,
+                                      std::vector<std::vector<std::array<double,4>>> &recrystalized_fraction) const;
 
           /**
            * Stores information in variables into the data array
@@ -214,7 +219,9 @@ namespace aspect
                               std::vector<unsigned int> &deformation_type,
                               std::vector<double> &volume_fraction_mineral,
                               std::vector<std::vector<double>> &volume_fractions_mineral,
-                              std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_mineral);
+                              std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_mineral,
+                              std::vector<std::vector<std::array<double,4>>> &dislocation_densities,
+                              std::vector<std::vector<std::array<double,4>>> &recrystalized_fraction);
           /**
            * Stores information in variables into the data array
            */
@@ -226,12 +233,17 @@ namespace aspect
                                        std::vector<std::vector<double>> &volume_fractions_mineral,
                                        std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_mineral,
                                        std::vector<std::vector<double>> &volume_fractions_mineral_derivatives,
-                                       std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_mineral_derivatives) const;
+                                       std::vector<std::vector<Tensor<2,3>>> &a_cosine_matrices_mineral_derivatives,
+                                       std::vector<std::vector<std::array<double,4>>> &dislocation_densities,
+                                       std::vector<std::vector<std::array<double,4>>> &recrystalized_fraction) const;
 
           /**
            * Find nearest orthogonal matrix using a SVD if the
            * deteriminant is more than a tolerance away from one.
            */
+          void
+          orthogonalize_matrix(dealii::Tensor<2, 3> &tensor,
+                               double tolerance) const;
 
           /**
            * todo
@@ -292,7 +304,9 @@ namespace aspect
                               const SymmetricTensor<2,3> &strain_rate_nondimensional,
                               const Tensor<2,3> &velocity_gradient_tensor_nondimensional,
                               const double volume_fraction_mineral,
-                              const std::array<double,4> &ref_resolved_shear_stress) const;
+                              const std::array<double,4> &ref_resolved_shear_stress,
+                              std::vector<std::array<double,4>> &dislocation_densities,
+                              std::vector<std::array<double,4>> &recrystalized_fraction) const;
 
           /**
            * derivatives: Todo
@@ -318,6 +332,8 @@ namespace aspect
                                        const Tensor<2,3> &velocity_gradient_tensor_nondimensional,
                                        const double volume_fraction_mineral,
                                        const std::array<double,4> &ref_resolved_shear_stress,
+                                       std::vector<std::array<double,4>> &dislocation_densities,
+                                       std::vector<std::array<double,4>> &recrystalized_fraction,
                                        const bool prevent_nondimensionalization = false) const;
 
           std::vector<std::vector<double>>
@@ -380,6 +396,13 @@ namespace aspect
           mutable boost::lagged_fibonacci44497            random_number_generator;
           //boost::variate_generator<boost::lagged_fibonacci44497&, boost::random::uniform_real_distribution<double>> get_random_number;
           unsigned int random_number_seed;
+
+          bool randomize_small_grains;
+          double max_grain_size;
+
+          bool initialize_grains_with_normal_distribution;
+          double initialize_grains_with_normal_distribution_mean;
+          double initialize_grains_with_normal_distribution_standard_deviation;
 
           static
           unsigned int n_grains;

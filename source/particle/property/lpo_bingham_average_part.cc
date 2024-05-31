@@ -83,13 +83,17 @@ namespace aspect
         std::vector<double> volume_fraction_mineral;
         std::vector<std::vector<double>> volume_fractions_grains;
         std::vector<std::vector<Tensor<2,3>>> a_cosine_matrices_grains;
+        std::vector<std::vector<std::array<double,4>>> dislocation_densities;
+        std::vector<std::vector<std::array<double,4>>> recrystalized_fraction;
 
         Particle::Property::LPO<dim>::load_particle_data(lpo_data_position,
                                                          data,
                                                          deformation_type,
                                                          volume_fraction_mineral,
                                                          volume_fractions_grains,
-                                                         a_cosine_matrices_grains);
+                                                         a_cosine_matrices_grains,
+                                                         dislocation_densities,
+                                                         recrystalized_fraction);
 
 
         //std::cout << "bingham n_minerals = " << n_minerals << ", n_grains = " << n_grains << std::endl;
@@ -98,7 +102,7 @@ namespace aspect
         const std::array<std::array<double,6>,3> bingham_average = compute_bingham_average(weighted_a_matrices);
 
         for (unsigned int i = 0; i < 3; i++)
-          for (unsigned int j = 0; j < 5; j++)
+          for (unsigned int j = 0; j < 6; j++)
             {
               data.emplace_back(bingham_average[i][j]);
               //std::cout << counter << ": " << bingham_average[i][j] << std::endl; counter++;
@@ -120,13 +124,17 @@ namespace aspect
         std::vector<double> volume_fraction_mineral;
         std::vector<std::vector<double>> volume_fractions_grains;
         std::vector<std::vector<Tensor<2,3>>> a_cosine_matrices_grains;
+        std::vector<std::vector<std::array<double,4>>> dislocation_densities;
+        std::vector<std::vector<std::array<double,4>>> recrystalized_fraction;
 
         Particle::Property::LPO<dim>::load_particle_data(lpo_data_position,
                                                          data,
                                                          deformation_type,
                                                          volume_fraction_mineral,
                                                          volume_fractions_grains,
-                                                         a_cosine_matrices_grains);
+                                                         a_cosine_matrices_grains,
+                                                         dislocation_densities,
+                                                         recrystalized_fraction);
 
 
         const std::vector<Tensor<2,3>> weighted_a_matrices = random_draw_volume_weighting(volume_fractions_grains[0], a_cosine_matrices_grains[0], n_samples);
@@ -134,7 +142,7 @@ namespace aspect
 
         unsigned int counter = 0;
         for (unsigned int i = 0; i < 3; i++)
-          for (unsigned int j = 0; j < 5; j++)
+          for (unsigned int j = 0; j < 6; j++)
             {
               data[data_position + counter] = bingham_average[i][j];
               counter++;
@@ -317,9 +325,9 @@ namespace aspect
       LpoBinghamAverage_part<dim>::get_property_information() const
       {
         std::vector<std::pair<std::string,unsigned int>> property_information;
-        property_information.push_back(std::make_pair("lpo_bingham_avg_a",5));
-        property_information.push_back(std::make_pair("lpo_bingham_avg_b",5));
-        property_information.push_back(std::make_pair("lpo_bingham_avg_c",5));
+        property_information.push_back(std::make_pair("lpo_bingham_avg_a",6));
+        property_information.push_back(std::make_pair("lpo_bingham_avg_b",6));
+        property_information.push_back(std::make_pair("lpo_bingham_avg_c",6));
 
         //std::cout << "bingham property_information.size() = " << property_information.size() << std::endl;
 
