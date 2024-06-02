@@ -54,6 +54,7 @@
 /tests/*.x.prm
 /tests/lib*.so
 /Testing
+/contrib/world_builder/
 
 # used for clion:
 
