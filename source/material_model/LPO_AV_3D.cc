@@ -634,7 +634,7 @@ namespace aspect
               //Create constant value to use for AV
               const double A_o = 1.1e5*exp(-530000/(8.314*in.temperature[q]));
               const double n = 3.5;
-              const double Gamma = (A_o/(std::pow(grain_size,0.73))) * std::pow(1e6,-n);
+              const double Gamma = (A_o/(std::pow(grain_size,0.73))) / std::pow(1e6,-n);
               std::cout<<"Gamma: "<<Gamma<<std::endl;
               if (PrescribedFieldOutputs<dim> *prescribed_field_out = out.template get_additional_output<PrescribedFieldOutputs<dim>>())
                 {

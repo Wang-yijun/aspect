@@ -1043,7 +1043,7 @@ namespace aspect
       InitializationModeForLateParticles
       LPO<dim>::late_initialization_mode () const
       {
-        return InitializationModeForLateParticles::initialize;
+        return InitializationModeForLateParticles::interpolate;
       }
 
       template <int dim>
