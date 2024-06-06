@@ -609,6 +609,7 @@ namespace aspect
           equation_of_state.evaluate(in, q, eos_outputs);
           out.densities[q] = eos_outputs.densities[0];//Change this to 0 for the simple shear box test
           out.viscosities[q] = eta; //Later it is going to be overwritten by the effective viscosity
+          std::cout << "out.viscosities[q]: " << eta << std::endl;
           out.thermal_expansion_coefficients[q] = 1e-10;
           out.specific_heat[q] = 1;
           out.thermal_conductivities[q] = 1;
@@ -634,8 +635,8 @@ namespace aspect
               //Create constant value to use for AV
               const double A_o = 1.1e5*exp(-530000/(8.314*in.temperature[q]));
               const double n = 3.5;
-              const double Gamma = (A_o/(std::pow(grain_size,0.73))) / std::pow(1e6,-n);
-              std::cout<<"Gamma: "<<Gamma<<std::endl;
+              const double Gamma = (A_o/(std::pow(grain_size,0.73)));// in MPa^(-n)
+              // std::cout<<"Gamma: "<<Gamma<<std::endl;
               if (PrescribedFieldOutputs<dim> *prescribed_field_out = out.template get_additional_output<PrescribedFieldOutputs<dim>>())
                 {
                   SymmetricTensor<4,dim> old_stress_strain_director;
@@ -648,17 +649,12 @@ namespace aspect
                           ExcMessage("Assigned prescribed field should be finite"));
                     }
                   std::copy(ssd_array.begin(), ssd_array.end(), old_stress_strain_director.begin_raw());
-                  stress = 2 * out.viscosities[q] * old_stress_strain_director * deviatoric_strain_rate;                 
-                  // std::cout << "deviatoric strain rate " << deviatoric_strain_rate << std::endl;
-                  // std::cout << "out.viscosities[q] " << out.viscosities[q] << std::endl;
-                  // std::cout << "old_stress_strain_director " << old_stress_strain_director << std::endl;
+                  stress = 2 * out.viscosities[q] * old_stress_strain_director * deviatoric_strain_rate /1e6; // Use stress in MPa           
                   std::cout << "Anisotropic stress using pf " << stress << std::endl;
                 }
               else
                 {
-                  stress = 2 * out.viscosities[q] * deviatoric_strain_rate;
-                  // std::cout << "deviatoric strain rate " << deviatoric_strain_rate << std::endl;
-                  // std::cout << "out.viscosities[q] " << out.viscosities[q] << std::endl;
+                  stress = 2 * out.viscosities[q] * deviatoric_strain_rate /1e6; // Use stress in MPa
                   std::cout << "Isotropic stress " << stress << std::endl;
                 }
 
@@ -751,13 +747,13 @@ namespace aspect
               R_CPO_K[5][5] = R[0][0]*R[1][1]+R[0][1]*R[1][0];
 
               Tensor<2,3> S_CPO=transpose(R)*stress*R;
-              // std::cout << "S_CPO " << S_CPO <<std::endl;
+
               double Jhill = F*pow((S_CPO[0][0]-S_CPO[1][1]),2) + G*pow((S_CPO[1][1]-S_CPO[2][2]),2) + H*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);
               if (Jhill < 0)
                 {
                   Jhill = std::abs(F)*pow((S_CPO[0][0]-S_CPO[1][1]),2) + std::abs(G)*pow((S_CPO[1][1]-S_CPO[2][2]),2) + std::abs(H)*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);            
                 }              
-              std::cout << "Jhill " << Jhill <<std::endl;
+              // std::cout << "Jhill " << Jhill <<std::endl;
 
               AssertThrow(isfinite(Jhill),
                           ExcMessage("Jhill should be finite"));
@@ -779,7 +775,7 @@ namespace aspect
               Tensor<2,6> V = R_CPO_K * invA * transpose(R_CPO_K);
 
               //Overwrite the scalar viscosity with an effective viscosity
-              out.viscosities[q] = (1 / (Gamma * std::pow(Jhill,(n-1)/2)));
+              out.viscosities[q] = (1 / (Gamma * std::pow(Jhill,(n-1)/2))) * 1e6; // convert from MPa to Pa
               std::cout << "out.viscosities[q] " << out.viscosities[q] << std::endl;
 
               AssertThrow(out.viscosities[q] != 0,
@@ -808,7 +804,7 @@ namespace aspect
               V_r4[2][2][2][2]=V[2][2];
               V_r4[2][2][1][2]=V[2][3]/sqrt(2);
               V_r4[2][2][0][2]=V[2][4]/sqrt(2);
-              V_r4[2][2][0][1]=V[2][5];
+              V_r4[2][2][0][1]=V[2][5]/sqrt(2);
 
               V_r4[1][2][0][0]=V[3][0]/sqrt(2);
               V_r4[1][2][1][1]=V[3][1]/sqrt(2);
