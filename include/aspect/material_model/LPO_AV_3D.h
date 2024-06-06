@@ -82,14 +82,14 @@ namespace aspect
     class LPO_AV_3D : public MaterialModel::Simple<dim>
     {
       public:
-        virtual void initialize();
+        virtual void initialize() override;
         virtual void evaluate (const MaterialModel::MaterialModelInputs<dim> &in,
-                               MaterialModel::MaterialModelOutputs<dim> &out) const;
+                               MaterialModel::MaterialModelOutputs<dim> &out) const override;
         static void declare_parameters (ParameterHandler &prm);
-        virtual void parse_parameters (ParameterHandler &prm);
-        virtual bool is_compressible () const;
+        virtual void parse_parameters (ParameterHandler &prm) override;
+        virtual bool is_compressible () const override;
         virtual double reference_viscosity () const;
-        virtual void create_additional_named_outputs(MaterialModel::MaterialModelOutputs<dim> &out) const;
+        virtual void create_additional_named_outputs(MaterialModel::MaterialModelOutputs<dim> &out) const override;
       private:
         double eta; //reference viscosity
         /**

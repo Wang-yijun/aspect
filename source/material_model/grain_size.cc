@@ -57,7 +57,8 @@ namespace aspect
       :
       NamedAdditionalMaterialOutputs<dim>(make_dislocation_viscosity_outputs_names()),
       dislocation_viscosities(n_points, numbers::signaling_nan<double>()),
-      diffusion_viscosities(n_points, numbers::signaling_nan<double>())
+      diffusion_viscosities(n_points, numbers::signaling_nan<double>()),
+      boundary_area_change_work_fractions(n_points, numbers::signaling_nan<double>())
     {}
 
 
