@@ -47,13 +47,7 @@ namespace aspect
       public:
         AV(const unsigned int n_points);
 
-        static double J2_second_invariant(const SymmetricTensor<2,dim> t, const double min_strain_rate);
-
-
-
-
-
-        virtual std::vector<double> get_nth_output(const unsigned int idx) const;
+        std::vector<double> get_nth_output(const unsigned int idx) const override;
 
         /**
          * Stress-strain "director" tensors at the given positions. This
@@ -68,8 +62,6 @@ namespace aspect
          */
         std::vector<SymmetricTensor<4,dim>> stress_strain_directors;
 
-        static Tensor <2,3> euler_angles_to_rotation_matrix(double phi1_d, double theta_d, double phi2_d);
-
 
 
     };
@@ -82,14 +74,14 @@ namespace aspect
     class LPO_AV_3D : public MaterialModel::Simple<dim>
     {
       public:
-        virtual void initialize() override;
-        virtual void evaluate (const MaterialModel::MaterialModelInputs<dim> &in,
+        void initialize() override;
+        void evaluate (const MaterialModel::MaterialModelInputs<dim> &in,
                                MaterialModel::MaterialModelOutputs<dim> &out) const override;
         static void declare_parameters (ParameterHandler &prm);
-        virtual void parse_parameters (ParameterHandler &prm) override;
-        virtual bool is_compressible () const override;
-        virtual double reference_viscosity () const;
-        virtual void create_additional_named_outputs(MaterialModel::MaterialModelOutputs<dim> &out) const override;
+        void parse_parameters (ParameterHandler &prm) override;
+        bool is_compressible () const override;
+        double reference_viscosity () const;
+        void create_additional_named_outputs(MaterialModel::MaterialModelOutputs<dim> &out) const override;
       private:
         double eta; //reference viscosity
         /**
@@ -97,7 +89,7 @@ namespace aspect
          * which involves a division by the strain rate. Units: 1/s.
          */
         double min_strain_rate;
-        std::vector<unsigned int> lpo_bingham_avg_a, lpo_bingham_avg_b, lpo_bingham_avg_c;
+        std::vector<unsigned int> cpo_bingham_avg_a, cpo_bingham_avg_b, cpo_bingham_avg_c;
         double grain_size;
         std::vector<double> CnI_F, CnI_G, CnI_H, CnI_L, CnI_M, CnI_N;
 

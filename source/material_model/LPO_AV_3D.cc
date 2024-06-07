@@ -135,15 +135,14 @@ namespace aspect
       public SimulatorAccess<dim>
     {
       public:
-        virtual
         void
         execute(internal::Assembly::Scratch::ScratchBase<dim>   &scratch,
-                internal::Assembly::CopyData::CopyDataBase<dim> &data) const;
+                internal::Assembly::CopyData::CopyDataBase<dim> &data) const override;
 
         /**
          * Create AnisotropicViscosities.
          */
-        virtual void create_additional_material_model_outputs(MaterialModel::MaterialModelOutputs<dim> &outputs) const;
+        void create_additional_material_model_outputs(MaterialModel::MaterialModelOutputs<dim> &outputs) const override;
     };
 
     /**
@@ -155,15 +154,14 @@ namespace aspect
       public SimulatorAccess<dim>
     {
       public:
-        virtual
         void
         execute(internal::Assembly::Scratch::ScratchBase<dim>   &scratch,
-                internal::Assembly::CopyData::CopyDataBase<dim> &data) const;
+                internal::Assembly::CopyData::CopyDataBase<dim> &data) const override;
 
         /**
          * Create AdditionalMaterialOutputsStokesRHS if we need to do so.
          */
-        virtual void create_additional_material_model_outputs(MaterialModel::MaterialModelOutputs<dim> &outputs) const;
+       void create_additional_material_model_outputs(MaterialModel::MaterialModelOutputs<dim> &outputs) const override;
     };
 
 
@@ -372,18 +370,16 @@ namespace aspect
         /**
          * Compute the heating model outputs for this class.
          */
-        virtual
         void
         evaluate (const MaterialModel::MaterialModelInputs<dim> &material_model_inputs,
                   const MaterialModel::MaterialModelOutputs<dim> &material_model_outputs,
-                  HeatingModel::HeatingModelOutputs &heating_model_outputs) const;
+                  HeatingModel::HeatingModelOutputs &heating_model_outputs) const override;
 
         /**
          * Allow the heating model to attach additional material model outputs.
          */
-        virtual
         void
-        create_additional_material_model_outputs(MaterialModel::MaterialModelOutputs<dim> &material_model_outputs) const;
+        create_additional_material_model_outputs(MaterialModel::MaterialModelOutputs<dim> &material_model_outputs) const override;
     };
 
 
@@ -510,62 +506,28 @@ namespace aspect
       AssertThrow((dim==3),
                   ExcMessage("Olivine has 3 independent slip systems, allowing for deformation in 3 independent directions, hence these models only work in 3D"));
 
-      lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvector_a1"));
-      lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvector_a2"));
-      lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvector_a3"));
-      lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a1"));
-      lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a2"));
-      lpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a3"));
+      cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvector_a1"));
+      cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvector_a2"));
+      cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvector_a3"));
+      cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a1"));
+      cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a2"));
+      cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a3"));
 
-      lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b1"));
-      lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b2"));
-      lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b3"));
-      lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b1"));
-      lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b2"));
-      lpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b3"));
+      cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b1"));
+      cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b2"));
+      cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b3"));
+      cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b1"));
+      cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b2"));
+      cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b3"));
 
-      lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c1"));
-      lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c2"));
-      lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c3"));
-      lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c1"));
-      lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c2"));
-      lpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c3"));
-
-
-    }
+      cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c1"));
+      cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c2"));
+      cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c3"));
+      cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c1"));
+      cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c2"));
+      cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c3"));
 
 
-
-
-    template <int dim>
-    double
-    AV<dim>::J2_second_invariant(const SymmetricTensor<2,dim> t, const double min_strain_rate)
-    {
-      const double J2_strict = (1.0/6.0*(std::pow(double (t[0][0] - t[1][1]),2) + std::pow(double (t[1][1] - t[2][2]),2)+std::pow(double (t[2][2] - t[0][0]),2)))+(std::pow(t[0][1],2)+std::pow(t[1][2],2)+std::pow(t[2][0],2));
-      const double J2 = std::max(J2_strict, std::pow(min_strain_rate,2)); //prevents having too small values (also used in compute_second_invariant for strain rate)
-      return J2;
-    }
-
-    template<int dim>
-    Tensor<2,3>
-    AV<dim>::euler_angles_to_rotation_matrix(double phi1, double theta, double phi2)
-    {
-      Tensor<2,3> rot_matrix;
-
-      //R3*R2*R1 ZXZ rotation. Note it is not exactly the same as in utilities.cc
-      rot_matrix[0][0] = cos(phi2)*cos(phi1) - cos(theta)*sin(phi1)*sin(phi2);
-      rot_matrix[0][1] = cos(phi2)*sin(phi1) + cos(theta)*cos(phi1)*sin(phi2);
-      rot_matrix[0][2] = sin(phi2)*sin(theta);
-
-      rot_matrix[1][0] = -sin(phi2)*cos(phi1) - cos(theta)*sin(phi1)*cos(phi2);
-      rot_matrix[1][1] = -sin(phi2)*sin(phi1) + cos(theta)*cos(phi1)*cos(phi2);
-      rot_matrix[1][2] = cos(phi2)*sin(theta);
-
-      rot_matrix[2][0] = sin(theta)*sin(phi1);
-      rot_matrix[2][1] = -sin(theta)*cos(phi1);
-      rot_matrix[2][2] = cos(theta);
-      AssertThrow(rot_matrix[2][2] <= 1.0, ExcMessage("rot_matrix[2][2] > 1.0"));
-      return rot_matrix;
     }
 
 
@@ -600,10 +562,10 @@ namespace aspect
         {
           //change these according to diffusion dislocation material model I guess
           equation_of_state.evaluate(in, q, eos_outputs);
-          out.densities[q] = 0;//Change this to 0 for the simple shear box test
+          out.densities[q] = 3300;//Change this to 0 for the simple shear box test
           out.viscosities[q] = eta; //Later it is going to be overwritten by the effective viscosity
-          out.thermal_expansion_coefficients[q] = 1e-10;
-          out.specific_heat[q] = 1;
+          out.thermal_expansion_coefficients[q] = 3.5e-5;
+          out.specific_heat[q] = 1.25e3;
           out.thermal_conductivities[q] = 1;
           out.compressibilities[q] = 0.0;
           out.entropy_derivative_pressure[q] = 0.0;
@@ -628,7 +590,7 @@ namespace aspect
               const double A_o = 1.1e5*exp(-530000/(8.314*in.temperature[q]));
               const double n = 3.5;
               const double Gamma = (A_o/(std::pow(grain_size,0.73)));// in MPa^(-n)
-              // std::cout<<"Gamma: "<<Gamma<<std::endl;
+
               if (PrescribedFieldOutputs<dim> *prescribed_field_out = out.template get_additional_output<PrescribedFieldOutputs<dim>>())
                 {
                   SymmetricTensor<4,dim> old_stress_strain_director;
@@ -642,36 +604,36 @@ namespace aspect
                     }
                   std::copy(ssd_array.begin(), ssd_array.end(), old_stress_strain_director.begin_raw());
                   stress = 2 * out.viscosities[q] * old_stress_strain_director * deviatoric_strain_rate /1e6; // Use stress in MPa           
-                  std::cout << "Anisotropic stress using pf " << stress << std::endl;
+                  // std::cout << "Anisotropic stress using pf " << stress << std::endl;
                 }
               else
                 {
                   stress = 2 * out.viscosities[q] * deviatoric_strain_rate /1e6; // Use stress in MPa
-                  std::cout << "Isotropic stress " << stress << std::endl;
+                  // std::cout << "Isotropic stress " << stress << std::endl;
                 }
 
               //Get eigen values from compositional fields
-              const double eigvalue_a1 = composition[lpo_bingham_avg_a[3]];
-              const double eigvalue_b1 = composition[lpo_bingham_avg_b[3]];
-              const double eigvalue_c1 = composition[lpo_bingham_avg_c[3]];
-              const double eigvalue_a2 = composition[lpo_bingham_avg_a[4]];
-              const double eigvalue_b2 = composition[lpo_bingham_avg_b[4]];
-              const double eigvalue_c2 = composition[lpo_bingham_avg_c[4]];
-              const double eigvalue_a3 = composition[lpo_bingham_avg_a[5]];
-              const double eigvalue_b3 = composition[lpo_bingham_avg_b[5]];
-              const double eigvalue_c3 = composition[lpo_bingham_avg_c[5]];
+              const double eigvalue_a1 = composition[cpo_bingham_avg_a[3]];
+              const double eigvalue_b1 = composition[cpo_bingham_avg_b[3]];
+              const double eigvalue_c1 = composition[cpo_bingham_avg_c[3]];
+              const double eigvalue_a2 = composition[cpo_bingham_avg_a[4]];
+              const double eigvalue_b2 = composition[cpo_bingham_avg_b[4]];
+              const double eigvalue_c2 = composition[cpo_bingham_avg_c[4]];
+              const double eigvalue_a3 = composition[cpo_bingham_avg_a[5]];
+              const double eigvalue_b3 = composition[cpo_bingham_avg_b[5]];
+              const double eigvalue_c3 = composition[cpo_bingham_avg_c[5]];
 
               //Get rotation matrix in the CPO reference frame from eigen vectors in compositional fields
               Tensor<2,3> R;
-              R[0][0] = composition[lpo_bingham_avg_a[0]]/(eigvalue_a1*n_grains);
-              R[1][0] = composition[lpo_bingham_avg_a[1]]/(eigvalue_a1*n_grains);
-              R[2][0] = composition[lpo_bingham_avg_a[2]]/(eigvalue_a1*n_grains);
-              R[0][1] = composition[lpo_bingham_avg_b[0]]/(eigvalue_b1*n_grains);
-              R[1][1] = composition[lpo_bingham_avg_b[1]]/(eigvalue_b1*n_grains);
-              R[2][1] = composition[lpo_bingham_avg_b[2]]/(eigvalue_b1*n_grains);
-              R[0][2] = composition[lpo_bingham_avg_c[0]]/(eigvalue_c1*n_grains);
-              R[1][2] = composition[lpo_bingham_avg_c[1]]/(eigvalue_c1*n_grains);
-              R[2][2] = composition[lpo_bingham_avg_c[2]]/(eigvalue_c1*n_grains);
+              R[0][0] = composition[cpo_bingham_avg_a[0]]/(eigvalue_a1*n_grains);
+              R[1][0] = composition[cpo_bingham_avg_a[1]]/(eigvalue_a1*n_grains);
+              R[2][0] = composition[cpo_bingham_avg_a[2]]/(eigvalue_a1*n_grains);
+              R[0][1] = composition[cpo_bingham_avg_b[0]]/(eigvalue_b1*n_grains);
+              R[1][1] = composition[cpo_bingham_avg_b[1]]/(eigvalue_b1*n_grains);
+              R[2][1] = composition[cpo_bingham_avg_b[2]]/(eigvalue_b1*n_grains);
+              R[0][2] = composition[cpo_bingham_avg_c[0]]/(eigvalue_c1*n_grains);
+              R[1][2] = composition[cpo_bingham_avg_c[1]]/(eigvalue_c1*n_grains);
+              R[2][2] = composition[cpo_bingham_avg_c[2]]/(eigvalue_c1*n_grains);
 
               //Compute Hill Parameters FGHLMN from the eigenvalues of a,b,c axis
               double F, G, H, L, M, N;
@@ -937,7 +899,7 @@ namespace aspect
           prm.declare_entry ("Coefficients and intercept for N", "0.9507, 0.3806, -0.0021, -1.9771, -0.0955, -0.0030, 2.2830, 0.4878, 0.0026, 1.0326",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter N.");
-          prm.declare_entry ("Reference viscosity", "1e20",
+          prm.declare_entry ("Reference viscosity", "1e9",
                              Patterns::Double(),
                              "Magnitude of reference viscosity.");
           prm.declare_entry ("Minimum strain rate", "1.4e-20", Patterns::Double(),
