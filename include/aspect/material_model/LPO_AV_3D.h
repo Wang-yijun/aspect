@@ -26,6 +26,7 @@
 #include <aspect/material_model/simple.h>
 #include <aspect/material_model/equation_of_state/interface.h>
 #include <aspect/simulator/assemblers/interface.h>
+#include <aspect/material_model/rheology/diffusion_dislocation.h>
 
 namespace aspect
 {
@@ -83,6 +84,10 @@ namespace aspect
         double reference_viscosity () const;
         void create_additional_named_outputs(MaterialModel::MaterialModelOutputs<dim> &out) const override;
       private:
+        /**
+         * Object for computing viscous creep viscosities.
+         */
+        Rheology::DiffusionDislocation<dim> diffusion_dislocation;
         double eta; //reference viscosity
         /**
          * Defining a minimum strain rate stabilizes the viscosity calculation,

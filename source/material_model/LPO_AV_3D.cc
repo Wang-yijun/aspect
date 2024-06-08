@@ -383,7 +383,6 @@ namespace aspect
     };
 
 
-
     template <int dim>
     void
     ShearHeatingAV<dim>::
@@ -562,17 +561,26 @@ namespace aspect
         {
           //change these according to diffusion dislocation material model I guess
           equation_of_state.evaluate(in, q, eos_outputs);
-          out.densities[q] = 3300;//Change this to 0 for the simple shear box test
-          out.viscosities[q] = eta; //Later it is going to be overwritten by the effective viscosity
-          out.thermal_expansion_coefficients[q] = 3.5e-5;
-          out.specific_heat[q] = 1.25e3;
+
+          // Get parameters for compute the effective viscosity
+          const double temperature = in.temperature[q];
+          const double pressure= in.pressure[q];
+          const std::vector<double> composition = in.composition[q];
+          const std::vector<double> volume_fractions = MaterialUtilities::compute_only_composition_fractions(composition,
+                                                       this->introspection().chemical_composition_field_indices());
+
+          out.densities[q] = eos_outputs.densities[0];
+          out.viscosities[q] = diffusion_dislocation.compute_viscosity(pressure, temperature, volume_fractions, in.strain_rate[q]);
+          // out.viscosities[q] = eta; //Later it is going to be overwritten by the effective viscosity
+          out.thermal_expansion_coefficients[q] = eos_outputs.thermal_expansion_coefficients[0];
+          out.specific_heat[q] = eos_outputs.specific_heat_capacities[0];
           out.thermal_conductivities[q] = 1;
-          out.compressibilities[q] = 0.0;
-          out.entropy_derivative_pressure[q] = 0.0;
-          out.entropy_derivative_temperature[q] = 0.0;
+          out.compressibilities[q] = eos_outputs.compressibilities[0];
+          out.entropy_derivative_pressure[q] = eos_outputs.entropy_derivative_pressure[0];
+          out.entropy_derivative_temperature[q] = eos_outputs.entropy_derivative_temperature[0];
           
           //Calculate effective viscosity         
-          const std::vector<double> &composition = in.composition[q];
+          // const std::vector<double> &composition = in.composition[q];
           const SymmetricTensor<2,dim> strain_rate = in.strain_rate[q];
           const SymmetricTensor<2,dim> deviatoric_strain_rate
             = (this->get_material_model().is_compressible()
@@ -603,12 +611,12 @@ namespace aspect
                           ExcMessage("Assigned prescribed field should be finite"));
                     }
                   std::copy(ssd_array.begin(), ssd_array.end(), old_stress_strain_director.begin_raw());
-                  stress = 2 * out.viscosities[q] * old_stress_strain_director * deviatoric_strain_rate /1e6; // Use stress in MPa           
-                  // std::cout << "Anisotropic stress using pf " << stress << std::endl;
+                  stress = 2 * out.viscosities[q] * old_stress_strain_director * deviatoric_strain_rate; // Use stress in MPa           
+                  std::cout << "Anisotropic stress using pf " << stress << std::endl;
                 }
               else
                 {
-                  stress = 2 * out.viscosities[q] * deviatoric_strain_rate /1e6; // Use stress in MPa
+                  stress = 2 * out.viscosities[q] * deviatoric_strain_rate; // Use stress in MPa
                   // std::cout << "Isotropic stress " << stress << std::endl;
                 }
 
@@ -729,7 +737,7 @@ namespace aspect
               Tensor<2,6> V = R_CPO_K * invA * transpose(R_CPO_K);
 
               //Overwrite the scalar viscosity with an effective viscosity
-              out.viscosities[q] = (1 / (Gamma * std::pow(Jhill,(n-1)/2))) * 1e6; // convert from MPa to Pa
+              out.viscosities[q] = (1 / (Gamma * std::pow(Jhill,(n-1)/2))); // convert from MPa to Pa
               std::cout << "out.viscosities[q] " << out.viscosities[q] << std::endl;
 
               AssertThrow(out.viscosities[q] != 0,
@@ -850,6 +858,7 @@ namespace aspect
           CnI_M = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for M")));
           CnI_N = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for N")));
 
+          diffusion_dislocation.parse_parameters(prm);
         }
         prm.leave_subsection();
       }
@@ -907,6 +916,8 @@ namespace aspect
           prm.declare_entry ("Grain size", "1000",
                              Patterns::Double(),
                              "Olivine anisotropic viscosity is dependent of grain size. Value is given in microns");
+
+          Rheology::DiffusionDislocation<dim>::declare_parameters(prm);
         }
         prm.leave_subsection();
       }
