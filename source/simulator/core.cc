@@ -203,7 +203,7 @@ namespace aspect
     // important as it does not improve accuracy. Otherwise, these flags
     // correspond to smoothing_on_refinement|smoothing_on_coarsening.
     triangulation (mpi_communicator,
-                   typename Triangulation<dim>::MeshSmoothing
+                   static_cast<typename Triangulation<dim>::MeshSmoothing>
                    (
                      Triangulation<dim>::limit_level_difference_at_vertices |
                      (Triangulation<dim>::eliminate_unrefined_islands |
@@ -214,7 +214,7 @@ namespace aspect
                    ,
                    (parameters.stokes_solver_type == Parameters<dim>::StokesSolverType::block_gmg
                     ?
-                    typename parallel::distributed::Triangulation<dim>::Settings
+                    static_cast<typename parallel::distributed::Triangulation<dim>::Settings>
                     (parallel::distributed::Triangulation<dim>::mesh_reconstruction_after_repartitioning |
                      parallel::distributed::Triangulation<dim>::construct_multigrid_hierarchy)
                     :
@@ -626,6 +626,7 @@ namespace aspect
     // notify different system components that we started the next time step
     // TODO: implement this for all plugins that might need it at one place.
     // Temperature BC are currently updated in compute_current_constraints
+    geometry_model->update();
     material_model->update();
     gravity_model->update();
     heating_model_manager.update();
@@ -636,6 +637,9 @@ namespace aspect
 
     if (prescribed_stokes_solution.get())
       prescribed_stokes_solution->update();
+
+    if (particle_world.get() != nullptr)
+      particle_world->update();
 
     // do the same for the traction boundary conditions and other things
     // that end up in the bilinear form. we update those that end up in

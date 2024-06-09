@@ -46,7 +46,7 @@
 
 namespace aspect
 {
-  template<int dim>
+  template <int dim>
   struct SimulatorSignals;
 
   namespace Particle
@@ -165,6 +165,11 @@ namespace aspect
          * Initialize the particle world.
          */
         void initialize();
+
+        /**
+         * Update the particle world.
+        */
+        void update();
 
         /**
          * Get the particle property manager for this particle world.

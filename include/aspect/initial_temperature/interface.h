@@ -70,7 +70,7 @@ namespace aspect
      * @ingroup InitialTemperatures
      */
     template <int dim>
-    class Manager : public ::aspect::SimulatorAccess<dim>
+    class Manager : public SimulatorAccess<dim>
     {
       public:
         /**
@@ -78,6 +78,12 @@ namespace aspect
          * functions.
          */
         ~Manager () override;
+
+        /**
+         * Update function. Called once at the beginning of a timestep to
+         * update all plugin objects.
+        */
+        void update();
 
         /**
          * Declare the parameters of all known initial conditions plugins, as

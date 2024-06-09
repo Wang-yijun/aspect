@@ -557,8 +557,7 @@ namespace aspect
             }
           const unsigned int n_processes = Utilities::MPI::n_mpi_processes(
                                              this->get_mpi_communicator());
-          const unsigned int my_file_id = (
-                                            group_files == 0 ? my_id : my_id % group_files);
+          const unsigned int my_file_id = (group_files == 0 ? my_id : my_id % group_files);
           const std::string filename = this->get_output_directory() + "solution/"
                                        + solution_file_prefix + "."
                                        + Utilities::int_to_string(my_file_id, 4) + ".vtu";
@@ -616,16 +615,12 @@ namespace aspect
         }
       else if (output_format == "parallel deal.II intermediate")
         {
-#if DEAL_II_VERSION_GTE(9,5,0)
           const std::string filename = this->get_output_directory() + "solution/"
                                        + solution_file_prefix + ".pd2";
 
           data_out.write_deal_II_intermediate_in_parallel(filename,
                                                           this->get_mpi_communicator(),
                                                           DataOutBase::CompressionLevel::default_compression);
-#else
-          AssertThrow(false, ExcMessage("Parallel deal.II intermediate output requires deal.II 9.5 or newer!"));
-#endif
         }
       else   // Write in a different format than hdf5 or vtu. This case is supported, but is not
         // optimized for parallel output in that every process will write one file directly

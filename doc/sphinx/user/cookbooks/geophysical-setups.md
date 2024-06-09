@@ -98,6 +98,7 @@ cookbooks/initial-condition-S20RTS/doc/initial-condition-S20RTS.md
 cookbooks/gplates/doc/gplates.md
 cookbooks/burnman/doc/burnman.md
 cookbooks/steinberger/doc/steinberger.md
+cookbooks/multicomponent_steinberger/doc/multicomponent_steinberger.md
 cookbooks/morency_doin_2004/doc/morency_doin_2004.md
 cookbooks/crustal_deformation/doc/crustal_deformation.md
 cookbooks/continental_extension/doc/continental_extension.md
@@ -110,6 +111,7 @@ cookbooks/transform_fault_behn_2007/doc/transform_fault_behn_2007.md
 cookbooks/kinematically_driven_subduction_2d/doc/kinematically_driven_subduction_2d.md
 cookbooks/allken_et_al_2012_rift_interaction/doc/allken.md
 cookbooks/tian_parameterization_kinematic_slab/doc/tian_parameterization_kinematic_slab.md
+cookbooks/mantle_convection_with_continents_in_annulus/doc/mantle_convection_in_annulus.md
 cookbooks/inclusions/doc/inclusions.md
 cookbooks/subduction_initiation/doc/subduction_initiation.md
 cookbooks/vankeken_subduction/doc/vankeken_subduction.md
