@@ -23,6 +23,9 @@
 #include <aspect/citation_info.h>
 #include <aspect/utilities.h>
 
+#include <world_builder/grains.h>
+#include <world_builder/world.h>
+
 namespace aspect
 {
   namespace Particle
@@ -123,7 +126,7 @@ namespace aspect
 
       template <int dim>
       void
-      CrystalPreferredOrientation<dim>::initialize_one_particle_property(const Point<dim> &,
+      CrystalPreferredOrientation<dim>::initialize_one_particle_property(const Point<dim> &position,
                                                                          std::vector<double> &data) const
       {
         // the layout of the data vector per particle is the following:
@@ -159,12 +162,32 @@ namespace aspect
             rotation_matrices_grains[mineral_i].resize(n_grains);
 
             // This will be set by the initial grain subsection.
-            bool use_world_builder = false;
-            if (use_world_builder)
+            if (initial_grains_model == CPOInitialGrainsModel::world_builder)
               {
 #ifdef ASPECT_WITH_WORLD_BUILDER
-                AssertThrow(false,
-                            ExcMessage("Not implemented."));
+                WorldBuilder::grains wb_grains = this->get_world_builder().grains(Utilities::convert_point_to_array(position),
+                                                                                  -this->get_geometry_model().height_above_reference_surface(position),
+                                                                                  mineral_i,
+                                                                                  n_grains);
+                double sum_volume_fractions = 0;
+                for (unsigned int grain_i = 0; grain_i < n_grains ; ++grain_i)
+                  {
+                    sum_volume_fractions += wb_grains.sizes[grain_i];
+                    volume_fractions_grains[mineral_i][grain_i] = wb_grains.sizes[grain_i];
+                    // we are receiving a array<array<double,3>,3> from the world builder,
+                    // which needs to be copied in the correct way into a tensor<2,3>.
+                    for (unsigned int component_i = 0; component_i < 3 ; ++component_i)
+                      {
+                        for (unsigned int component_j = 0; component_j < 3 ; ++component_j)
+                          {
+                            Assert(!std::isnan(wb_grains.rotation_matrices[grain_i][component_i][component_j]), ExcMessage("Error: not a number."));
+                            rotation_matrices_grains[mineral_i][grain_i][component_i][component_j] = wb_grains.rotation_matrices[grain_i][component_i][component_j];
+                          }
+                      }
+                  }
+
+                AssertThrow(sum_volume_fractions != 0, ExcMessage("Sum of volumes is equal to zero, which is not supposed to happen. "
+                                                                  "Make sure that all parts of the domain which contain particles are covered by the world builder."));
 #else
                 AssertThrow(false,
                             ExcMessage("The world builder was requested but not provided. Make sure that aspect is "
@@ -207,11 +230,10 @@ namespace aspect
 
       template <int dim>
       void
-      CrystalPreferredOrientation<dim>::update_one_particle_property(const unsigned int data_position,
-                                                                     const Point<dim> &position,
-                                                                     const Vector<double> &solution,
-                                                                     const std::vector<Tensor<1,dim>> &gradients,
-                                                                     const ArrayView<double> &data) const
+      CrystalPreferredOrientation<dim>::update_particle_property(const unsigned int data_position,
+                                                                 const Vector<double> &solution,
+                                                                 const std::vector<Tensor<1,dim>> &gradients,
+                                                                 typename ParticleHandler<dim>::particle_iterator &particle) const
       {
         // STEP 1: Load data and preprocess it.
 
@@ -279,6 +301,8 @@ namespace aspect
             velocity_gradient_3d[2][2] = velocity_gradient[2][2];
           }
 
+        ArrayView<double> data = particle->get_properties();
+
         for (unsigned int mineral_i = 0; mineral_i < n_minerals; ++mineral_i)
           {
 
@@ -295,7 +319,7 @@ namespace aspect
                                                            mineral_i,
                                                            strain_rate_3d,
                                                            velocity_gradient_3d,
-                                                           position,
+                                                           particle->get_location(),
                                                            temperature,
                                                            pressure,
                                                            velocity,
@@ -574,7 +598,7 @@ namespace aspect
                                                                                   deviatoric_strain_rate,
                                                                                   water_content);
 
-              set_deformation_type(cpo_index,data,mineral_i,static_cast<unsigned int>(deformation_type));
+              set_deformation_type(cpo_index,data,mineral_i,deformation_type);
 
               const std::array<double,4> ref_resolved_shear_stress = reference_resolved_shear_stress_from_deformation_type(deformation_type);
 
@@ -711,16 +735,16 @@ namespace aspect
                   }
                 beta[indices.back()] = 0.0;
 
-                // Now compute the crystal rate of deformation tensor.
-                for (unsigned int i = 0; i < 3; ++i)
+                // Now compute the crystal rate of deformation tensor. equation 4 of Kaminski&Ribe 2001
+                // rotation_matrix_transposed = inverse of rotation matrix
+                // (see Engler et al., 2024 book: Intro to Texture analysis chp 2.3.2 The Rotation Matrix)
+                // this transform the crystal reference frame to specimen reference frame
+                for (unsigned int slip_system_i = 0; slip_system_i < 4; ++slip_system_i)
                   {
-                    for (unsigned int j = 0; j < 3; ++j)
-                      {
-                        G[i][j] = 2.0 * (beta[0] * rotation_matrix[0][i] * rotation_matrix[1][j]
-                                         + beta[1] * rotation_matrix[0][i] * rotation_matrix[2][j]
-                                         + beta[2] * rotation_matrix[2][i] * rotation_matrix[1][j]
-                                         + beta[3] * rotation_matrix[2][i] * rotation_matrix[0][j]);
-                      }
+                    const Tensor<1,3> slip_normal_global = rotation_matrix_transposed*slip_normal_reference[slip_system_i];
+                    const Tensor<1,3> slip_direction_global = rotation_matrix_transposed*slip_direction_reference[slip_system_i];
+                    const Tensor<2,3> slip_cross_product = outer_product(slip_direction_global,slip_normal_global);
+                    G += 2.0 * beta[slip_system_i] * slip_cross_product;
                   }
               }
 
@@ -1039,7 +1063,7 @@ namespace aspect
                 prm.declare_entry("Model name","Uniform grains and random uniform rotations",
                                   Patterns::Anything(),
                                   "The model used to initialize the CPO for all particles. "
-                                  "Currently 'Uniform grains and random uniform rotations' is the only valid option.");
+                                  "Currently 'Uniform grains and random uniform rotations' and 'World Builder' are the only valid option.");
 
                 prm.declare_entry ("Minerals", "Olivine: Karato 2008, Enstatite",
                                    Patterns::List(Patterns::Anything()),
@@ -1156,9 +1180,21 @@ namespace aspect
               prm.enter_subsection("Initial grains");
               {
                 const std::string model_name = prm.get("Model name");
-                AssertThrow(model_name == "Uniform grains and random uniform rotations",
-                            ExcMessage("No model named " + model_name + "for CPO particle property initialization. "
-                                       + "Only the model \"Uniform grains and random uniform rotations\" is available."));
+                if (model_name == "Uniform grains and random uniform rotations")
+                  {
+                    initial_grains_model = CPOInitialGrainsModel::uniform_grains_and_random_uniform_rotations;
+                  }
+                else if (model_name == "World Builder")
+                  {
+                    initial_grains_model = CPOInitialGrainsModel::world_builder;
+                  }
+                else
+                  {
+                    AssertThrow(false,
+                                ExcMessage("No model named " + model_name + "for CPO particle property initialization. "
+                                           + "Only the model \"Uniform grains and random uniform rotations\"  and "
+                                           "\"World Builder\" are available."));
+                  }
 
                 const std::vector<std::string> temp_deformation_type_selector = dealii::Utilities::split_string_list(prm.get("Minerals"));
                 n_minerals = temp_deformation_type_selector.size();
