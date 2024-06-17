@@ -161,7 +161,7 @@ namespace aspect
         /**
          * Create AdditionalMaterialOutputsStokesRHS if we need to do so.
          */
-       void create_additional_material_model_outputs(MaterialModel::MaterialModelOutputs<dim> &outputs) const override;
+        void create_additional_material_model_outputs(MaterialModel::MaterialModelOutputs<dim> &outputs) const override;
     };
 
 
@@ -226,13 +226,13 @@ namespace aspect
               if (scratch.dof_component_indices[i] ==
                   scratch.dof_component_indices[j])
                 data.local_matrix(i, j) += (2.0 * eta * (scratch.grads_phi_u[i]
-                                                        * stress_strain_director
-                                                        * scratch.grads_phi_u[j])
+                                                         * stress_strain_director
+                                                         * scratch.grads_phi_u[j])
                                             + one_over_eta * pressure_scaling
                                             * pressure_scaling
                                             * (scratch.phi_p[i]
-                                              * scratch.phi_p[j]))
-                                          * JxW;
+                                               * scratch.phi_p[j]))
+                                           * JxW;
         }
     }
 
@@ -329,7 +329,7 @@ namespace aspect
                                                 - (pressure_scaling *
                                                    scratch.phi_p[i] * scratch.div_phi_u[j]))
                                               * JxW;
-                  }                
+                  }
             }
         }
     }
@@ -553,10 +553,10 @@ namespace aspect
       //Get prescribed field nmes
       std::vector<std::string> ssd_names;
       for (unsigned int i = 0; i < SymmetricTensor<4,dim>::n_independent_components ; ++i)
-        { 
+        {
           ssd_names.push_back("ssd"+std::to_string(i+1));
         }
-      
+
       for (unsigned int q=0; q<in.n_evaluation_points(); ++q)
         {
           //change these according to diffusion dislocation material model I guess
@@ -578,17 +578,17 @@ namespace aspect
           out.compressibilities[q] = eos_outputs.compressibilities[0];
           out.entropy_derivative_pressure[q] = eos_outputs.entropy_derivative_pressure[0];
           out.entropy_derivative_temperature[q] = eos_outputs.entropy_derivative_temperature[0];
-          
-          //Calculate effective viscosity         
+
+          //Calculate effective viscosity
           // const std::vector<double> &composition = in.composition[q];
           const SymmetricTensor<2,dim> strain_rate = in.strain_rate[q];
           const SymmetricTensor<2,dim> deviatoric_strain_rate
             = (this->get_material_model().is_compressible()
-              ?
-              strain_rate - 1./3. * trace(strain_rate) * unit_symmetric_tensor<dim>()
-              :
-              strain_rate);
-          
+               ?
+               strain_rate - 1./3. * trace(strain_rate) * unit_symmetric_tensor<dim>()
+               :
+               strain_rate);
+
           // The computation of the viscosity tensor is only necessary after the simulator has been initialized
           // and when the condition allows dislocation creep
           if  ((this->simulator_is_past_initialization()) && (this->get_timestep_number() > 0) && (in.temperature[q]>1000) && (determinant(deviatoric_strain_rate) != 0))
@@ -608,10 +608,10 @@ namespace aspect
                       const unsigned int ind = this->introspection().compositional_index_for_name(ssd_names[i]);
                       ssd_array[i] = composition[ind];
                       AssertThrow(isfinite(composition[ind]),
-                          ExcMessage("Assigned prescribed field should be finite"));
+                                  ExcMessage("Assigned prescribed field should be finite"));
                     }
                   std::copy(ssd_array.begin(), ssd_array.end(), old_stress_strain_director.begin_raw());
-                  stress = 2 * out.viscosities[q] * old_stress_strain_director * deviatoric_strain_rate; // Use stress in MPa           
+                  stress = 2 * out.viscosities[q] * old_stress_strain_director * deviatoric_strain_rate; // Use stress in MPa
                   std::cout << "Anisotropic stress using pf " << stress << std::endl;
                 }
               else
@@ -661,7 +661,7 @@ namespace aspect
                   H = std::pow(eigvalue_a1,2)*CnI_H[0] + eigvalue_a2*CnI_H[1] + (1/eigvalue_a3)*CnI_H[2] + std::pow(eigvalue_b1,2)*CnI_H[3] + eigvalue_b2*CnI_H[4] + (1/eigvalue_b3)*CnI_H[5] + std::pow(eigvalue_c1,2)*CnI_H[6] + eigvalue_c2*CnI_H[7] + (1/eigvalue_c3)*CnI_H[8] + CnI_H[9];
                   L = std::abs(std::pow(eigvalue_a1,2)*CnI_L[0] + eigvalue_a2*CnI_L[1] + (1/eigvalue_a3)*CnI_L[2] + std::pow(eigvalue_b1,2)*CnI_L[3] + eigvalue_b2*CnI_L[4] + (1/eigvalue_b3)*CnI_L[5] + std::pow(eigvalue_c1,2)*CnI_L[6] + eigvalue_c2*CnI_L[7] + (1/eigvalue_c3)*CnI_L[8] + CnI_L[9]);
                   M = std::abs(std::pow(eigvalue_a1,2)*CnI_M[0] + eigvalue_a2*CnI_M[1] + (1/eigvalue_a3)*CnI_M[2] + std::pow(eigvalue_b1,2)*CnI_M[3] + eigvalue_b2*CnI_M[4] + (1/eigvalue_b3)*CnI_M[5] + std::pow(eigvalue_c1,2)*CnI_M[6] + eigvalue_c2*CnI_M[7] + (1/eigvalue_c3)*CnI_M[8] + CnI_M[9]);
-                  N = std::abs(std::pow(eigvalue_a1,2)*CnI_N[0] + eigvalue_a2*CnI_N[1] + (1/eigvalue_a3)*CnI_N[2] + std::pow(eigvalue_b1,2)*CnI_N[3] + eigvalue_b2*CnI_N[4] + (1/eigvalue_b3)*CnI_N[5] + std::pow(eigvalue_c1,2)*CnI_N[6] + eigvalue_c2*CnI_N[7] + (1/eigvalue_c3)*CnI_N[8] + CnI_N[9]);                 
+                  N = std::abs(std::pow(eigvalue_a1,2)*CnI_N[0] + eigvalue_a2*CnI_N[1] + (1/eigvalue_a3)*CnI_N[2] + std::pow(eigvalue_b1,2)*CnI_N[3] + eigvalue_b2*CnI_N[4] + (1/eigvalue_b3)*CnI_N[5] + std::pow(eigvalue_c1,2)*CnI_N[6] + eigvalue_c2*CnI_N[7] + (1/eigvalue_c3)*CnI_N[8] + CnI_N[9]);
                 }
 
               //Compute Rotation matrix
@@ -713,8 +713,8 @@ namespace aspect
               double Jhill = F*pow((S_CPO[0][0]-S_CPO[1][1]),2) + G*pow((S_CPO[1][1]-S_CPO[2][2]),2) + H*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);
               if (Jhill < 0)
                 {
-                  Jhill = std::abs(F)*pow((S_CPO[0][0]-S_CPO[1][1]),2) + std::abs(G)*pow((S_CPO[1][1]-S_CPO[2][2]),2) + std::abs(H)*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);            
-                }              
+                  Jhill = std::abs(F)*pow((S_CPO[0][0]-S_CPO[1][1]),2) + std::abs(G)*pow((S_CPO[1][1]-S_CPO[2][2]),2) + std::abs(H)*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);
+                }
               // std::cout << "Jhill " << Jhill <<std::endl;
 
               AssertThrow(isfinite(Jhill),
@@ -792,7 +792,7 @@ namespace aspect
               if (anisotropic_viscosity != nullptr)
                 {
                   anisotropic_viscosity->stress_strain_directors[q] = V_r4;
-                }              
+                }
             }
           else
             {
@@ -811,7 +811,7 @@ namespace aspect
                   const unsigned int ind = this->introspection().compositional_index_for_name(ssd_names[i]);
                   prescribed_field_out->prescribed_field_outputs[q][ind] = ViscoTensor_array[i];
                   AssertThrow(isfinite(ViscoTensor_array[i]),
-                          ExcMessage("Assigning prescribed field should be finite"));
+                              ExcMessage("Assigning prescribed field should be finite"));
                 }
             }
         }

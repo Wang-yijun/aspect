@@ -77,7 +77,7 @@ namespace aspect
       public:
         void initialize() override;
         void evaluate (const MaterialModel::MaterialModelInputs<dim> &in,
-                               MaterialModel::MaterialModelOutputs<dim> &out) const override;
+                       MaterialModel::MaterialModelOutputs<dim> &out) const override;
         static void declare_parameters (ParameterHandler &prm);
         void parse_parameters (ParameterHandler &prm) override;
         bool is_compressible () const override;
