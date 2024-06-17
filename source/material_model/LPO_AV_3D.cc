@@ -540,6 +540,27 @@ namespace aspect
     }
 
 
+
+    template <int dim>
+    std::vector<double>
+    LPO_AV_3D<dim>::compute_diffusion_parameters (const double strain_rate,
+                                                  const double pressure,
+                                                  const double temperature,
+                                                  const unsigned int composition,
+                                                  const std::vector<double> &phase_function_values,
+                                                  const std::vector<unsigned int> &n_phase_transitions_per_composition) const
+    {
+      // Compute diffusion and dislocation creep viscosity
+      double diffusion_viscosity = diffusion_creep.compute_viscosity(pressure, temperature, composition, phase_function_values, n_phase_transitions_per_composition);
+      double dislocation_viscosity = dislocation_creep.compute_viscosity(strain_rate, pressure, temperature, composition, phase_function_values, n_phase_transitions_per_composition);
+      double diffusion_strain_rate_frac = dislocation_viscosity / (diffusion_viscosity + dislocation_viscosity);
+
+      std::vector<double> diffusion_vis_and_frac = {diffusion_viscosity, diffusion_strain_rate_frac};
+      return diffusion_vis_and_frac;
+    }
+
+
+
     template <>
     void
     LPO_AV_3D<3>::evaluate (const MaterialModel::MaterialModelInputs<3> &in,
@@ -557,30 +578,34 @@ namespace aspect
           ssd_names.push_back("ssd"+std::to_string(i+1));
         }
 
+      // Store value of phase function for each phase and composition
+      // While the number of phases is fixed, the value of the phase function is updated for every point
+      std::vector<double> phase_function_values(phase_function.n_phase_transitions(), 0.0);
+      
       for (unsigned int q=0; q<in.n_evaluation_points(); ++q)
         {
-          //change these according to diffusion dislocation material model I guess
-          equation_of_state.evaluate(in, q, eos_outputs);
-
-          // Get parameters for compute the effective viscosity
           const double temperature = in.temperature[q];
           const double pressure= in.pressure[q];
           const std::vector<double> composition = in.composition[q];
           const std::vector<double> volume_fractions = MaterialUtilities::compute_only_composition_fractions(composition,
                                                        this->introspection().chemical_composition_field_indices());
 
-          out.densities[q] = eos_outputs.densities[0];
-          out.viscosities[q] = diffusion_dislocation.compute_viscosity(pressure, temperature, volume_fractions, in.strain_rate[q]);
-          // out.viscosities[q] = eta; //Later it is going to be overwritten by the effective viscosity
-          out.thermal_expansion_coefficients[q] = eos_outputs.thermal_expansion_coefficients[0];
-          out.specific_heat[q] = eos_outputs.specific_heat_capacities[0];
-          out.thermal_conductivities[q] = 1;
-          out.compressibilities[q] = eos_outputs.compressibilities[0];
-          out.entropy_derivative_pressure[q] = eos_outputs.entropy_derivative_pressure[0];
-          out.entropy_derivative_temperature[q] = eos_outputs.entropy_derivative_temperature[0];
+          // densities
+          double density = 0.0;
+          for (unsigned int j=0; j < volume_fractions.size(); ++j)
+            {
+              // not strictly correct if thermal expansivities are different, since we are interpreting
+              // these compositions as volume fractions, but the error introduced should not be too bad.
+              const double temperature_factor= (1.0 - thermal_expansivities[j] * (temperature - reference_T));
+              density += volume_fractions[j] * densities[j] * temperature_factor;
+            }
 
-          //Calculate effective viscosity
-          // const std::vector<double> &composition = in.composition[q];
+          // thermal expansivities
+          double thermal_expansivity = 0.0;
+          for (unsigned int j=0; j < volume_fractions.size(); ++j)
+            thermal_expansivity += volume_fractions[j] * thermal_expansivities[j];
+
+          // calculate effective viscosity
           const SymmetricTensor<2,dim> strain_rate = in.strain_rate[q];
           const SymmetricTensor<2,dim> deviatoric_strain_rate
             = (this->get_material_model().is_compressible()
@@ -588,13 +613,49 @@ namespace aspect
                strain_rate - 1./3. * trace(strain_rate) * unit_symmetric_tensor<dim>()
                :
                strain_rate);
+          if (in.requests_property(MaterialProperties::viscosity))
+            {
+              Assert(std::isfinite(in.strain_rate[q].norm()),
+                     ExcMessage("Invalid strain_rate in the MaterialModelInputs. This is likely because it was "
+                                "not filled by the caller."));
+              out.viscosities[q] = diffusion_dislocation.compute_viscosity(pressure, temperature, volume_fractions, deviatoric_strain_rate);
+            }
+
+          out.densities[q] = density;
+          out.thermal_expansion_coefficients[q] = thermal_expansivity;
+          // Specific heat at the given positions.
+          out.specific_heat[q] = heat_capacity;
+          // Thermal conductivity at the given positions. If the temperature equation uses
+          // the reference density profile formulation, use the reference density to
+          // calculate thermal conductivity. Otherwise, use the real density. If the adiabatic
+          // conditions are not yet initialized, the real density will still be used.
+          if (this->get_parameters().formulation_temperature_equation ==
+              Parameters<dim>::Formulation::TemperatureEquation::reference_density_profile &&
+              this->get_adiabatic_conditions().is_initialized())
+            out.thermal_conductivities[q] = thermal_diffusivity * heat_capacity *
+                                            this->get_adiabatic_conditions().density(in.position[q]);
+          else
+            out.thermal_conductivities[q] = thermal_diffusivity * heat_capacity * density;
+          // Compressibility at the given positions.
+          // The compressibility is given as
+          // $\frac 1\rho \frac{\partial\rho}{\partial p}$.
+          out.compressibilities[q] = 0.0;
+          // Pressure derivative of entropy at the given positions.
+          out.entropy_derivative_pressure[q] = 0.0;
+          // Temperature derivative of entropy at the given positions.
+          out.entropy_derivative_temperature[q] = 0.0;
+          // Change in composition due to chemical reactions at the
+          // given positions. The term reaction_terms[q][c] is the
+          // change in compositional field c at point i.
+          for (unsigned int c=0; c<in.composition[q].size(); ++c)
+            out.reaction_terms[q][c] = 0.0;
 
           // The computation of the viscosity tensor is only necessary after the simulator has been initialized
           // and when the condition allows dislocation creep
           if  ((this->simulator_is_past_initialization()) && (this->get_timestep_number() > 0) && (in.temperature[q]>1000) && (determinant(deviatoric_strain_rate) != 0))
             {
               SymmetricTensor<2,dim> stress;
-              //Create constant value to use for AV
+              // Create constant value to use for AV
               const double A_o = 1.1e5*exp(-530000/(8.314*in.temperature[q]));
               const double n = 3.5;
               const double Gamma = (A_o/(std::pow(grain_size,0.73)));// in MPa^(-n)
@@ -611,16 +672,16 @@ namespace aspect
                                   ExcMessage("Assigned prescribed field should be finite"));
                     }
                   std::copy(ssd_array.begin(), ssd_array.end(), old_stress_strain_director.begin_raw());
-                  stress = 2 * out.viscosities[q] * old_stress_strain_director * deviatoric_strain_rate; // Use stress in MPa
-                  std::cout << "Anisotropic stress using pf " << stress << std::endl;
+                  stress = 2 * out.viscosities[q] * old_stress_strain_director * deviatoric_strain_rate /1e6; // Use stress in MPa
+                  // std::cout << "Anisotropic stress using pf " << stress << std::endl;
                 }
               else
                 {
-                  stress = 2 * out.viscosities[q] * deviatoric_strain_rate; // Use stress in MPa
+                  stress = 2 * out.viscosities[q] * deviatoric_strain_rate /1e6; // Use stress in MPa
                   // std::cout << "Isotropic stress " << stress << std::endl;
                 }
 
-              //Get eigen values from compositional fields
+              // Get eigen values from compositional fields
               const double eigvalue_a1 = composition[cpo_bingham_avg_a[3]];
               const double eigvalue_b1 = composition[cpo_bingham_avg_b[3]];
               const double eigvalue_c1 = composition[cpo_bingham_avg_c[3]];
@@ -631,7 +692,7 @@ namespace aspect
               const double eigvalue_b3 = composition[cpo_bingham_avg_b[5]];
               const double eigvalue_c3 = composition[cpo_bingham_avg_c[5]];
 
-              //Get rotation matrix in the CPO reference frame from eigen vectors in compositional fields
+              // Get rotation matrix in the CPO reference frame from eigen vectors in compositional fields
               Tensor<2,3> R;
               R[0][0] = composition[cpo_bingham_avg_a[0]]/(eigvalue_a1*n_grains);
               R[1][0] = composition[cpo_bingham_avg_a[1]]/(eigvalue_a1*n_grains);
@@ -643,7 +704,7 @@ namespace aspect
               R[1][2] = composition[cpo_bingham_avg_c[1]]/(eigvalue_c1*n_grains);
               R[2][2] = composition[cpo_bingham_avg_c[2]]/(eigvalue_c1*n_grains);
 
-              //Compute Hill Parameters FGHLMN from the eigenvalues of a,b,c axis
+              // Compute Hill Parameters FGHLMN from the eigenvalues of a,b,c axis
               double F, G, H, L, M, N;
               if ((R[0][0] == 0 && R[0][1] == 0 && R[0][2] == 0 && R[1][0] == 0 && R[1][1] == 0 && R[1][2] == 0 && R[2][0] == 0 && R[2][1] == 0 && R[2][2] == 0) || eigvalue_a3 == 0 || eigvalue_b3 == 0 || eigvalue_c3 == 0)
                 {
@@ -664,7 +725,7 @@ namespace aspect
                   N = std::abs(std::pow(eigvalue_a1,2)*CnI_N[0] + eigvalue_a2*CnI_N[1] + (1/eigvalue_a3)*CnI_N[2] + std::pow(eigvalue_b1,2)*CnI_N[3] + eigvalue_b2*CnI_N[4] + (1/eigvalue_b3)*CnI_N[5] + std::pow(eigvalue_c1,2)*CnI_N[6] + eigvalue_c2*CnI_N[7] + (1/eigvalue_c3)*CnI_N[8] + CnI_N[9]);
                 }
 
-              //Compute Rotation matrix
+              // Compute Rotation matrix in CPO reference frame
               Tensor<2,6> R_CPO_K;
               R_CPO_K[0][0] = std::pow(R[0][0],2);
               R_CPO_K[0][1] = std::pow(R[0][1],2);
@@ -733,11 +794,11 @@ namespace aspect
               invA[4][4] = 2/M;
               invA[5][5] = 2/N;
 
-              //Calculate the fluidity tensor in the LPO frame
+              // Calculate the fluidity tensor in the LPO frame
               Tensor<2,6> V = R_CPO_K * invA * transpose(R_CPO_K);
 
-              //Overwrite the scalar viscosity with an effective viscosity
-              out.viscosities[q] = (1 / (Gamma * std::pow(Jhill,(n-1)/2))); // convert from MPa to Pa
+              // Overwrite the scalar viscosity with an effective viscosity
+              out.viscosities[q] = (1 / (Gamma * std::pow(Jhill,(n-1)/2))) * 1e6; // convert from MPa to Pa
               std::cout << "out.viscosities[q] " << out.viscosities[q] << std::endl;
 
               AssertThrow(out.viscosities[q] != 0,
@@ -788,10 +849,15 @@ namespace aspect
               V_r4[0][1][1][2]=V[5][3]/2.;
               V_r4[0][1][0][2]=V[5][4]/2.;
               V_r4[0][1][0][1]=V[5][5]/2.;
+              
+              const double edot_ii = std::max(std::sqrt(std::max(-second_invariant(deviator(strain_rate)), 0.)),
+                                        min_strain_rate);
+              std::vector<double> diffusion_vis_and_frac = compute_diffusion_parameters(edot_ii, pressure, temperature, 0, phase_function_values, phase_function.n_phase_transitions_for_each_composition());
+              SymmetricTensor<4,dim> V_r4_composite = V_r4*(1-diffusion_vis_and_frac[1]) + dealii::identity_tensor<dim> ()*diffusion_vis_and_frac[0]*diffusion_vis_and_frac[1];
 
               if (anisotropic_viscosity != nullptr)
                 {
-                  anisotropic_viscosity->stress_strain_directors[q] = V_r4;
+                  anisotropic_viscosity->stress_strain_directors[q] = V_r4_composite;
                 }
             }
           else
@@ -840,14 +906,57 @@ namespace aspect
 
     template <int dim>
     void
-    LPO_AV_3D<dim>::parse_parameters (ParameterHandler &prm)
+    LPO_AV_3D<dim>::parse_parameters (ParameterHandler &prm,
+                                      const std::unique_ptr<std::vector<unsigned int>> &expected_n_phases_per_composition)
     {
       prm.enter_subsection("Material model");
       {
         prm.enter_subsection("AV Hill");
         {
+          // Phase transition parameters
+          phase_function.initialize_simulator (this->get_simulator());
+          phase_function.parse_parameters (prm);
+          std::vector<unsigned int> n_phases_for_each_composition = phase_function.n_phases_for_each_composition();
 
+          // Equation of state parameters
           equation_of_state.parse_parameters (prm);
+
+          reference_T = prm.get_double("Reference temperature");
+
+          // Retrieve the list of composition names
+          std::vector<std::string> compositional_field_names = this->introspection().get_composition_names();
+          // Establish that a background field is required here
+          compositional_field_names.insert(compositional_field_names.begin(),"background");
+
+          // Make options file for parsing maps to double arrays
+          std::vector<std::string> chemical_field_names = this->introspection().chemical_composition_field_names();
+
+          // Establish that a background field is required here
+          chemical_field_names.insert(chemical_field_names.begin(),"background");
+
+          Utilities::MapParsing::Options options(chemical_field_names, "Densities");
+          options.list_of_allowed_keys = compositional_field_names;
+
+          densities = Utilities::MapParsing::parse_map_to_double_array (prm.get("Densities"),
+                                                                        options);
+
+          options.property_name = "Thermal expansivities";
+          thermal_expansivities = Utilities::MapParsing::parse_map_to_double_array (prm.get("Thermal expansivities"),
+                                                                                    options);
+
+          // Phenomenological parameters
+          thermal_diffusivity = prm.get_double("Thermal diffusivity");
+          heat_capacity = prm.get_double("Heat capacity");
+
+          // Dislocation creep and diffusion creep parameters
+          diffusion_dislocation.initialize_simulator (this->get_simulator());
+          diffusion_dislocation.parse_parameters(prm);
+          diffusion_creep.initialize_simulator (this->get_simulator());
+          diffusion_creep.parse_parameters(prm, expected_n_phases_per_composition);
+          dislocation_creep.initialize_simulator (this->get_simulator());
+          dislocation_creep.parse_parameters(prm, expected_n_phases_per_composition);
+
+          // AV specific parameters
           eta = prm.get_double("Reference viscosity");
           min_strain_rate = prm.get_double("Minimum strain rate");
           grain_size = prm.get_double("Grain size");
@@ -858,7 +967,6 @@ namespace aspect
           CnI_M = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for M")));
           CnI_N = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for N")));
 
-          diffusion_dislocation.parse_parameters(prm);
         }
         prm.leave_subsection();
       }
@@ -877,6 +985,13 @@ namespace aspect
         prm.leave_subsection();
       }
       prm.leave_subsection();
+
+      // Declare dependencies on solution variables
+      this->model_dependence.viscosity = NonlinearDependence::temperature | NonlinearDependence::pressure | NonlinearDependence::strain_rate | NonlinearDependence::compositional_fields;
+      this->model_dependence.density = NonlinearDependence::temperature | NonlinearDependence::pressure | NonlinearDependence::compositional_fields;
+      this->model_dependence.compressibility = NonlinearDependence::none;
+      this->model_dependence.specific_heat = NonlinearDependence::none;
+      this->model_dependence.thermal_conductivity = NonlinearDependence::temperature | NonlinearDependence::pressure | NonlinearDependence::compositional_fields;
     }
 
 
@@ -889,7 +1004,6 @@ namespace aspect
       {
         prm.enter_subsection("AV Hill");
         {
-          EquationOfState::LinearizedIncompressible<dim>::declare_parameters (prm);
           prm.declare_entry ("Coefficients and intercept for F", "1.5532, -0.0813, 0.0058, -1.4106, -1.0022, 0.0364, 1.8292, 0.8070, -0.0474, 0.3341",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter F.");
@@ -918,6 +1032,10 @@ namespace aspect
                              "Olivine anisotropic viscosity is dependent of grain size. Value is given in microns");
 
           Rheology::DiffusionDislocation<dim>::declare_parameters(prm);
+          Rheology::DiffusionCreep<dim>::declare_parameters(prm);
+          Rheology::DislocationCreep<dim>::declare_parameters(prm);
+
+          MaterialUtilities::PhaseFunction<dim>::declare_parameters(prm);
         }
         prm.leave_subsection();
       }

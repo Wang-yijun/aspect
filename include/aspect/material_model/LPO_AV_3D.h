@@ -22,11 +22,14 @@
 #define _aspect_material_model_LPO_AV_3D_h
 
 #include <aspect/material_model/interface.h>
-#include <aspect/simulator_access.h>
+#include <aspect/material_model/utilities.h>
 #include <aspect/material_model/simple.h>
-#include <aspect/material_model/equation_of_state/interface.h>
-#include <aspect/simulator/assemblers/interface.h>
 #include <aspect/material_model/rheology/diffusion_dislocation.h>
+#include <aspect/material_model/rheology/diffusion_creep.h>
+#include <aspect/material_model/rheology/dislocation_creep.h>
+#include <aspect/simulator_access.h>
+#include <aspect/simulator/assemblers/interface.h>
+#include <aspect/material_model/equation_of_state/interface.h>
 
 namespace aspect
 {
@@ -79,15 +82,59 @@ namespace aspect
         void evaluate (const MaterialModel::MaterialModelInputs<dim> &in,
                        MaterialModel::MaterialModelOutputs<dim> &out) const override;
         static void declare_parameters (ParameterHandler &prm);
-        void parse_parameters (ParameterHandler &prm) override;
         bool is_compressible () const override;
         double reference_viscosity () const;
         void create_additional_named_outputs(MaterialModel::MaterialModelOutputs<dim> &out) const override;
+        /**
+         * Read the parameters this class declares from the parameter file.
+         * If @p expected_n_phases_per_composition points to a vector of
+         * unsigned integers this is considered the number of phases
+         * for each compositional field and will be checked against the parsed
+         * parameters.
+         */
+        void
+        parse_parameters (ParameterHandler &prm,
+                          const std::unique_ptr<std::vector<unsigned int>> &expected_n_phases_per_composition = nullptr);
+
+        /**
+         * Compute the viscosity based on the composite viscous creep law.
+         * If @p n_phase_transitions_per_composition points to a vector of
+         * unsigned integers this is considered the number of phase transitions
+         * for each compositional field and viscosity will be first computed on
+         * each phase and then averaged for each compositional field.
+         */
+        std::vector<double>
+        compute_diffusion_parameters (const double strain_rate,
+                                      const double pressure,
+                                      const double temperature,
+                                      const unsigned int composition,
+                                      const std::vector<double> &phase_function_values = std::vector<double>(),
+                                      const std::vector<unsigned int> &n_phase_transitions_per_composition = std::vector<unsigned int>()) const;
+
+      protected:
+        /**
+         * Object that handles phase transitions.
+         * Allows it to compute the phase function for each individual phase
+         * transition in the model, given the temperature, pressure, depth,
+         * and density gradient.
+         */
+        MaterialUtilities::PhaseFunction<dim> phase_function;
       private:
         /**
          * Object for computing viscous creep viscosities.
          */
         Rheology::DiffusionDislocation<dim> diffusion_dislocation;
+        Rheology::DiffusionCreep<dim> diffusion_creep;
+        Rheology::DislocationCreep<dim> dislocation_creep;
+
+        double reference_T;
+
+        double thermal_diffusivity;
+        double heat_capacity;
+
+        std::vector<double> densities;
+        std::vector<double> thermal_expansivities;
+        
         double eta; //reference viscosity
         /**
          * Defining a minimum strain rate stabilizes the viscosity calculation,
