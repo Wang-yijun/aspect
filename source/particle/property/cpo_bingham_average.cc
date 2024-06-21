@@ -70,7 +70,7 @@ namespace aspect
                                                                         n_samples,
                                                                         this->random_number_generator);
             const std::array<std::array<double,6>,3> bingham_average = compute_bingham_average(weighted_rotation_matrices);
-
+            
             for (unsigned int i = 0; i < 3; ++i)
               for (unsigned int j = 0; j < 6; ++j)
                 data.emplace_back(bingham_average[i][j]);
@@ -100,11 +100,11 @@ namespace aspect
 
             const std::vector<Tensor<2,3>> weighted_rotation_matrices = Utilities::rotation_matrices_random_draw_volume_weighting(volume_fractions_grains, rotation_matrices_grains, n_samples, this->random_number_generator);
             std::array<std::array<double,6>,3> bingham_average = compute_bingham_average(weighted_rotation_matrices);
-
+            
             for (unsigned int i = 0; i < 3; ++i)
               for (unsigned int j = 0; j < 6; ++j)
                 {
-                  data[data_position + mineral_i*18 + i*3 + j] = bingham_average[i][j];
+                  data[data_position + mineral_i*18 + i*6 + j] = bingham_average[i][j];
                 }
           }
       }
@@ -204,7 +204,6 @@ namespace aspect
       CpoBinghamAverage<dim>::get_property_information() const
       {
         std::vector<std::pair<std::string,unsigned int>> property_information;
-        property_information.reserve(6*n_minerals);
         for (unsigned int mineral_i = 0; mineral_i < n_minerals; ++mineral_i)
           {
             property_information.emplace_back("cpo mineral " + std::to_string(mineral_i) + " bingham average a axis",3);

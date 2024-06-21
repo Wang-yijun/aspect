@@ -89,7 +89,7 @@ namespace aspect
          * which involves a division by the strain rate. Units: 1/s.
          */
         double min_strain_rate;
-        std::vector<unsigned int> cpo_bingham_avg_a, cpo_bingham_avg_b, cpo_bingham_avg_c;
+        std::vector<double> cpo_bingham_avg_a, cpo_bingham_avg_b, cpo_bingham_avg_c;
         double grain_size;
         std::vector<double> CnI_F, CnI_G, CnI_H, CnI_L, CnI_M, CnI_N;
 
