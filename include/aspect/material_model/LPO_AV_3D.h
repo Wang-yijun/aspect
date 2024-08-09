@@ -26,6 +26,7 @@
 #include <aspect/material_model/simple.h>
 #include <aspect/material_model/equation_of_state/interface.h>
 #include <aspect/simulator/assemblers/interface.h>
+#include <deal.II/matrix_free/fe_point_evaluation.h>
 
 namespace aspect
 {
@@ -97,6 +98,15 @@ namespace aspect
         EquationOfState::LinearizedIncompressible<dim> equation_of_state;
         void set_assemblers(const SimulatorAccess<dim> &,
                             Assemblers::Manager<dim> &assemblers) const;
+
+        /**
+         * We cache the evaluators that are necessary to evaluate the velocity
+         * gradients and compositions.
+         * By caching the evaluator, we can avoid recreating them
+         * every time we need it.
+         */
+        mutable std::unique_ptr<FEPointEvaluation<dim, dim>> evaluator;
+        mutable std::vector<std::unique_ptr<FEPointEvaluation<1, dim>>> composition_evaluators;
 
     };
   }

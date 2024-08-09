@@ -591,6 +591,45 @@ namespace aspect
           // and when the condition allows dislocation creep
           if  ((this->simulator_is_past_initialization()) && (this->get_timestep_number() > 0))
             {
+              // We need to obtain the strain values from compositional fields at the previous time step,
+              // as the values from the current linearization point are an extrapolation of the solution
+              // from the old timesteps.
+              // Prepare the field function and extract the old solution values at the current cell.
+              std::vector<Point<dim>> quadrature_positions(1,this->get_mapping().transform_real_to_unit_cell(in.current_cell, in.position[q]));
+              
+              // Use a boost::small_vector to avoid memory allocation if possible.
+              // Create 100 values by default, which should be enough for most cases.
+              // If there are more than 100 DoFs per cell, this will work like a normal vector.
+              std::vector<double> old_solution_values(this->get_fe().dofs_per_cell);
+              in.current_cell->get_dof_values(this->get_current_linearization_point(),
+                                              old_solution_values.begin(),
+                                              old_solution_values.end());
+                                              
+              // create evaluators for compositional fields
+              if (composition_evaluators.size() == 0)
+              composition_evaluators.resize(this->n_compositional_fields());
+
+              // Make sure the evaluators have been initialized correctly, and have not been tampered with
+              Assert(composition_evaluators.size() == this->n_compositional_fields(),
+                    ExcMessage("The number of composition evaluators should be equal to the number of compositional fields."));
+
+              for (unsigned int i = 0; i < SymmetricTensor<4,dim>::n_independent_components ; ++i)
+                {
+                  const unsigned int ssd_ind = this->introspection().compositional_index_for_name(ssd_names[i]);
+                  if (!composition_evaluators[ssd_ind])
+                  composition_evaluators[ssd_ind]
+                    = std::make_unique<FEPointEvaluation<1,dim>>(this->get_mapping(),
+                                                                this->get_fe(),
+                                                                update_values,
+                                                                composition[ssd_ind]);
+
+
+                // Initialize the evaluator for the temperature
+                composition_evaluators[ssd_ind]->reinit(in.current_cell, quadrature_positions);
+                composition_evaluators[ssd_ind]->evaluate(old_solution_values,
+                                    EvaluationFlags::values);
+                }
+              
               const unsigned int ind_vis = this->introspection().compositional_index_for_name("scalar_vis");
               out.viscosities[q] = composition[ind_vis];
               std::cout << "Initial viscosity: " << out.viscosities[q] << std::endl;
