@@ -379,7 +379,7 @@ namespace WorldBuilder
                       << base + "/" + name + "/default value");
       }
 
-    return value->GetInt();
+    return value->GetUint();
   }
 
   template<>

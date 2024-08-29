@@ -82,7 +82,7 @@ namespace aspect
         static void declare_parameters (ParameterHandler &prm);
         void parse_parameters (ParameterHandler &prm) override;
         bool is_compressible () const override;
-        double reference_viscosity () const;
+        // double reference_viscosity () const;
         void create_additional_named_outputs(MaterialModel::MaterialModelOutputs<dim> &out) const override;
       private:
         double eta; //reference viscosity

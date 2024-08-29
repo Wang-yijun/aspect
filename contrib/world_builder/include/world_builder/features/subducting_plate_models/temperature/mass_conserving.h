@@ -133,7 +133,7 @@ namespace WorldBuilder
             ReferenceModelName reference_model_name;
             const int plate_model_summation_number = 100; // for the plate model
             bool apply_spline;
-            unsigned int spline_n_points;
+            int spline_n_points;
         };
       } // namespace Temperature
     } // namespace SubductingPlateModels

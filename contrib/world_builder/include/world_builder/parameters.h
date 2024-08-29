@@ -33,7 +33,7 @@ namespace WorldBuilder
   namespace Types
   {
     class Interface;
-    template<unsigned int dim>
+    template<int dim>
     class Point;
     class Double;
     class String;

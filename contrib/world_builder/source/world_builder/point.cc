@@ -64,7 +64,7 @@ namespace WorldBuilder
 
 
 
-  template<unsigned int dim>
+  template<int dim>
   double
   Point<dim>::distance(const Point<2> &two) const
   {

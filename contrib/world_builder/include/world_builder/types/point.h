@@ -38,7 +38,7 @@ namespace WorldBuilder
      * the returned temperature or composition of the temperature and composition
      * functions of this class will be.
      */
-    template <unsigned int dim>
+    template <int dim>
     class Point final: public Interface
     {
       public:
@@ -124,7 +124,7 @@ namespace WorldBuilder
 
     };
 
-    template<unsigned int dim>
+    template<int dim>
     WorldBuilder::Point<dim> operator*(const double scalar, const Point<dim> &point);
   } // namespace Types
 } // namespace WorldBuilder
