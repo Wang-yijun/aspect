@@ -168,6 +168,15 @@ namespace aspect
         const double eigenvalue_c2 = eigenvectors_c[1].first/matrices.size();
         const double eigenvalue_c3 = eigenvectors_c[2].first/matrices.size();
 
+        // const Tensor<1,3,double> eigvec_a = eigenvectors_a[0].second;
+        // const Tensor<1,3,double> eigvec_b = eigenvectors_b[0].second;
+        // const Tensor<1,3,double> eigvec_c = eigenvectors_c[0].second;
+
+        // const double vec1_length = sqrt(eigvec_a[0]*eigvec_a[0]+eigvec_a[1]*eigvec_a[1]+eigvec_a[2]*eigvec_a[2]);
+        // const double vec2_length = sqrt(eigvec_b[0]*eigvec_b[0]+eigvec_b[1]*eigvec_b[1]+eigvec_b[2]*eigvec_b[2]);
+        // const double vec3_length = sqrt(eigvec_c[0]*eigvec_c[0]+eigvec_c[1]*eigvec_c[1]+eigvec_c[2]*eigvec_c[2]);
+        // std::cout<<"in pp: vec1 "<<eigvec_a<<" vec2 "<<eigvec_b<<" vec3 "<<eigvec_c<<std::endl;
+
         return
         {
           {
