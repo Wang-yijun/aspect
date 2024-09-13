@@ -168,19 +168,42 @@ namespace aspect
         const double eigenvalue_c2 = eigenvectors_c[1].first/matrices.size();
         const double eigenvalue_c3 = eigenvectors_c[2].first/matrices.size();
 
-        // const Tensor<1,3,double> eigvec_a = eigenvectors_a[0].second;
-        // const Tensor<1,3,double> eigvec_b = eigenvectors_b[0].second;
-        // const Tensor<1,3,double> eigvec_c = eigenvectors_c[0].second;
-
-        // const double vec1_length = sqrt(eigvec_a[0]*eigvec_a[0]+eigvec_a[1]*eigvec_a[1]+eigvec_a[2]*eigvec_a[2]);
-        // const double vec2_length = sqrt(eigvec_b[0]*eigvec_b[0]+eigvec_b[1]*eigvec_b[1]+eigvec_b[2]*eigvec_b[2]);
-        // const double vec3_length = sqrt(eigvec_c[0]*eigvec_c[0]+eigvec_c[1]*eigvec_c[1]+eigvec_c[2]*eigvec_c[2]);
+        const Tensor<1,3,double> eigvec_a = eigenvectors_a[0].second;
+        const Tensor<1,3,double> eigvec_b = eigenvectors_b[0].second;
+        const Tensor<1,3,double> eigvec_c = eigenvectors_c[0].second;
         // std::cout<<"in pp: vec1 "<<eigvec_a<<" vec2 "<<eigvec_b<<" vec3 "<<eigvec_c<<std::endl;
+
+        // build rotation matrix from the eigen vectors
+        Tensor<2,3> R_CPO;
+        R_CPO[0][0] = eigvec_a[0];
+        R_CPO[1][0] = eigvec_a[1];
+        R_CPO[2][0] = eigvec_a[2];
+        R_CPO[0][1] = eigvec_b[0];
+        R_CPO[1][1] = eigvec_b[1];
+        R_CPO[2][1] = eigvec_b[2];
+        R_CPO[0][2] = eigvec_c[0];
+        R_CPO[1][2] = eigvec_c[1];
+        R_CPO[2][2] = eigvec_c[2];
+        
+        // // Check if the eigen vectors form orthogonal basis
+        // std::cout<<"in pp: transpose(R_CPO)*R_CPO= "<<transpose(R_CPO)*R_CPO<<std::endl;
+        // // Check if the rotation matrix is orthogonal using R^T=R^(-1) and det(R)=1
+        // if (transpose(R_CPO)==invert(R_CPO))
+        //   std::cout<<"in pp: transpose(R_CPO)==invert(R_CPO) "<<std::endl;
+        // if (determinant(R_CPO)==1)
+        //   std::cout<<"in pp: det(R_CPO)==1 "<<std::endl;
+
+        // convert rotation matrix to euler angles phi1, theta, phi2
+        Tensor<2,3> Rot = transpose(R_CPO);
+        std::array<double,3> EA = Utilities::zxz_euler_angles_from_rotation_matrix(Rot); // in degrees
+        const double phi1 = EA[0]*constants::degree_to_radians;
+        const double theta = EA[1]*constants::degree_to_radians;
+        const double phi2 = EA[2]*constants::degree_to_radians;
 
         return
         {
           {
-            {{averaged_a[0],averaged_a[1],averaged_a[2], eigenvalue_a1, eigenvalue_a2, eigenvalue_a3}},
+            {{phi1,theta,phi2, eigenvalue_a1, eigenvalue_a2, eigenvalue_a3}},
             {{averaged_b[0],averaged_b[1],averaged_b[2], eigenvalue_b1, eigenvalue_b2, eigenvalue_b3}},
             {{averaged_c[0],averaged_c[1],averaged_c[2], eigenvalue_c1, eigenvalue_c2, eigenvalue_c3}}
           }
