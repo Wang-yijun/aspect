@@ -54,11 +54,10 @@
 #include <deal.II/grid/tria_iterator_base.h>
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/lapack_full_matrix.h>
+#include <deal.II/lac/scalapack.h>
 #include <deal.II/lac/vector.h>
 #include <deal.II/dofs/dof_tools.h>
 #include <deal.II/physics/notation.h>
-
-#include <deal.II/lac/scalapack.h>
 
 #include <array>
 #include <cmath>
@@ -798,6 +797,16 @@ namespace aspect
 
 
 
+    // template<int dim>
+    // Tensor<2,3>
+    // AV<dim>::pseudoinverse(Tensor<2,3> matrix)
+    // {
+    //   Tensor<2,3> pinv;
+    //   return pinv;
+    // }  
+
+
+
     template <>
     void
     LPO_AV_3D<2>::evaluate (const MaterialModel::MaterialModelInputs<2> &,
@@ -1045,7 +1054,7 @@ namespace aspect
                   Tensor<2,6> V = R_CPO_K * invA * transpose(R_CPO_K);
 
                   //Overwrite the scalar viscosity with an effective viscosity
-                  out.viscosities[q] = (1 / (Gamma * std::pow(Jhill,(n-1)/2))) * 1e6; // convert from MPa to Pa
+                  out.viscosities[q] = 2 * (1 / (Gamma * std::pow(Jhill,(n-1)/2))) * 1e6; // convert from MPa to Pa
 
                   AssertThrow(out.viscosities[q] > 0,
                               ExcMessage("Viscosity should be positive"));
@@ -1075,7 +1084,30 @@ namespace aspect
             {
               if (anisotropic_viscosity != nullptr)
                 {
-                  anisotropic_viscosity->stress_strain_directors[q] = dealii::identity_tensor<dim> ();
+                  SymmetricTensor<2,6> V;
+                  V[0][0] = 2.0/3.0;
+                  V[0][1] = -1.0/3.0;
+                  V[0][2] = -1.0/3.0;
+                  V[1][1] = 2.0/3.0;
+                  V[1][2] = -1.0/3.0;
+                  V[2][2] = 2.0/3.0;
+                  V[3][3] = 1;
+                  V[4][4] = 1;
+                  V[5][5] = 1;
+
+                  //Convert rank 2 viscosity tensor to rank 4
+                  FullMatrix<double> V_mat(6,6);
+                  for (unsigned int vi=0; vi<6; ++vi)
+                    {
+                      for (unsigned int vj=0; vj<6; ++vj)
+                        {
+                          V_mat[vi][vj] = V[vi][vj];
+                        }
+                    }
+                  SymmetricTensor<4,dim> V_r4;
+                  dealii::Physics::Notation::Kelvin::to_tensor(V_mat, V_r4);
+
+                  anisotropic_viscosity->stress_strain_directors[q] = V_r4;
                 }
             }
           // Prescribe the stress strain directors and scalar viscosity to compositional field for access in the next time step
