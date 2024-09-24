@@ -746,23 +746,17 @@ namespace aspect
       AssertThrow((dim==3),
                   ExcMessage("Olivine has 3 independent slip systems, allowing for deformation in 3 independent directions, hence these models only work in 3D"));
 
-      cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvector_a1"));
-      cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvector_a2"));
-      cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvector_a3"));
+      cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("phi1"));
       cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a1"));
       cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a2"));
       cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a3"));
 
-      cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b1"));
-      cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b2"));
-      cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvector_b3"));
+      cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("theta"));
       cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b1"));
       cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b2"));
       cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b3"));
 
-      cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c1"));
-      cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c2"));
-      cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvector_c3"));
+      cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("phi2"));
       cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c1"));
       cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c2"));
       cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c3"));
@@ -777,22 +771,19 @@ namespace aspect
     AV<dim>::euler_angles_to_rotation_matrix(double phi1, double theta, double phi2)
     {
       Tensor<2,3> rot_matrix;
-
       //R3*R2*R1 ZXZ rotation. Note it is not exactly the same as in utilities.cc
-      rot_matrix[0][0] = cos(phi2)*cos(phi1) - cos(theta)*sin(phi1)*sin(phi2);
-      rot_matrix[0][1] = cos(phi2)*sin(phi1) + cos(theta)*cos(phi1)*sin(phi2);
+      rot_matrix[0][0] = cos(phi2)*cos(phi1) - cos(theta)*sin(phi1)*sin(phi2); //
+      rot_matrix[0][1] = -cos(phi2)*sin(phi1) - cos(theta)*cos(phi1)*sin(phi2); //cos(phi2)*sin(phi1) + cos(theta)*cos(phi1)*sin(phi2);
       rot_matrix[0][2] = sin(phi2)*sin(theta);
-
-      rot_matrix[1][0] = -sin(phi2)*cos(phi1) - cos(theta)*sin(phi1)*cos(phi2);
+      rot_matrix[1][0] = sin(phi2)*cos(phi1) + cos(theta)*sin(phi1)*cos(phi2); //-sin(phi2)*cos(phi1) - cos(theta)*sin(phi1)*cos(phi2);
       rot_matrix[1][1] = -sin(phi2)*sin(phi1) + cos(theta)*cos(phi1)*cos(phi2);
-      rot_matrix[1][2] = cos(phi2)*sin(theta);
-
+      rot_matrix[1][2] = -cos(phi2)*sin(theta); //cos(phi2)*sin(theta);
       rot_matrix[2][0] = sin(theta)*sin(phi1);
-      rot_matrix[2][1] = -sin(theta)*cos(phi1);
-      rot_matrix[2][2] = cos(theta);
+      rot_matrix[2][1] = sin(theta)*cos(phi1); //-sin(theta)*cos(phi1);
+      rot_matrix[2][2] = cos(theta); //
       AssertThrow(rot_matrix[2][2] <= 1.0, ExcMessage("rot_matrix[2][2] > 1.0"));
       return rot_matrix;
-    }  
+    } 
 
 
 
@@ -883,50 +874,28 @@ namespace aspect
                   std::cout << "Anisotropic stress " << stress << std::endl;
 
                   //Get eigen values from compositional fields
-                  const double eigvalue_a1 = composition[cpo_bingham_avg_a[3]];
-                  const double eigvalue_b1 = composition[cpo_bingham_avg_b[3]];
-                  const double eigvalue_c1 = composition[cpo_bingham_avg_c[3]];
-                  const double eigvalue_a2 = composition[cpo_bingham_avg_a[4]];
-                  const double eigvalue_b2 = composition[cpo_bingham_avg_b[4]];
-                  const double eigvalue_c2 = composition[cpo_bingham_avg_c[4]];
-                  const double eigvalue_a3 = composition[cpo_bingham_avg_a[5]];
-                  const double eigvalue_b3 = composition[cpo_bingham_avg_b[5]];
-                  const double eigvalue_c3 = composition[cpo_bingham_avg_c[5]];
-
-                  //Get rotation matrix in the CPO reference frame from eigen vectors in compositional fields
-                  Tensor<2,3> R_CPO;
-                  R_CPO[0][0] = composition[cpo_bingham_avg_a[0]]/(eigvalue_a1*n_grains);
-                  R_CPO[1][0] = composition[cpo_bingham_avg_a[1]]/(eigvalue_a1*n_grains);
-                  R_CPO[2][0] = composition[cpo_bingham_avg_a[2]]/(eigvalue_a1*n_grains);
-                  R_CPO[0][1] = composition[cpo_bingham_avg_b[0]]/(eigvalue_b1*n_grains);
-                  R_CPO[1][1] = composition[cpo_bingham_avg_b[1]]/(eigvalue_b1*n_grains);
-                  R_CPO[2][1] = composition[cpo_bingham_avg_b[2]]/(eigvalue_b1*n_grains);
-                  R_CPO[0][2] = composition[cpo_bingham_avg_c[0]]/(eigvalue_c1*n_grains);
-                  R_CPO[1][2] = composition[cpo_bingham_avg_c[1]]/(eigvalue_c1*n_grains);
-                  R_CPO[2][2] = composition[cpo_bingham_avg_c[2]]/(eigvalue_c1*n_grains);
-
-                  // normalize the eigenvectors in the rotation matrix
-                  // in case the interpolated eigenvectors has length>1
-                  const double vec1_length = sqrt(R_CPO[0][0]*R_CPO[0][0]+R_CPO[1][0]*R_CPO[1][0]+R_CPO[2][0]*R_CPO[2][0]);
-                  const double vec2_length = sqrt(R_CPO[0][1]*R_CPO[0][1]+R_CPO[1][1]*R_CPO[1][1]+R_CPO[2][1]*R_CPO[2][1]);
-                  const double vec3_length = sqrt(R_CPO[0][2]*R_CPO[0][2]+R_CPO[1][2]*R_CPO[1][2]+R_CPO[2][2]*R_CPO[2][2]);
-
-                  R_CPO[0][0] = R_CPO[0][0]/vec1_length;
-                  R_CPO[1][0] = R_CPO[1][0]/vec1_length;
-                  R_CPO[2][0] = R_CPO[2][0]/vec1_length;
-                  R_CPO[0][1] = R_CPO[0][1]/vec2_length;
-                  R_CPO[1][1] = R_CPO[1][1]/vec2_length;
-                  R_CPO[2][1] = R_CPO[2][1]/vec2_length;
-                  R_CPO[0][2] = R_CPO[0][2]/vec3_length;
-                  R_CPO[1][2] = R_CPO[1][2]/vec3_length;
-                  R_CPO[2][2] = R_CPO[2][2]/vec3_length;
-
-                  //Convert rotation matrix to euler angles phi1, theta, phi2
-                  Tensor<2,3> Rot = transpose(R_CPO);
-                  std::array<double,3> EA = Utilities::zxz_euler_angles_from_rotation_matrix(Rot);
+                  const double eigvalue_a1 = composition[cpo_bingham_avg_a[1]];
+                  const double eigvalue_b1 = composition[cpo_bingham_avg_b[1]];
+                  const double eigvalue_c1 = composition[cpo_bingham_avg_c[1]];
+                  const double eigvalue_a2 = composition[cpo_bingham_avg_a[2]];
+                  const double eigvalue_b2 = composition[cpo_bingham_avg_b[2]];
+                  const double eigvalue_c2 = composition[cpo_bingham_avg_c[2]];
+                  const double eigvalue_a3 = composition[cpo_bingham_avg_a[3]];
+                  const double eigvalue_b3 = composition[cpo_bingham_avg_b[3]];
+                  const double eigvalue_c3 = composition[cpo_bingham_avg_c[3]];
 
                   //Calculate the rotation matrix from the euler angles
-                  Tensor<2,3> R = transpose(AV<dim>::euler_angles_to_rotation_matrix(EA[0]*constants::degree_to_radians, EA[1]*constants::degree_to_radians, EA[2]*constants::degree_to_radians));
+                  const double phi1 = composition[cpo_bingham_avg_a[0]];
+                  const double theta = composition[cpo_bingham_avg_b[0]];
+                  const double phi2 = composition[cpo_bingham_avg_c[0]];
+                  Tensor<2,3> R = transpose(AV<dim>::euler_angles_to_rotation_matrix(-phi1, -theta, -phi2));
+
+                  // // Check if the eigen vectors form orthogonal basis
+                  // std::cout<<"in mm: transpose(R)*R= "<<transpose(R)*R<<std::endl;
+                  // // Check if the rotation matrix is orthogonal using R^T=R^(-1) and det(R)=1
+                  // std::cout<<"in mm: transpose(R) "<<transpose(R)<<" invert(R) "<<invert(R)<<std::endl;
+                  // if (determinant(R)==1)
+                  //   std::cout<<"in mm: det(R)==1 "<<std::endl;
 
                   //Compute Hill Parameters FGHLMN from the eigenvalues of a,b,c axis
                   double F, G, H, L, M, N;
@@ -936,17 +905,10 @@ namespace aspect
                   L = std::abs(std::pow(eigvalue_a1,2)*CnI_L[0] + eigvalue_a2*CnI_L[1] + (1/eigvalue_a3)*CnI_L[2] + std::pow(eigvalue_b1,2)*CnI_L[3] + eigvalue_b2*CnI_L[4] + (1/eigvalue_b3)*CnI_L[5] + std::pow(eigvalue_c1,2)*CnI_L[6] + eigvalue_c2*CnI_L[7] + (1/eigvalue_c3)*CnI_L[8] + CnI_L[9]);
                   M = std::abs(std::pow(eigvalue_a1,2)*CnI_M[0] + eigvalue_a2*CnI_M[1] + (1/eigvalue_a3)*CnI_M[2] + std::pow(eigvalue_b1,2)*CnI_M[3] + eigvalue_b2*CnI_M[4] + (1/eigvalue_b3)*CnI_M[5] + std::pow(eigvalue_c1,2)*CnI_M[6] + eigvalue_c2*CnI_M[7] + (1/eigvalue_c3)*CnI_M[8] + CnI_M[9]);
                   N = std::abs(std::pow(eigvalue_a1,2)*CnI_N[0] + eigvalue_a2*CnI_N[1] + (1/eigvalue_a3)*CnI_N[2] + std::pow(eigvalue_b1,2)*CnI_N[3] + eigvalue_b2*CnI_N[4] + (1/eigvalue_b3)*CnI_N[5] + std::pow(eigvalue_c1,2)*CnI_N[6] + eigvalue_c2*CnI_N[7] + (1/eigvalue_c3)*CnI_N[8] + CnI_N[9]);                 
-                  F = 0.5;
-                  G = 0.5;
-                  H = 0.5;
-                  L = 1.5;
-                  M = 1.5;
-                  N = 1.5;
-
-                  // std::cout<<"eigvalue_a1 "<<eigvalue_a1<<" eigvalue_a2 "<<eigvalue_a2<<" eigvalue_a3 "<<eigvalue_a3<<std::endl;
-                  // std::cout<<"eigvalue_b1 "<<eigvalue_b1<<" eigvalue_b2 "<<eigvalue_b2<<" eigvalue_b3 "<<eigvalue_b3<<std::endl;
-                  // std::cout<<"eigvalue_c1 "<<eigvalue_c1<<" eigvalue_c2 "<<eigvalue_c2<<" eigvalue_c3 "<<eigvalue_c3<<std::endl;
-                  // std::cout<<"F "<<F<<" G "<<G<<" H "<<H<<" L "<<L<<" M "<<M<<" N "<<N<<std::endl;
+                  std::cout<<"eigvalue_a1 "<<eigvalue_a1<<" eigvalue_a2 "<<eigvalue_a2<<" eigvalue_a3 "<<eigvalue_a3<<std::endl;
+                  std::cout<<"eigvalue_b1 "<<eigvalue_b1<<" eigvalue_b2 "<<eigvalue_b2<<" eigvalue_b3 "<<eigvalue_b3<<std::endl;
+                  std::cout<<"eigvalue_c1 "<<eigvalue_c1<<" eigvalue_c2 "<<eigvalue_c2<<" eigvalue_c3 "<<eigvalue_c3<<std::endl;
+                  std::cout<<"F "<<F<<" G "<<G<<" H "<<H<<" L "<<L<<" M "<<M<<" N "<<N<<std::endl;
 
                   //Compute Rotation matrix
                   Tensor<2,6> R_CPO_K;
@@ -1008,16 +970,66 @@ namespace aspect
                   AssertThrow(Jhill >= 0,
                               ExcMessage("Jhill should not be negative"));
 
+                  SymmetricTensor<2,6> A;
+                  A[0][0] = 2/3*(F+H);
+                  A[0][1] = 2/3*(-F);
+                  A[0][2] = 2/3*(-H);
+                  A[1][1] = 2/3*(G+F);
+                  A[1][2] = 2/3*(-G);
+                  A[2][2] = 2/3*(H+G);
+                  A[3][3] = 2/3*L;
+                  A[4][4] = 2/3*M;
+                  A[5][5] = 2/3*N;
+
+                  // //Convert rank-2 A tensor to rank-4
+                  // FullMatrix<double> A_mat(6,6);
+                  // for (unsigned int ai=0; ai<6; ++ai)
+                  //   {
+                  //     for (unsigned int aj=0; aj<6; ++aj)
+                  //       {
+                  //         A_mat[ai][aj] = A[ai][aj];
+                  //       }
+                  //   }
+                  // SymmetricTensor<4,dim> A_r4;
+                  // dealii::Physics::Notation::Kelvin::to_tensor(A_mat, A_r4);
+                  // // //Invert the rank-4 A tensor
+                  // // SymmetricTensor<4,dim> invA_r4 = invert(A_r4);
+                  // //Compute the pseudoinverse of the rank-4 A tensor (Moore-Penrose)
+                  // // SymmetricTensor<4,dim> pseudoinvA_r4 = invert(transpose(A_r4)*A_r4)*transpose(A_r4); //if A has linearly independent columns
+                  // SymmetricTensor<4,dim> pseudoinvA_r4 = transpose(A_r4)*invert(A_r4*transpose(A_r4)); //if A has linearly independent rows
+                  
+                  // //Convert the rank-4 invA tensor to rank-2
+                  // FullMatrix<double> invA_mat = dealii::Physics::Notation::Kelvin::to_matrix(pseudoinvA_r4);
+                  // SymmetricTensor<2,6> invA;
+                  // for (unsigned int ai=0; ai<6; ++ai)
+                  //   {
+                  //     for (unsigned int aj=0; aj<6; ++aj)
+                  //       {
+                  //         invA_mat[ai][aj] = invA[ai][aj];
+                  //       }
+                  //   }
+                  // SymmetricTensor<2,6> invA;
+                  // invA[0][0] = (4*G+F+H)/(F*H+F*G+G*H);
+                  // invA[0][1] = (-2*G-F)/(F*H+F*G+G*H);
+                  // invA[0][2] = (-2*G-F)/(F*H+F*G+G*H);
+                  // invA[1][1] = (G+H)/(F*H+F*G+G*H);
+                  // invA[1][2] = G/(F*H+F*G+G*H);
+                  // invA[2][2] = (F+G)/(F*H+F*G+G*H);
+                  // invA[3][3] = 1/L;
+                  // invA[4][4] = 1/M;
+                  // invA[5][5] = 1/N;
+                  // invA = 3/2 * invA;
+
                   SymmetricTensor<2,6> invA;
-                  invA[0][0] = (F+H)/(F*H+F*G+G*H);
-                  invA[0][1] = (-2*G-F)/(F*H+F*G+G*H);
-                  invA[0][2] = (-2*G-F)/(F*H+F*G+G*H);
-                  invA[1][1] = (G+H)/(F*H+F*G+G*H);
-                  invA[1][2] = G/(F*H+F*G+G*H);
-                  invA[2][2] = (F+G)/(F*H+F*G+G*H);
-                  invA[3][3] = 2/L;
-                  invA[4][4] = 2/M;
-                  invA[5][5] = 2/N;
+                  invA[0][0] = 2.0/3.0;
+                  invA[0][1] = -1.0/3.0;
+                  invA[0][2] = -1.0/3.0;
+                  invA[1][1] = 2.0/3.0;
+                  invA[1][2] = -1.0/3.0;
+                  invA[2][2] = 2.0/3.0;
+                  invA[3][3] = 1;
+                  invA[4][4] = 1;
+                  invA[5][5] = 1;
 
                   //Calculate the fluidity tensor in the LPO frame
                   Tensor<2,6> V = R_CPO_K * invA * transpose(R_CPO_K);
@@ -1044,8 +1056,7 @@ namespace aspect
                   
                   if (anisotropic_viscosity != nullptr)
                     {
-                      // anisotropic_viscosity->stress_strain_directors[q] = V_r4;
-                      anisotropic_viscosity->stress_strain_directors[q] = dealii::identity_tensor<dim> ();
+                      anisotropic_viscosity->stress_strain_directors[q] = V_r4;
                     }    
                 }   
             }
@@ -1053,6 +1064,28 @@ namespace aspect
             {
               if (anisotropic_viscosity != nullptr)
                 {
+                  // SymmetricTensor<2,6> V;
+                  // V[0][0] = 2.0/3.0;
+                  // V[0][1] = -1.0/3.0;
+                  // V[0][2] = -1.0/3.0;
+                  // V[1][1] = 2.0/3.0;
+                  // V[1][2] = -1.0/3.0;
+                  // V[2][2] = 2.0/3.0;
+                  // V[3][3] = 1;
+                  // V[4][4] = 1;
+                  // V[5][5] = 1;
+                  // //Convert rank 2 viscosity tensor to rank 4
+                  // FullMatrix<double> V_mat(6,6);
+                  // for (unsigned int vi=0; vi<6; ++vi)
+                  //   {
+                  //     for (unsigned int vj=0; vj<6; ++vj)
+                  //       {
+                  //         V_mat[vi][vj] = V[vi][vj];
+                  //       }
+                  //   }
+                  // SymmetricTensor<4,dim> V_r4;
+                  // dealii::Physics::Notation::Kelvin::to_tensor(V_mat, V_r4);
+                  // anisotropic_viscosity->stress_strain_directors[q] = V_r4;
                   anisotropic_viscosity->stress_strain_directors[q] = dealii::identity_tensor<dim> ();
                 }
             }
