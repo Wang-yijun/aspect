@@ -58,6 +58,8 @@
 #include <deal.II/dofs/dof_tools.h>
 #include <deal.II/physics/notation.h>
 
+#include </cluster/projects/nn9283k/Aspect/yijun/testkit/EigenTest.cc>
+
 #include <array>
 #include <cmath>
 #include <functional>
@@ -971,65 +973,52 @@ namespace aspect
                               ExcMessage("Jhill should not be negative"));
 
                   SymmetricTensor<2,6> A;
-                  A[0][0] = 2/3*(F+H);
-                  A[0][1] = 2/3*(-F);
-                  A[0][2] = 2/3*(-H);
-                  A[1][1] = 2/3*(G+F);
-                  A[1][2] = 2/3*(-G);
-                  A[2][2] = 2/3*(H+G);
-                  A[3][3] = 2/3*L;
-                  A[4][4] = 2/3*M;
-                  A[5][5] = 2/3*N;
+                  A[0][0] = 2.0/3.0*(F+H);
+                  A[0][1] = 2.0/3.0*(-F);
+                  A[0][2] = 2.0/3.0*(-H);
+                  A[1][1] = 2.0/3.0*(G+F);
+                  A[1][2] = 2.0/3.0*(-G);
+                  A[2][2] = 2.0/3.0*(H+G);
+                  A[3][3] = 2.0/3.0*L;
+                  A[4][4] = 2.0/3.0*M;
+                  A[5][5] = 2.0/3.0*N;
 
-                  // //Convert rank-2 A tensor to rank-4
+                  // //Convert rank-2 A tensor to rank-4 and minus 1/3 for all components
                   // FullMatrix<double> A_mat(6,6);
                   // for (unsigned int ai=0; ai<6; ++ai)
                   //   {
                   //     for (unsigned int aj=0; aj<6; ++aj)
                   //       {
-                  //         A_mat[ai][aj] = A[ai][aj];
+                  //         A_mat[ai][aj] = A[ai][aj] - 1.0/3.0;
                   //       }
                   //   }
                   // SymmetricTensor<4,dim> A_r4;
                   // dealii::Physics::Notation::Kelvin::to_tensor(A_mat, A_r4);
-                  // // //Invert the rank-4 A tensor
-                  // // SymmetricTensor<4,dim> invA_r4 = invert(A_r4);
-                  // //Compute the pseudoinverse of the rank-4 A tensor (Moore-Penrose)
-                  // // SymmetricTensor<4,dim> pseudoinvA_r4 = invert(transpose(A_r4)*A_r4)*transpose(A_r4); //if A has linearly independent columns
-                  // SymmetricTensor<4,dim> pseudoinvA_r4 = transpose(A_r4)*invert(A_r4*transpose(A_r4)); //if A has linearly independent rows
+                  // //Invert the rank-4 A tensor
+                  // SymmetricTensor<4,dim> invA_r4 = invert(A_r4);
                   
-                  // //Convert the rank-4 invA tensor to rank-2
-                  // FullMatrix<double> invA_mat = dealii::Physics::Notation::Kelvin::to_matrix(pseudoinvA_r4);
-                  // SymmetricTensor<2,6> invA;
-                  // for (unsigned int ai=0; ai<6; ++ai)
-                  //   {
-                  //     for (unsigned int aj=0; aj<6; ++aj)
-                  //       {
-                  //         invA_mat[ai][aj] = invA[ai][aj];
-                  //       }
-                  //   }
-                  // SymmetricTensor<2,6> invA;
-                  // invA[0][0] = (4*G+F+H)/(F*H+F*G+G*H);
-                  // invA[0][1] = (-2*G-F)/(F*H+F*G+G*H);
-                  // invA[0][2] = (-2*G-F)/(F*H+F*G+G*H);
-                  // invA[1][1] = (G+H)/(F*H+F*G+G*H);
-                  // invA[1][2] = G/(F*H+F*G+G*H);
-                  // invA[2][2] = (F+G)/(F*H+F*G+G*H);
-                  // invA[3][3] = 1/L;
-                  // invA[4][4] = 1/M;
-                  // invA[5][5] = 1/N;
-                  // invA = 3/2 * invA;
+                  //Invert using Eigen
+                  MatrixXd A_mat(6, 6);
+                  for (unsigned int ai=0; ai<6; ++ai)
+                    {
+                      for (unsigned int aj=0; aj<6; ++aj)
+                        {
+                          A_mat(ai,aj) = A[ai][aj];
+                        }
+                    }
+                  MatrixXd pinvA_mat = pseudoInverse(A_mat);
 
+                  // //Convert the rank-4 invA tensor to rank-2
+                  // FullMatrix<double> invA_mat = dealii::Physics::Notation::Kelvin::to_matrix(invA_r4);
+                  
                   SymmetricTensor<2,6> invA;
-                  invA[0][0] = 2.0/3.0;
-                  invA[0][1] = -1.0/3.0;
-                  invA[0][2] = -1.0/3.0;
-                  invA[1][1] = 2.0/3.0;
-                  invA[1][2] = -1.0/3.0;
-                  invA[2][2] = 2.0/3.0;
-                  invA[3][3] = 1;
-                  invA[4][4] = 1;
-                  invA[5][5] = 1;
+                  for (unsigned int ai=0; ai<6; ++ai)
+                    {
+                      for (unsigned int aj=0; aj<6; ++aj)
+                        {
+                          invA[ai][aj] = pinvA_mat(ai,aj);
+                        }
+                    }
 
                   //Calculate the fluidity tensor in the LPO frame
                   Tensor<2,6> V = R_CPO_K * invA * transpose(R_CPO_K);
