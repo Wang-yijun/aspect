@@ -54,6 +54,8 @@
 #include <deal.II/grid/tria_iterator_base.h>
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/lapack_full_matrix.h>
+#include <deal.II/lac/lapack_templates.h>
+#include <deal.II/lac/scalapack.h>
 #include <deal.II/lac/vector.h>
 #include <deal.II/dofs/dof_tools.h>
 #include <deal.II/physics/notation.h>
@@ -282,10 +284,9 @@ namespace aspect
                       scratch.dof_component_indices[j])
                     {
                       data.local_matrix(i, j) += ((2.0 * eta * (scratch.grads_phi_u[i] * stress_strain_director 
-                                                                * scratch.grads_phi_u[j]) / 1e6)
+                                                                * scratch.grads_phi_u[j]))
                                                  )
                                                  * JxW;
-                      // std::cout << "Stokes precond: use ssd " << stress_strain_director << std::endl;              
                     }
 
 
@@ -397,7 +398,6 @@ namespace aspect
       const unsigned int stokes_dofs_per_cell = data.local_dof_indices.size();
       const unsigned int n_q_points    = scratch.finite_element_values.n_quadrature_points;
       const double pressure_scaling = this->get_pressure_scaling();
-      // std::cout << "Stokes incompressible: stokes_dofs_per_cell " << stokes_dofs_per_cell << std::endl;
       const MaterialModel::AdditionalMaterialOutputsStokesRHS<dim>
       *force = scratch.material_model_outputs.template get_additional_output<MaterialModel::AdditionalMaterialOutputsStokesRHS<dim>>();
 
@@ -544,7 +544,7 @@ namespace aspect
                 {
                   for (unsigned int j=0; j<stokes_dofs_per_cell; ++j)
                     {
-                      data.local_matrix(i,j) += ( (eta * 2.0 * (scratch.grads_phi_u[i] * stress_strain_director * scratch.grads_phi_u[j]) / 1e6)
+                      data.local_matrix(i,j) += ( (2.0 * eta * (scratch.grads_phi_u[i] * stress_strain_director * scratch.grads_phi_u[j]))
                                                   // assemble \nabla p as -(p, div v):
                                                   - (pressure_scaling *
                                                     scratch.div_phi_u[i] * scratch.phi_p[j])
@@ -554,7 +554,7 @@ namespace aspect
                                                   - (pressure_scaling *
                                                     scratch.phi_p[i] * scratch.div_phi_u[j]))
                                                 * JxW;
-                      // std::cout << "Stokes incompressible: use ssd " << stress_strain_director << std::endl;                          
+                      // std::cout << "Stokes incompressible: use eta " << eta << std::endl;                          
                     }
                 }   
             }
@@ -653,10 +653,10 @@ namespace aspect
           const SymmetricTensor<2,dim> &directed_strain_rate = ((anisotropic_viscosity != nullptr)
                                                                 ?
                                                                 anisotropic_viscosity->stress_strain_directors[q]
-                                                                * material_model_inputs.strain_rate[q] / 1e6
+                                                                * material_model_inputs.strain_rate[q]
                                                                 :
                                                                 material_model_inputs.strain_rate[q]);
-          // std::cout << "Shear heating: use ssd " << anisotropic_viscosity->stress_strain_directors[q] << std::endl;
+
           const SymmetricTensor<2,dim> stress =
             2 * material_model_outputs.viscosities[q] *
             (this->get_material_model().is_compressible()
@@ -714,7 +714,6 @@ namespace aspect
 //Next session is a more evolved implementation of anisotropic viscosity in the material model based on Hansen et al 2016 and Kiraly et al 2020
   namespace MaterialModel
   {
-
 
     template <int dim>
     void
@@ -890,14 +889,14 @@ namespace aspect
                   const double phi1 = composition[cpo_bingham_avg_a[0]];
                   const double theta = composition[cpo_bingham_avg_b[0]];
                   const double phi2 = composition[cpo_bingham_avg_c[0]];
-                  Tensor<2,3> R = transpose(AV<dim>::euler_angles_to_rotation_matrix(-phi1, -theta, -phi2));
+                  // std::cout<<"in mm: phi1 "<<phi1<<" theta "<<theta<<" phi2 "<<phi2<<std::endl;
+                  Tensor<2,3> R = transpose(AV<dim>::euler_angles_to_rotation_matrix(phi1, theta, phi2));
 
                   // // Check if the eigen vectors form orthogonal basis
                   // std::cout<<"in mm: transpose(R)*R= "<<transpose(R)*R<<std::endl;
                   // // Check if the rotation matrix is orthogonal using R^T=R^(-1) and det(R)=1
                   // std::cout<<"in mm: transpose(R) "<<transpose(R)<<" invert(R) "<<invert(R)<<std::endl;
-                  // if (determinant(R)==1)
-                  //   std::cout<<"in mm: det(R)==1 "<<std::endl;
+                  // std::cout<<"in mm: det(R)==1 "<<std::endl;
 
                   //Compute Hill Parameters FGHLMN from the eigenvalues of a,b,c axis
                   double F, G, H, L, M, N;
@@ -983,22 +982,8 @@ namespace aspect
                   A[4][4] = 2.0/3.0*M;
                   A[5][5] = 2.0/3.0*N;
 
-                  // //Convert rank-2 A tensor to rank-4 and minus 1/3 for all components
-                  // FullMatrix<double> A_mat(6,6);
-                  // for (unsigned int ai=0; ai<6; ++ai)
-                  //   {
-                  //     for (unsigned int aj=0; aj<6; ++aj)
-                  //       {
-                  //         A_mat[ai][aj] = A[ai][aj] - 1.0/3.0;
-                  //       }
-                  //   }
-                  // SymmetricTensor<4,dim> A_r4;
-                  // dealii::Physics::Notation::Kelvin::to_tensor(A_mat, A_r4);
-                  // //Invert the rank-4 A tensor
-                  // SymmetricTensor<4,dim> invA_r4 = invert(A_r4);
-                  
-                  //Invert using Eigen
-                  MatrixXd A_mat(6, 6);
+                  //Invert using ScaLAPACK in dealii
+                  FullMatrix<double> A_mat(6, 6);
                   for (unsigned int ai=0; ai<6; ++ai)
                     {
                       for (unsigned int aj=0; aj<6; ++aj)
@@ -1006,7 +991,13 @@ namespace aspect
                           A_mat(ai,aj) = A[ai][aj];
                         }
                     }
-                  MatrixXd pinvA_mat = pseudoInverse(A_mat);
+                  const double ratio = 1e-8;
+                  std::shared_ptr<Utilities::MPI::ProcessGrid> grid = std::make_shared<Utilities::MPI::ProcessGrid>(this->get_mpi_communicator(),6,6,16,16);
+                  ScaLAPACKMatrix<double> A_scalapack(6,6,grid);
+                  A_scalapack = A_mat;
+                  const unsigned int rank = A_scalapack.pseudoinverse(ratio);
+                  FullMatrix<double> pinvA_mat(6,6);
+                  A_scalapack.copy_to(pinvA_mat);
 
                   // //Convert the rank-4 invA tensor to rank-2
                   // FullMatrix<double> invA_mat = dealii::Physics::Notation::Kelvin::to_matrix(invA_r4);
@@ -1019,13 +1010,14 @@ namespace aspect
                           invA[ai][aj] = pinvA_mat(ai,aj);
                         }
                     }
+                  std::cout << "invA " << invA <<std::endl;
 
                   //Calculate the fluidity tensor in the LPO frame
                   Tensor<2,6> V = R_CPO_K * invA * transpose(R_CPO_K);
 
                   //Overwrite the scalar viscosity with an effective viscosity
                   out.viscosities[q] = (1 / (Gamma * std::pow(Jhill,(n-1)/2))) * 1e6; // convert from MPa to Pa
-
+                  
                   AssertThrow(out.viscosities[q] > 0,
                               ExcMessage("Viscosity should be positive"));
                   AssertThrow(isfinite(out.viscosities[q]),
@@ -1053,29 +1045,29 @@ namespace aspect
             {
               if (anisotropic_viscosity != nullptr)
                 {
-                  // SymmetricTensor<2,6> V;
-                  // V[0][0] = 2.0/3.0;
-                  // V[0][1] = -1.0/3.0;
-                  // V[0][2] = -1.0/3.0;
-                  // V[1][1] = 2.0/3.0;
-                  // V[1][2] = -1.0/3.0;
-                  // V[2][2] = 2.0/3.0;
-                  // V[3][3] = 1;
-                  // V[4][4] = 1;
-                  // V[5][5] = 1;
-                  // //Convert rank 2 viscosity tensor to rank 4
-                  // FullMatrix<double> V_mat(6,6);
-                  // for (unsigned int vi=0; vi<6; ++vi)
-                  //   {
-                  //     for (unsigned int vj=0; vj<6; ++vj)
-                  //       {
-                  //         V_mat[vi][vj] = V[vi][vj];
-                  //       }
-                  //   }
-                  // SymmetricTensor<4,dim> V_r4;
-                  // dealii::Physics::Notation::Kelvin::to_tensor(V_mat, V_r4);
-                  // anisotropic_viscosity->stress_strain_directors[q] = V_r4;
-                  anisotropic_viscosity->stress_strain_directors[q] = dealii::identity_tensor<dim> ();
+                  SymmetricTensor<2,6> V;
+                  V[0][0] = 2.0/3.0;
+                  V[0][1] = -1.0/3.0;
+                  V[0][2] = -1.0/3.0;
+                  V[1][1] = 2.0/3.0;
+                  V[1][2] = -1.0/3.0;
+                  V[2][2] = 2.0/3.0;
+                  V[3][3] = 1;
+                  V[4][4] = 1;
+                  V[5][5] = 1;
+                  //Convert rank 2 viscosity tensor to rank 4
+                  FullMatrix<double> V_mat(6,6);
+                  for (unsigned int vi=0; vi<6; ++vi)
+                    {
+                      for (unsigned int vj=0; vj<6; ++vj)
+                        {
+                          V_mat[vi][vj] = V[vi][vj];
+                        }
+                    }
+                  SymmetricTensor<4,dim> V_r4;
+                  dealii::Physics::Notation::Kelvin::to_tensor(V_mat, V_r4);
+                  anisotropic_viscosity->stress_strain_directors[q] = V_r4;
+                  // anisotropic_viscosity->stress_strain_directors[q] = dealii::identity_tensor<dim> ();
                 }
             }
           // Prescribe the stress strain directors and scalar viscosity to compositional field for access in the next time step
