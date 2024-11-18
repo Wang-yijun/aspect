@@ -25,6 +25,8 @@
 #include <aspect/simulator_access.h>
 #include <aspect/material_model/simple.h>
 #include <aspect/material_model/equation_of_state/interface.h>
+#include <aspect/material_model/rheology/dislocation_creep.h>
+#include <aspect/material_model/rheology/diffusion_dislocation.h>
 #include <aspect/simulator/assemblers/interface.h>
 
 namespace aspect
@@ -68,8 +70,6 @@ namespace aspect
 
     };
 
-    /*template <int matrix_size>
-    void check_eigenvalues_positive(const SymmetricTensor<2,matrix_size> &matrix);*/
 
 
     template <int dim>
@@ -95,10 +95,25 @@ namespace aspect
         double grain_size;
         std::vector<double> CnI_F, CnI_G, CnI_H, CnI_L, CnI_M, CnI_N;
 
+        double reference_T;
+        double thermal_diffusivity;
+        double heat_capacity;
+        std::vector<double> densities;
+        std::vector<double> thermal_expansivities;
+
         unsigned int n_grains;
         EquationOfState::LinearizedIncompressible<dim> equation_of_state;
         void set_assemblers(const SimulatorAccess<dim> &,
                             Assemblers::Manager<dim> &assemblers) const;
+        
+        /**
+         * Object for computing viscous creep viscosities.
+         */
+        Rheology::DiffusionDislocation<dim> diffusion_dislocation;
+        Rheology::DislocationCreep<dim> dislocation_creep;
+        
+        unsigned int n_chemical_composition_fields;
+        std::vector<std::string> chemical_field_names;
 
     };
   }
