@@ -58,7 +58,6 @@ namespace aspect
           {
             // no phases
             creep_parameters.prefactor = prefactors_dislocation[composition];
-            std::cout << "prefectors: " << prefactors_dislocation[composition] << std::endl;
             creep_parameters.activation_energy = activation_energies_dislocation[composition];
             creep_parameters.activation_volume = activation_volumes_dislocation[composition];
             creep_parameters.stress_exponent = stress_exponents_dislocation[composition];

@@ -892,15 +892,22 @@ namespace aspect
                   std::copy(ssd_array.begin(), ssd_array.end(), old_stress_strain_director.begin_raw());
                   std::cout << "old_stress_strain_director " << old_stress_strain_director << std::endl;
 
-                  // stress = 2 * composition[ind_vis] * old_stress_strain_director * deviatoric_strain_rate / 1e6; // Use stress in MPa           
-                  // std::cout << "Anisotropic stress " << stress << std::endl;
-                  
-                  for (std::string chem_comp: chemical_field_names)
+                  std::vector<std::string> chemical_field_names = this->introspection().chemical_composition_field_names();
+                  std::vector<int> chemical_field_ind;
+                  chemical_field_ind.push_back(0);
+                  if (chemical_field_names.size() > 0)
                     {
-                      const unsigned int ind_chem_comp = this->introspection().compositional_index_for_name("chem_comp");
-                      const Rheology::DislocationCreepParameters dislocation_creep_parameters = dislocation_creep.compute_creep_parameters(ind_chem_comp);
+                      for (std::string chem_comp: chemical_field_names)
+                        {
+                          chemical_field_ind.push_back(this->introspection().compositional_index_for_name(chem_comp));
+                        }
+                    }
+                  
+                  for (double composition_index: chemical_field_ind)
+                    {
+                      const Rheology::DislocationCreepParameters dislocation_creep_parameters = dislocation_creep.compute_creep_parameters(composition_index);
 
-                      // For diffusion creep, viscosity is grain size dependent
+                      // effective dislocation creep viscosity
                       const double n_disl = dislocation_creep_parameters.stress_exponent;
                       const double scalar_viscosity_dislocation = (1./2.) * std::pow(dislocation_creep_parameters.prefactor, -1./n_disl) 
                                                                   * std::pow(edot_ii, (1.-n_disl)/n_disl) 
@@ -1168,6 +1175,12 @@ namespace aspect
           // Establish that a background field is required here
           compositional_field_names.insert(compositional_field_names.begin(), "background");
           chemical_field_names.insert(chemical_field_names.begin(), "background");
+
+          // for (std::string chem_comp: chemical_field_names)
+          //   {
+          //     std::cout << chem_comp << " ";
+          //   }
+          // std::cout << std::endl;
 
           Utilities::MapParsing::Options options(chemical_field_names, "Densities");
           options.list_of_allowed_keys = compositional_field_names;
