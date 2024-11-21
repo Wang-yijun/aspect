@@ -913,10 +913,6 @@ namespace aspect
                                                                   * std::pow(edot_ii, (1.-n_disl)/n_disl) 
                                                                   * std::exp((dislocation_creep_parameters.activation_energy + pressure*dislocation_creep_parameters.activation_volume)/(n_disl * constants::gas_constant * temperature));
                       std::cout << "scalar_viscosity_dislocation " << scalar_viscosity_dislocation << std::endl;                                                  
-                      // const double stress_dislocation_ii = 2 * scalar_viscosity_dislocation * edot_ii;
-                      // const double stress_av_ii = std::sqrt(std::max(-second_invariant(deviator(stress)), 0.));
-                      // std::cout << "Dislocation stress_ii " << stress_dislocation_ii << std::endl;
-                      // std::cout << "AV stress_ii " << stress_av_ii << std::endl;
                       stress = 2 * scalar_viscosity_dislocation * old_stress_strain_director * deviatoric_strain_rate / 1e6;
 
                       //Get eigen values from compositional fields

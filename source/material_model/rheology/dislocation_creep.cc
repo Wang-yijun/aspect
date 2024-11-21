@@ -61,6 +61,11 @@ namespace aspect
             creep_parameters.activation_energy = activation_energies_dislocation[composition];
             creep_parameters.activation_volume = activation_volumes_dislocation[composition];
             creep_parameters.stress_exponent = stress_exponents_dislocation[composition];
+            // creep_parameters.prefactor = 1.1e-16;
+            // creep_parameters.activation_energy = 530e3;
+            // creep_parameters.activation_volume = 1.4e-5;
+            // creep_parameters.stress_exponent = 3.5;
+            
           }
         else
           {
