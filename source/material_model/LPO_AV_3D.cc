@@ -60,8 +60,6 @@
 #include <deal.II/dofs/dof_tools.h>
 #include <deal.II/physics/notation.h>
 
-#include </cluster/projects/nn9283k/Aspect/yijun/testkit/EigenTest.cc>
-
 #include <array>
 #include <cmath>
 #include <functional>
@@ -853,7 +851,6 @@ namespace aspect
                   const unsigned int ind_vis = this->introspection().compositional_index_for_name("scalar_vis");
                   std::cout << "Initial viscosity: " << composition[ind_vis] << std::endl;
                   
-                  SymmetricTensor<2,dim> stress;
                   //Create constant value to use for AV
                   const double A_o = 1.1e5*exp(-530000/(8.314*in.temperature[q]));
                   const double n = 3.5;
@@ -869,11 +866,7 @@ namespace aspect
                           ExcMessage("Assigned prescribed field should be finite"));
                     }
                   std::copy(ssd_array.begin(), ssd_array.end(), old_stress_strain_director.begin_raw());
-                  stress = 2 * composition[ind_vis] * old_stress_strain_director * deviatoric_strain_rate / 1e6; // Use stress in MPa           
-                  std::cout << "old_stress_strain_director " << old_stress_strain_director << std::endl;
-                  std::cout << "deviatoric_strain_rate " << deviatoric_strain_rate << std::endl;
-                  std::cout << "Anisotropic stress " << stress << std::endl;
-
+                  
                   //Get eigen values from compositional fields
                   const double eigvalue_a1 = composition[cpo_bingham_avg_a[1]];
                   const double eigvalue_b1 = composition[cpo_bingham_avg_b[1]];
@@ -892,9 +885,8 @@ namespace aspect
                   // std::cout<<"in mm: phi1 "<<phi1<<" theta "<<theta<<" phi2 "<<phi2<<std::endl;
                   Tensor<2,3> R = transpose(AV<dim>::euler_angles_to_rotation_matrix(phi1, theta, phi2));
 
-                  // // Check if the eigen vectors form orthogonal basis
-                  // std::cout<<"in mm: transpose(R)*R= "<<transpose(R)*R<<std::endl;
                   // // Check if the rotation matrix is orthogonal using R^T=R^(-1) and det(R)=1
+                  // std::cout<<"in mm: transpose(R)*R= "<<transpose(R)*R<<std::endl;
                   // std::cout<<"in mm: transpose(R) "<<transpose(R)<<" invert(R) "<<invert(R)<<std::endl;
                   // std::cout<<"in mm: det(R)==1 "<<std::endl;
 
@@ -906,10 +898,50 @@ namespace aspect
                   L = std::abs(std::pow(eigvalue_a1,2)*CnI_L[0] + eigvalue_a2*CnI_L[1] + (1/eigvalue_a3)*CnI_L[2] + std::pow(eigvalue_b1,2)*CnI_L[3] + eigvalue_b2*CnI_L[4] + (1/eigvalue_b3)*CnI_L[5] + std::pow(eigvalue_c1,2)*CnI_L[6] + eigvalue_c2*CnI_L[7] + (1/eigvalue_c3)*CnI_L[8] + CnI_L[9]);
                   M = std::abs(std::pow(eigvalue_a1,2)*CnI_M[0] + eigvalue_a2*CnI_M[1] + (1/eigvalue_a3)*CnI_M[2] + std::pow(eigvalue_b1,2)*CnI_M[3] + eigvalue_b2*CnI_M[4] + (1/eigvalue_b3)*CnI_M[5] + std::pow(eigvalue_c1,2)*CnI_M[6] + eigvalue_c2*CnI_M[7] + (1/eigvalue_c3)*CnI_M[8] + CnI_M[9]);
                   N = std::abs(std::pow(eigvalue_a1,2)*CnI_N[0] + eigvalue_a2*CnI_N[1] + (1/eigvalue_a3)*CnI_N[2] + std::pow(eigvalue_b1,2)*CnI_N[3] + eigvalue_b2*CnI_N[4] + (1/eigvalue_b3)*CnI_N[5] + std::pow(eigvalue_c1,2)*CnI_N[6] + eigvalue_c2*CnI_N[7] + (1/eigvalue_c3)*CnI_N[8] + CnI_N[9]);                 
-                  std::cout<<"eigvalue_a1 "<<eigvalue_a1<<" eigvalue_a2 "<<eigvalue_a2<<" eigvalue_a3 "<<eigvalue_a3<<std::endl;
-                  std::cout<<"eigvalue_b1 "<<eigvalue_b1<<" eigvalue_b2 "<<eigvalue_b2<<" eigvalue_b3 "<<eigvalue_b3<<std::endl;
-                  std::cout<<"eigvalue_c1 "<<eigvalue_c1<<" eigvalue_c2 "<<eigvalue_c2<<" eigvalue_c3 "<<eigvalue_c3<<std::endl;
-                  std::cout<<"F "<<F<<" G "<<G<<" H "<<H<<" L "<<L<<" M "<<M<<" N "<<N<<std::endl;
+                  // std::cout<<"eigvalue_a1 "<<eigvalue_a1<<" eigvalue_a2 "<<eigvalue_a2<<" eigvalue_a3 "<<eigvalue_a3<<std::endl;
+                  // std::cout<<"eigvalue_b1 "<<eigvalue_b1<<" eigvalue_b2 "<<eigvalue_b2<<" eigvalue_b3 "<<eigvalue_b3<<std::endl;
+                  // std::cout<<"eigvalue_c1 "<<eigvalue_c1<<" eigvalue_c2 "<<eigvalue_c2<<" eigvalue_c3 "<<eigvalue_c3<<std::endl;
+                  // std::cout<<"F "<<F<<" G "<<G<<" H "<<H<<" L "<<L<<" M "<<M<<" N "<<N<<std::endl;
+
+                  double scalar_viscosity = composition[ind_vis];
+                  double n_iterations = 1;
+                  double max_iteration = 25;
+                  double residual = scalar_viscosity;
+                  double threshold = 1;
+                  SymmetricTensor<2,dim> stress;stress = 2 * scalar_viscosity * old_stress_strain_director * deviatoric_strain_rate / 1e6; // Use stress in MPa                    
+                  while (std::abs(residual) > threshold && n_iterations < max_iteration)
+                  {
+                    // std::cout << "n_iterations: " << n_iterations << std::endl;
+                    stress = 0.5 * (stress + 2 * scalar_viscosity * old_stress_strain_director * deviatoric_strain_rate / 1e6);         
+                    // std::cout << "old_stress_strain_director " << old_stress_strain_director << std::endl;
+                    // std::cout << "deviatoric_strain_rate " << deviatoric_strain_rate << std::endl;
+                    // std::cout << "Anisotropic stress " << stress << std::endl;
+
+                    Tensor<2,3> S_CPO=transpose(R)*stress*R;
+                    // std::cout << "R " << R <<std::endl;
+                    // std::cout << "stress CPO " << S_CPO <<std::endl;
+
+                    double Jhill = F*pow((S_CPO[0][0]-S_CPO[1][1]),2) + G*pow((S_CPO[1][1]-S_CPO[2][2]),2) + H*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);
+                    if (Jhill < 0)
+                      {
+                        Jhill = std::abs(F)*pow((S_CPO[0][0]-S_CPO[1][1]),2) + std::abs(G)*pow((S_CPO[1][1]-S_CPO[2][2]),2) + std::abs(H)*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);            
+                      }              
+                    // std::cout << "Jhill " << Jhill <<std::endl;
+
+                    AssertThrow(isfinite(Jhill),
+                                ExcMessage("Jhill should be finite"));
+                    AssertThrow(Jhill >= 0,
+                                ExcMessage("Jhill should not be negative"));
+
+                    double scalar_viscosity_new = (1 / (Gamma * std::pow(Jhill,(n-1)/2))) * 1e6; // convert from MPa to Pa
+                    residual = std::abs(scalar_viscosity_new - scalar_viscosity);
+                    scalar_viscosity = scalar_viscosity_new;
+                    // std::cout << "scalar_viscosity: " << scalar_viscosity <<std::endl;
+                    n_iterations += 1;
+                  }
+                  //Overwrite the scalar viscosity with an effective viscosity
+                  out.viscosities[q] = scalar_viscosity;
+                  std::cout << "scalar_viscosity: " << scalar_viscosity <<std::endl;
 
                   //Compute Rotation matrix
                   Tensor<2,6> R_CPO_K;
@@ -955,22 +987,6 @@ namespace aspect
                   R_CPO_K[5][4] = R[0][0]*R[1][2]+R[0][2]*R[1][0];
                   R_CPO_K[5][5] = R[0][0]*R[1][1]+R[0][1]*R[1][0];
 
-                  Tensor<2,3> S_CPO=transpose(R)*stress*R;
-                  std::cout << "R " << R <<std::endl;
-                  std::cout << "stress CPO " << S_CPO <<std::endl;
-
-                  double Jhill = F*pow((S_CPO[0][0]-S_CPO[1][1]),2) + G*pow((S_CPO[1][1]-S_CPO[2][2]),2) + H*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);
-                  if (Jhill < 0)
-                    {
-                      Jhill = std::abs(F)*pow((S_CPO[0][0]-S_CPO[1][1]),2) + std::abs(G)*pow((S_CPO[1][1]-S_CPO[2][2]),2) + std::abs(H)*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);            
-                    }              
-                  std::cout << "Jhill " << Jhill <<std::endl;
-
-                  AssertThrow(isfinite(Jhill),
-                              ExcMessage("Jhill should be finite"));
-                  AssertThrow(Jhill >= 0,
-                              ExcMessage("Jhill should not be negative"));
-
                   SymmetricTensor<2,6> A;
                   A[0][0] = 2.0/3.0*(F+H);
                   A[0][1] = 2.0/3.0*(-F);
@@ -992,16 +1008,13 @@ namespace aspect
                         }
                     }
                   const double ratio = 1e-8;
-                  std::shared_ptr<Utilities::MPI::ProcessGrid> grid = std::make_shared<Utilities::MPI::ProcessGrid>(this->get_mpi_communicator(),6,6,16,16);
-                  ScaLAPACKMatrix<double> A_scalapack(6,6,grid);
+                  std::shared_ptr<Utilities::MPI::ProcessGrid> grid = std::make_shared<Utilities::MPI::ProcessGrid>(this->get_mpi_communicator(),6,6,4,4);
+                  ScaLAPACKMatrix<double> A_scalapack(6,6,grid,4,4);
                   A_scalapack = A_mat;
-                  const unsigned int rank = A_scalapack.pseudoinverse(ratio);
+                  A_scalapack.pseudoinverse(ratio);
                   FullMatrix<double> pinvA_mat(6,6);
                   A_scalapack.copy_to(pinvA_mat);
 
-                  // //Convert the rank-4 invA tensor to rank-2
-                  // FullMatrix<double> invA_mat = dealii::Physics::Notation::Kelvin::to_matrix(invA_r4);
-                  
                   SymmetricTensor<2,6> invA;
                   for (unsigned int ai=0; ai<6; ++ai)
                     {
@@ -1014,9 +1027,6 @@ namespace aspect
 
                   //Calculate the fluidity tensor in the LPO frame
                   Tensor<2,6> V = R_CPO_K * invA * transpose(R_CPO_K);
-
-                  //Overwrite the scalar viscosity with an effective viscosity
-                  out.viscosities[q] = (1 / (Gamma * std::pow(Jhill,(n-1)/2))) * 1e6; // convert from MPa to Pa
                   
                   AssertThrow(out.viscosities[q] > 0,
                               ExcMessage("Viscosity should be positive"));
