@@ -69,10 +69,10 @@ namespace aspect
                                                                         rotation_matrices_grains,
                                                                         n_samples,
                                                                         this->random_number_generator);
-            const std::array<std::array<double,6>,3> bingham_average = compute_bingham_average(weighted_rotation_matrices);
+            const std::array<std::array<double,4>,3> bingham_average = compute_bingham_average(weighted_rotation_matrices);
             
             for (unsigned int i = 0; i < 3; ++i)
-              for (unsigned int j = 0; j < 6; ++j)
+              for (unsigned int j = 0; j < 4; ++j)
                 data.emplace_back(bingham_average[i][j]);
           }
       }
@@ -99,12 +99,12 @@ namespace aspect
               }
 
             const std::vector<Tensor<2,3>> weighted_rotation_matrices = Utilities::rotation_matrices_random_draw_volume_weighting(volume_fractions_grains, rotation_matrices_grains, n_samples, this->random_number_generator);
-            std::array<std::array<double,6>,3> bingham_average = compute_bingham_average(weighted_rotation_matrices);
+            std::array<std::array<double,4>,3> bingham_average = compute_bingham_average(weighted_rotation_matrices);
             
             for (unsigned int i = 0; i < 3; ++i)
-              for (unsigned int j = 0; j < 6; ++j)
+              for (unsigned int j = 0; j < 4; ++j)
                 {
-                  data[data_position + mineral_i*18 + i*6 + j] = bingham_average[i][j];
+                  data[data_position + mineral_i*12 + i*4 + j] = bingham_average[i][j];
                 }
           }
       }
@@ -112,7 +112,7 @@ namespace aspect
 
 
       template <int dim>
-      std::array<std::array<double,6>,3>
+      std::array<std::array<double,4>,3>
       CpoBinghamAverage<dim>::compute_bingham_average(std::vector<Tensor<2,3>> matrices) const
       {
         SymmetricTensor<2,3> sum_matrix_a;
@@ -152,11 +152,6 @@ namespace aspect
         const std::array<std::pair<double,Tensor<1,3,double>>, 3> eigenvectors_b = eigenvectors(sum_matrix_b, SymmetricTensorEigenvectorMethod::jacobi);
         const std::array<std::pair<double,Tensor<1,3,double>>, 3> eigenvectors_c = eigenvectors(sum_matrix_c, SymmetricTensorEigenvectorMethod::jacobi);
 
-        // average axis = eigenvector * largest eigenvalue
-        const Tensor<1,3,double> averaged_a = eigenvectors_a[0].second * eigenvectors_a[0].first;
-        const Tensor<1,3,double> averaged_b = eigenvectors_b[0].second * eigenvectors_b[0].first;
-        const Tensor<1,3,double> averaged_c = eigenvectors_c[0].second * eigenvectors_a[0].first;
-
         // eigenvalues of all axes, used in the anisotropic viscosity material model to compute Hill's coefficients
         const double eigenvalue_a1 = eigenvectors_a[0].first/matrices.size();
         const double eigenvalue_a2 = eigenvectors_a[1].first/matrices.size();
@@ -168,21 +163,95 @@ namespace aspect
         const double eigenvalue_c2 = eigenvectors_c[1].first/matrices.size();
         const double eigenvalue_c3 = eigenvectors_c[2].first/matrices.size();
 
-        // const Tensor<1,3,double> eigvec_a = eigenvectors_a[0].second;
-        // const Tensor<1,3,double> eigvec_b = eigenvectors_b[0].second;
-        // const Tensor<1,3,double> eigvec_c = eigenvectors_c[0].second;
+        const Tensor<1,3,double> eigvec_a = eigenvectors_a[0].second;
+        const Tensor<1,3,double> eigvec_b = eigenvectors_b[0].second;
+        const Tensor<1,3,double> eigvec_c = eigenvectors_c[0].second;
 
-        // const double vec1_length = sqrt(eigvec_a[0]*eigvec_a[0]+eigvec_a[1]*eigvec_a[1]+eigvec_a[2]*eigvec_a[2]);
-        // const double vec2_length = sqrt(eigvec_b[0]*eigvec_b[0]+eigvec_b[1]*eigvec_b[1]+eigvec_b[2]*eigvec_b[2]);
-        // const double vec3_length = sqrt(eigvec_c[0]*eigvec_c[0]+eigvec_c[1]*eigvec_c[1]+eigvec_c[2]*eigvec_c[2]);
-        // std::cout<<"in pp: vec1 "<<eigvec_a<<" vec2 "<<eigvec_b<<" vec3 "<<eigvec_c<<std::endl;
+        // build rotation matrix from the eigen vectors
+        Tensor<2,3> R_CPO;
+        R_CPO[0][0] = eigvec_a[0];
+        R_CPO[1][0] = eigvec_a[1];
+        R_CPO[2][0] = eigvec_a[2];
+        R_CPO[0][1] = eigvec_b[0];
+        R_CPO[1][1] = eigvec_b[1];
+        R_CPO[2][1] = eigvec_b[2];
+        R_CPO[0][2] = eigvec_c[0];
+        R_CPO[1][2] = eigvec_c[1];
+        R_CPO[2][2] = eigvec_c[2];
+
+        // check if the matrix is orthogonal
+        // if not, we fix the a-axis with the largest eigen value
+        // find the b-axis with the second largest eigen value (find b around its initial direction that is perpendicular to a)
+        // find the c-axis using the cross product of a and b
+        Tensor<2,3> R_CPO_new = R_CPO;
+        if (determinant(R_CPO) != 1)
+          {
+            // std::cout << "R_CPO is not orthogonal" << std::endl;
+            double eigvalue_array[3] = {eigenvalue_a1, eigenvalue_b1, eigenvalue_c1};
+            int ind_array[3] = {0,1,2};
+            // find the index of the largest and smallest eigen values
+            int max_eigvalue_index = std::distance(eigvalue_array, std::max_element(eigvalue_array, eigvalue_array+3));
+            // std::cout << "max_eigvalue_index: " << max_eigvalue_index << std::endl;
+            int min_eigvalue_index = std::distance(eigvalue_array, std::min_element(eigvalue_array, eigvalue_array+3));
+            // std::cout << "min_eigvalue_index: " << min_eigvalue_index << std::endl;
+            std::remove(ind_array, ind_array+3, max_eigvalue_index);
+            std::remove(ind_array, ind_array+3, min_eigvalue_index);
+            int middle_index = ind_array[0];
+            // std::cout << "middle_index: " << middle_index << std::endl;
+            // fix the new cpo a-axis
+            Tensor<1,3,double> eigvec_a_new;
+            eigvec_a_new[0] = R_CPO[0][max_eigvalue_index];
+            eigvec_a_new[1] = R_CPO[1][max_eigvalue_index];
+            eigvec_a_new[2] = R_CPO[2][max_eigvalue_index];
+            R_CPO_new[0][0] = eigvec_a_new[0];
+            R_CPO_new[1][0] = eigvec_a_new[1];
+            R_CPO_new[2][0] = eigvec_a_new[2];
+            // find new cpo b-axis
+            Tensor<1,3,double> eigvec_b_new;
+            eigvec_b_new[0] = R_CPO[0][middle_index];
+            eigvec_b_new[1] = R_CPO[1][middle_index];
+            eigvec_b_new[2] = R_CPO[2][middle_index];
+            // check if new b-axis is orthogonal to the new a-axis, and find it if not
+            if (eigvec_a_new * eigvec_b_new == 0)
+              {
+                // std::cout << "new b-axis is orthogonal to the new a-axis" << std::endl;
+              }
+            else
+              {
+                // std::cout << "new b-axis is not orthogonal to the new a-axis" << std::endl;
+                Tensor<1,3,double> b_projection = (eigvec_a_new*eigvec_b_new)/(eigvec_a_new*eigvec_a_new) * eigvec_a_new;
+                Tensor<1,3,double> b = eigvec_b_new-b_projection;
+                eigvec_b_new = b/b.norm();
+              }
+            R_CPO_new[0][1] = eigvec_b_new[0];
+            R_CPO_new[1][1] = eigvec_b_new[1];
+            R_CPO_new[2][1] = eigvec_b_new[2];
+            // find cpo c-axis as the cross product of the new a-axis and b-axis
+            Tensor<1,3,double> eigvec_c_new = cross_product_3d(eigvec_a_new, eigvec_b_new);
+            R_CPO_new[0][2] = eigvec_c_new[0];
+            R_CPO_new[1][2] = eigvec_c_new[1];
+            R_CPO_new[2][2] = eigvec_c_new[2];
+            // check if R_CPO_new is orthogogal
+            // std::cout << "R_CPO_new is orthogonal when det=1. det = " << determinant(R_CPO_new) << std::endl;
+          }
+        // else
+        //   {
+        //     std::cout << "R_CPO is orthogonal" << std::endl;
+        //   }
+             
+        // convert rotation matrix to euler angles phi1, theta, phi2
+        Tensor<2,3> Rot = transpose(R_CPO_new);
+        std::array<double,3> EA = Utilities::zxz_euler_angles_from_rotation_matrix(Rot); // in degrees
+        const double phi1 = EA[0]*constants::degree_to_radians;
+        const double theta = EA[1]*constants::degree_to_radians;
+        const double phi2 = EA[2]*constants::degree_to_radians;
 
         return
         {
           {
-            {{averaged_a[0],averaged_a[1],averaged_a[2], eigenvalue_a1, eigenvalue_a2, eigenvalue_a3}},
-            {{averaged_b[0],averaged_b[1],averaged_b[2], eigenvalue_b1, eigenvalue_b2, eigenvalue_b3}},
-            {{averaged_c[0],averaged_c[1],averaged_c[2], eigenvalue_c1, eigenvalue_c2, eigenvalue_c3}}
+            {{phi1, eigenvalue_a1, eigenvalue_a2, eigenvalue_a3}},
+            {{theta, eigenvalue_b1, eigenvalue_b2, eigenvalue_b3}},
+            {{phi2, eigenvalue_c1, eigenvalue_c2, eigenvalue_c3}}
           }
         };
 
@@ -215,11 +284,11 @@ namespace aspect
         std::vector<std::pair<std::string,unsigned int>> property_information;
         for (unsigned int mineral_i = 0; mineral_i < n_minerals; ++mineral_i)
           {
-            property_information.emplace_back("cpo mineral " + std::to_string(mineral_i) + " bingham average a axis",3);
+            property_information.emplace_back("cpo mineral " + std::to_string(mineral_i) + " phi1",1);
             property_information.emplace_back("cpo mineral " + std::to_string(mineral_i) + " eigenvalues a axis",3);
-            property_information.emplace_back("cpo mineral " + std::to_string(mineral_i) + " bingham average b axis",3);
+            property_information.emplace_back("cpo mineral " + std::to_string(mineral_i) + " theta",1);
             property_information.emplace_back("cpo mineral " + std::to_string(mineral_i) + " eigenvalues b axis",3);
-            property_information.emplace_back("cpo mineral " + std::to_string(mineral_i) + " bingham average c axis",3);
+            property_information.emplace_back("cpo mineral " + std::to_string(mineral_i) + " phi2",1);
             property_information.emplace_back("cpo mineral " + std::to_string(mineral_i) + " eigenvalues c axis",3);
           }
 
