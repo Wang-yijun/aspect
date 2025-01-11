@@ -284,12 +284,12 @@ namespace aspect
         std::vector<std::pair<std::string,unsigned int>> property_information;
         for (unsigned int mineral_i = 0; mineral_i < n_minerals; ++mineral_i)
           {
-            property_information.emplace_back("cpo mineral " + std::to_string(mineral_i) + " phi1",1);
-            property_information.emplace_back("cpo mineral " + std::to_string(mineral_i) + " eigenvalues a axis",3);
-            property_information.emplace_back("cpo mineral " + std::to_string(mineral_i) + " theta",1);
-            property_information.emplace_back("cpo mineral " + std::to_string(mineral_i) + " eigenvalues b axis",3);
-            property_information.emplace_back("cpo mineral " + std::to_string(mineral_i) + " phi2",1);
-            property_information.emplace_back("cpo mineral " + std::to_string(mineral_i) + " eigenvalues c axis",3);
+            property_information.emplace_back("cpo mineral ea " + std::to_string(mineral_i) + " phi1",1);
+            property_information.emplace_back("cpo mineral ea " + std::to_string(mineral_i) + " eigenvalues a axis",3);
+            property_information.emplace_back("cpo mineral ea " + std::to_string(mineral_i) + " theta",1);
+            property_information.emplace_back("cpo mineral ea " + std::to_string(mineral_i) + " eigenvalues b axis",3);
+            property_information.emplace_back("cpo mineral ea " + std::to_string(mineral_i) + " phi2",1);
+            property_information.emplace_back("cpo mineral ea " + std::to_string(mineral_i) + " eigenvalues c axis",3);
           }
 
         return property_information;
@@ -352,10 +352,10 @@ namespace aspect
     namespace Property
     {
       ASPECT_REGISTER_PARTICLE_PROPERTY(CpoBinghamAverageEA,
-                                        "cpo bingham average euler angles",
+                                        "cpo bingham average euler angle",
                                         "This is a particle property plugin which computes the Bingham "
                                         "average for the Crystal Preferred Orientation particle property "
-                                        "plugin and pass it as euler angles.")
+                                        "plugin so that it can be visualized.")
     }
   }
 }

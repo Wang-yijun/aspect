@@ -18,8 +18,8 @@
  <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _aspect_particle_property_cpo_bingham_average_h
-#define _aspect_particle_property_cpo_bingham_average_h
+#ifndef _aspect_particle_property_cpo_bingham_average_ea_h
+#define _aspect_particle_property_cpo_bingham_average_ea_h
 
 #include <aspect/particle/property/interface.h>
 #include <aspect/particle/property/crystal_preferred_orientation.h>
@@ -40,30 +40,30 @@ namespace aspect
        * See https://courses.eas.ualberta.ca/eas421/lecturepages/orientation.html for more info.
        *
        * The layout of the data vector per particle is the following (note that for this plugin the following dim's are always 3):
-       * 1 phi1 of olivine                  -> 1 (dim) doubles, starts at:
+       * 1 averaged a axis of olivine       -> 3 (dim) doubles, starts at:
        *                                         data_position + 1,
        * 2 eigenvalues of a axis of olivine -> 3 (dim) doubles, starts at:
-       *                                         data_position + 2,
-       * 3 theta of olivine                 -> 1 (dim) doubles, starts at:
-       *                                         data_position + 5,
+       *                                         data_position + 4,
+       * 3 averaged b axis of olivine       -> 3 (dim) doubles, starts at:
+       *                                         data_position + 7,
        * 4 eigenvalues of b axis of olivine -> 3 (dim) doubles, starts at:
-       *                                         data_position + 6,
-       * 5 phi2 of olivine                  -> 1 (dim) doubles, starts at:
-       *                                         data_position + 9,
-       * 6 eigenvalues of c axis of olivine -> 3 (dim) doubles, starts at:
        *                                         data_position + 10,
-       * 7 phi1 of enstatite                   -> 1 (dim) doubles, starts at:
-       *                                          data_position + 13,
-       * 8 eigenvalues of a axis of enstatite  -> 3 (dim) doubles, starts at:
-       *                                          data_position + 14,
-       * 9 theta of enstatite                  -> 1 (dim) doubles, starts at:
-       *                                          data_position + 17,
-       * 10 eigenvalues of a axis of enstatite -> 3 (dim) doubles, starts at:
-       *                                          data_position + 18,
-       * 11 phi2 of enstatite                  -> 1 (dim) doubles, starts at:
-       *                                          data_position + 21,
-       * 12 eigenvalues of a axis of enstatite -> 3 (dim) doubles, starts at:
+       * 5 averaged c axis of olivine       -> 3 (dim) doubles, starts at:
+       *                                         data_position + 13,
+       * 6 eigenvalues of c axis of olivine -> 3 (dim) doubles, starts at:
+       *                                         data_position + 16,
+       * 7 averaged a axis of enstatite       -> 3 (dim) doubles, starts at:
+       *                                          data_position + 19,
+       * 8 eigenvalues of a axis of enstatite -> 3 (dim) doubles, starts at:
        *                                          data_position + 22,
+       * 9 averaged a axis of enstatite       -> 3 (dim) doubles, starts at:
+       *                                          data_position + 25,
+       * 10 eigenvalues of a axis of enstatite -> 3 (dim) doubles, starts at:
+       *                                          data_position + 28,
+       * 11 averaged a axis of enstatite       -> 3 (dim) doubles, starts at:
+       *                                          data_position + 31,
+       * 12 eigenvalues of a axis of enstatite -> 3 (dim) doubles, starts at:
+       *                                          data_position + 34,
        *
        * @ingroup ParticleProperties
        */
