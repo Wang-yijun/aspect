@@ -383,7 +383,7 @@ namespace aspect
              internal::Assembly::CopyData::CopyDataBase<dim> &data_base) const
     {
       Assert(this->get_parameters().stokes_solver_type == Parameters<dim>::StokesSolverType::block_amg,
-             ExcMessage ("Anisotropic viscosity is only allowed with block AMG solver"))
+             ExcMessage ("Anisotropic viscosity is only allowed with block AMG solver"));
       
       internal::Assembly::Scratch::StokesSystem<dim> &scratch = dynamic_cast<internal::Assembly::Scratch::StokesSystem<dim>&> (scratch_base);
       internal::Assembly::CopyData::StokesSystem<dim> &data = dynamic_cast<internal::Assembly::CopyData::StokesSystem<dim>&> (data_base);
