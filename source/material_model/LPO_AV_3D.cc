@@ -801,6 +801,7 @@ namespace aspect
                             MaterialModel::MaterialModelOutputs<3> &out) const
     {
       const int dim=3;
+      const double sqrt2 = sqrt(2);
       MaterialModel::AV<dim> *anisotropic_viscosity
         = out.template get_additional_output<MaterialModel::AV<dim>>();
       EquationOfStateOutputs<dim> eos_outputs (1);
@@ -948,41 +949,41 @@ namespace aspect
                   R_CPO_K[0][0] = std::pow(R[0][0],2);
                   R_CPO_K[0][1] = std::pow(R[0][1],2);
                   R_CPO_K[0][2] = std::pow(R[0][2],2);
-                  R_CPO_K[0][3] = sqrt(2)*R[0][1]*R[0][2];
-                  R_CPO_K[0][4] = sqrt(2)*R[0][0]*R[0][2];
-                  R_CPO_K[0][5] = sqrt(2)*R[0][0]*R[0][1];
+                  R_CPO_K[0][3] = sqrt2*R[0][1]*R[0][2];
+                  R_CPO_K[0][4] = sqrt2*R[0][0]*R[0][2];
+                  R_CPO_K[0][5] = sqrt2*R[0][0]*R[0][1];
 
                   R_CPO_K[1][0] = std::pow(R[1][0],2);
                   R_CPO_K[1][1] = std::pow(R[1][1],2);
                   R_CPO_K[1][2] = std::pow(R[1][2],2);
-                  R_CPO_K[1][3] = sqrt(2)*R[1][1]*R[1][2];
-                  R_CPO_K[1][4] = sqrt(2)*R[1][0]*R[1][2];
-                  R_CPO_K[1][5] = sqrt(2)*R[1][0]*R[1][1];
+                  R_CPO_K[1][3] = sqrt2*R[1][1]*R[1][2];
+                  R_CPO_K[1][4] = sqrt2*R[1][0]*R[1][2];
+                  R_CPO_K[1][5] = sqrt2*R[1][0]*R[1][1];
 
                   R_CPO_K[2][0] = std::pow(R[2][0],2);
                   R_CPO_K[2][1] = std::pow(R[2][1],2);
                   R_CPO_K[2][2] = std::pow(R[2][2],2);
-                  R_CPO_K[2][3] = sqrt(2)*R[2][1]*R[2][2];
-                  R_CPO_K[2][4] = sqrt(2)*R[2][0]*R[2][2];
-                  R_CPO_K[2][5] = sqrt(2)*R[2][0]*R[2][1];
+                  R_CPO_K[2][3] = sqrt2*R[2][1]*R[2][2];
+                  R_CPO_K[2][4] = sqrt2*R[2][0]*R[2][2];
+                  R_CPO_K[2][5] = sqrt2*R[2][0]*R[2][1];
 
-                  R_CPO_K[3][0] = sqrt(2)*R[1][0]*R[2][0];
-                  R_CPO_K[3][1] = sqrt(2)*R[1][1]*R[2][1];
-                  R_CPO_K[3][2] = sqrt(2)*R[1][2]*R[2][2];
+                  R_CPO_K[3][0] = sqrt2*R[1][0]*R[2][0];
+                  R_CPO_K[3][1] = sqrt2*R[1][1]*R[2][1];
+                  R_CPO_K[3][2] = sqrt2*R[1][2]*R[2][2];
                   R_CPO_K[3][3] = R[1][1]*R[2][2]+R[1][2]*R[2][1];
                   R_CPO_K[3][4] = R[1][0]*R[2][2]+R[1][2]*R[2][0];
                   R_CPO_K[3][5] = R[1][0]*R[2][1]+R[1][1]*R[2][0];
 
-                  R_CPO_K[4][0] = sqrt(2)*R[0][0]*R[2][0];
-                  R_CPO_K[4][1] = sqrt(2)*R[0][1]*R[2][1];
-                  R_CPO_K[4][2] = sqrt(2)*R[0][2]*R[2][2];
+                  R_CPO_K[4][0] = sqrt2*R[0][0]*R[2][0];
+                  R_CPO_K[4][1] = sqrt2*R[0][1]*R[2][1];
+                  R_CPO_K[4][2] = sqrt2*R[0][2]*R[2][2];
                   R_CPO_K[4][3] = R[0][1]*R[2][2]+R[0][2]*R[2][1];
                   R_CPO_K[4][4] = R[0][0]*R[2][2]+R[0][2]*R[2][0];
                   R_CPO_K[4][5] = R[0][0]*R[2][1]+R[0][1]*R[2][0];
 
-                  R_CPO_K[5][0] = sqrt(2)*R[0][0]*R[1][0];
-                  R_CPO_K[5][1] = sqrt(2)*R[0][1]*R[1][1];
-                  R_CPO_K[5][2] = sqrt(2)*R[0][2]*R[1][2];
+                  R_CPO_K[5][0] = sqrt2*R[0][0]*R[1][0];
+                  R_CPO_K[5][1] = sqrt2*R[0][1]*R[1][1];
+                  R_CPO_K[5][2] = sqrt2*R[0][2]*R[1][2];
                   R_CPO_K[5][3] = R[0][1]*R[1][2]+R[0][2]*R[1][1];
                   R_CPO_K[5][4] = R[0][0]*R[1][2]+R[0][2]*R[1][0];
                   R_CPO_K[5][5] = R[0][0]*R[1][1]+R[0][1]*R[1][0];
