@@ -285,6 +285,7 @@ namespace aspect
                                                                 * scratch.grads_phi_u[j]))
                                                  )
                                                  * JxW;
+                      // std::cout << "Stokes preconditioner: use eta " << eta << std::endl;
                     }
 
 
@@ -885,6 +886,7 @@ namespace aspect
                   const double phi2 = composition[cpo_bingham_avg_c[0]];
                   // std::cout<<"in mm: phi1 "<<phi1<<" theta "<<theta<<" phi2 "<<phi2<<std::endl;
                   Tensor<2,3> R = transpose(AV<dim>::euler_angles_to_rotation_matrix(phi1, theta, phi2));
+                  // std::cout << "R in mm " << R << std::endl;
 
                   // // Check if the rotation matrix is orthogonal using R^T=R^(-1) and det(R)=1
                   // std::cout<<"in mm: transpose(R)*R= "<<transpose(R)*R<<std::endl;
@@ -893,20 +895,30 @@ namespace aspect
 
                   //Compute Hill Parameters FGHLMN from the eigenvalues of a,b,c axis
                   double F, G, H, L, M, N;
-                  F = std::pow(eigvalue_a1,2)*CnI_F[0] + eigvalue_a1*CnI_F[1] + eigvalue_a2*CnI_F[2] + (1/eigvalue_a3)*CnI_F[3] + std::pow(eigvalue_b1,2)*CnI_F[4] + eigvalue_b1*CnI_F[5] + eigvalue_b2*CnI_F[6] + (1/eigvalue_b3)*CnI_F[7] + std::pow(eigvalue_c1,2)*CnI_F[8] + eigvalue_c1*CnI_F[9] + eigvalue_c2*CnI_F[10] + (1/eigvalue_c3)*CnI_F[11] + CnI_F[12];
-                  G = std::pow(eigvalue_a1,2)*CnI_G[0] + eigvalue_a1*CnI_G[1] + eigvalue_a2*CnI_G[2] + (1/eigvalue_a3)*CnI_G[3] + std::pow(eigvalue_b1,2)*CnI_G[4] + eigvalue_b1*CnI_G[5] + eigvalue_b2*CnI_G[6] + (1/eigvalue_b3)*CnI_G[7] + std::pow(eigvalue_c1,2)*CnI_G[8] + eigvalue_c1*CnI_G[9] + eigvalue_c2*CnI_G[10] + (1/eigvalue_c3)*CnI_G[11] + CnI_G[12];
-                  H = std::pow(eigvalue_a1,2)*CnI_H[0] + eigvalue_a1*CnI_H[1] + eigvalue_a2*CnI_H[2] + (1/eigvalue_a3)*CnI_H[3] + std::pow(eigvalue_b1,2)*CnI_H[4] + eigvalue_b1*CnI_H[5] + eigvalue_b2*CnI_H[6] + (1/eigvalue_b3)*CnI_H[7] + std::pow(eigvalue_c1,2)*CnI_H[8] + eigvalue_c1*CnI_H[9] + eigvalue_c2*CnI_H[10] + (1/eigvalue_c3)*CnI_H[11] + CnI_H[12];
-                  L = std::abs(std::pow(eigvalue_a1,2)*CnI_L[0] + eigvalue_a1*CnI_L[1] + eigvalue_a2*CnI_L[2] + (1/eigvalue_a3)*CnI_L[3] + std::pow(eigvalue_b1,2)*CnI_L[4] + eigvalue_b1*CnI_L[5] + eigvalue_b2*CnI_L[6] + (1/eigvalue_b3)*CnI_L[7] + std::pow(eigvalue_c1,2)*CnI_L[8] + eigvalue_c1*CnI_L[9] + eigvalue_c2*CnI_L[10] + (1/eigvalue_c3)*CnI_L[11] + CnI_L[12]);
-                  M = std::abs(std::pow(eigvalue_a1,2)*CnI_M[0] + eigvalue_a1*CnI_M[1] + eigvalue_a2*CnI_M[2] + (1/eigvalue_a3)*CnI_M[3] + std::pow(eigvalue_b1,2)*CnI_M[4] + eigvalue_b1*CnI_M[5] + eigvalue_b2*CnI_M[6] + (1/eigvalue_b3)*CnI_M[7] + std::pow(eigvalue_c1,2)*CnI_M[8] + eigvalue_c1*CnI_M[9] + eigvalue_c2*CnI_M[10] + (1/eigvalue_c3)*CnI_M[11] + CnI_M[12]);
-                  N = std::abs(std::pow(eigvalue_a1,2)*CnI_N[0] + eigvalue_a1*CnI_N[1] + eigvalue_a2*CnI_N[2] + (1/eigvalue_a3)*CnI_N[3] + std::pow(eigvalue_b1,2)*CnI_N[4] + eigvalue_b1*CnI_N[5] + eigvalue_b2*CnI_N[6] + (1/eigvalue_b3)*CnI_N[7] + std::pow(eigvalue_c1,2)*CnI_N[8] + eigvalue_c1*CnI_N[9] + eigvalue_c2*CnI_N[10] + (1/eigvalue_c3)*CnI_N[11] + CnI_N[12]);                 
+                  // F = std::pow(eigvalue_a1,2)*CnI_F[0] + eigvalue_a1*CnI_F[1] + eigvalue_a2*CnI_F[2] + (1/eigvalue_a3)*CnI_F[3] + std::pow(eigvalue_b1,2)*CnI_F[4] + eigvalue_b1*CnI_F[5] + eigvalue_b2*CnI_F[6] + (1/eigvalue_b3)*CnI_F[7] + std::pow(eigvalue_c1,2)*CnI_F[8] + eigvalue_c1*CnI_F[9] + eigvalue_c2*CnI_F[10] + (1/eigvalue_c3)*CnI_F[11] + CnI_F[12];
+                  // G = std::pow(eigvalue_a1,2)*CnI_G[0] + eigvalue_a1*CnI_G[1] + eigvalue_a2*CnI_G[2] + (1/eigvalue_a3)*CnI_G[3] + std::pow(eigvalue_b1,2)*CnI_G[4] + eigvalue_b1*CnI_G[5] + eigvalue_b2*CnI_G[6] + (1/eigvalue_b3)*CnI_G[7] + std::pow(eigvalue_c1,2)*CnI_G[8] + eigvalue_c1*CnI_G[9] + eigvalue_c2*CnI_G[10] + (1/eigvalue_c3)*CnI_G[11] + CnI_G[12];
+                  // H = std::pow(eigvalue_a1,2)*CnI_H[0] + eigvalue_a1*CnI_H[1] + eigvalue_a2*CnI_H[2] + (1/eigvalue_a3)*CnI_H[3] + std::pow(eigvalue_b1,2)*CnI_H[4] + eigvalue_b1*CnI_H[5] + eigvalue_b2*CnI_H[6] + (1/eigvalue_b3)*CnI_H[7] + std::pow(eigvalue_c1,2)*CnI_H[8] + eigvalue_c1*CnI_H[9] + eigvalue_c2*CnI_H[10] + (1/eigvalue_c3)*CnI_H[11] + CnI_H[12];
+                  // L = std::abs(std::pow(eigvalue_a1,2)*CnI_L[0] + eigvalue_a1*CnI_L[1] + eigvalue_a2*CnI_L[2] + (1/eigvalue_a3)*CnI_L[3] + std::pow(eigvalue_b1,2)*CnI_L[4] + eigvalue_b1*CnI_L[5] + eigvalue_b2*CnI_L[6] + (1/eigvalue_b3)*CnI_L[7] + std::pow(eigvalue_c1,2)*CnI_L[8] + eigvalue_c1*CnI_L[9] + eigvalue_c2*CnI_L[10] + (1/eigvalue_c3)*CnI_L[11] + CnI_L[12]);
+                  // M = std::abs(std::pow(eigvalue_a1,2)*CnI_M[0] + eigvalue_a1*CnI_M[1] + eigvalue_a2*CnI_M[2] + (1/eigvalue_a3)*CnI_M[3] + std::pow(eigvalue_b1,2)*CnI_M[4] + eigvalue_b1*CnI_M[5] + eigvalue_b2*CnI_M[6] + (1/eigvalue_b3)*CnI_M[7] + std::pow(eigvalue_c1,2)*CnI_M[8] + eigvalue_c1*CnI_M[9] + eigvalue_c2*CnI_M[10] + (1/eigvalue_c3)*CnI_M[11] + CnI_M[12]);
+                  // N = std::abs(std::pow(eigvalue_a1,2)*CnI_N[0] + eigvalue_a1*CnI_N[1] + eigvalue_a2*CnI_N[2] + (1/eigvalue_a3)*CnI_N[3] + std::pow(eigvalue_b1,2)*CnI_N[4] + eigvalue_b1*CnI_N[5] + eigvalue_b2*CnI_N[6] + (1/eigvalue_b3)*CnI_N[7] + std::pow(eigvalue_c1,2)*CnI_N[8] + eigvalue_c1*CnI_N[9] + eigvalue_c2*CnI_N[10] + (1/eigvalue_c3)*CnI_N[11] + CnI_N[12]);                 
+
+                  // old
+                  F = std::pow(eigvalue_a1,2)*CnI_F[0] + eigvalue_a2*CnI_F[1] + (1/eigvalue_a3)*CnI_F[2] + std::pow(eigvalue_b1,2)*CnI_F[3] + eigvalue_b2*CnI_F[4] + (1/eigvalue_b3)*CnI_F[5] + std::pow(eigvalue_c1,2)*CnI_F[6] + eigvalue_c2*CnI_F[7] + (1/eigvalue_c3)*CnI_F[8] + CnI_F[9];
+                  G = std::pow(eigvalue_a1,2)*CnI_G[0] + eigvalue_a2*CnI_G[1] + (1/eigvalue_a3)*CnI_G[2] + std::pow(eigvalue_b1,2)*CnI_G[3] + eigvalue_b2*CnI_G[4] + (1/eigvalue_b3)*CnI_G[5] + std::pow(eigvalue_c1,2)*CnI_G[6] + eigvalue_c2*CnI_G[7] + (1/eigvalue_c3)*CnI_G[8] + CnI_G[9];
+                  H = std::pow(eigvalue_a1,2)*CnI_H[0] + eigvalue_a2*CnI_H[1] + (1/eigvalue_a3)*CnI_H[2] + std::pow(eigvalue_b1,2)*CnI_H[3] + eigvalue_b2*CnI_H[4] + (1/eigvalue_b3)*CnI_H[5] + std::pow(eigvalue_c1,2)*CnI_H[6] + eigvalue_c2*CnI_H[7] + (1/eigvalue_c3)*CnI_H[8] + CnI_H[9];
+                  L = std::abs(std::pow(eigvalue_a1,2)*CnI_L[0] + eigvalue_a2*CnI_L[1] + (1/eigvalue_a3)*CnI_L[2] + std::pow(eigvalue_b1,2)*CnI_L[3] + eigvalue_b2*CnI_L[4] + (1/eigvalue_b3)*CnI_L[5] + std::pow(eigvalue_c1,2)*CnI_L[6] + eigvalue_c2*CnI_L[7] + (1/eigvalue_c3)*CnI_L[8] + CnI_L[9]);
+                  M = std::abs(std::pow(eigvalue_a1,2)*CnI_M[0] + eigvalue_a2*CnI_M[1] + (1/eigvalue_a3)*CnI_M[2] + std::pow(eigvalue_b1,2)*CnI_M[3] + eigvalue_b2*CnI_M[4] + (1/eigvalue_b3)*CnI_M[5] + std::pow(eigvalue_c1,2)*CnI_M[6] + eigvalue_c2*CnI_M[7] + (1/eigvalue_c3)*CnI_M[8] + CnI_M[9]);
+                  N = std::abs(std::pow(eigvalue_a1,2)*CnI_N[0] + eigvalue_a2*CnI_N[1] + (1/eigvalue_a3)*CnI_N[2] + std::pow(eigvalue_b1,2)*CnI_N[3] + eigvalue_b2*CnI_N[4] + (1/eigvalue_b3)*CnI_N[5] + std::pow(eigvalue_c1,2)*CnI_N[6] + eigvalue_c2*CnI_N[7] + (1/eigvalue_c3)*CnI_N[8] + CnI_N[9]);   
+
                   // std::cout<<"eigvalue_a1 "<<eigvalue_a1<<" eigvalue_a2 "<<eigvalue_a2<<" eigvalue_a3 "<<eigvalue_a3<<std::endl;
                   // std::cout<<"eigvalue_b1 "<<eigvalue_b1<<" eigvalue_b2 "<<eigvalue_b2<<" eigvalue_b3 "<<eigvalue_b3<<std::endl;
                   // std::cout<<"eigvalue_c1 "<<eigvalue_c1<<" eigvalue_c2 "<<eigvalue_c2<<" eigvalue_c3 "<<eigvalue_c3<<std::endl;
                   // std::cout<<"F "<<F<<" G "<<G<<" H "<<H<<" L "<<L<<" M "<<M<<" N "<<N<<std::endl;
-                  // F=0.5; G=0.5, H=0.5; L=1.5; M=1.5; N=1.5;
+                  F=0.5; G=0.5, H=0.5; L=1.5; M=1.5; N=1.5;
+
                   double scalar_viscosity = composition[ind_vis];
                   double n_iterations = 1;
-                  double max_iteration = 100;
+                  double max_iteration = 25;
                   double residual = scalar_viscosity;
                   double threshold = 1;
                   SymmetricTensor<2,dim> stress;stress = 2 * scalar_viscosity * old_stress_strain_director * deviatoric_strain_rate / 1e6; // Use stress in MPa                    
@@ -989,6 +1001,11 @@ namespace aspect
                   R_CPO_K[5][4] = R[0][0]*R[1][2]+R[0][2]*R[1][0];
                   R_CPO_K[5][5] = R[0][0]*R[1][1]+R[0][1]*R[1][0];
 
+                  // // Check if the rotation matrix is orthogonal using R^T=R^(-1) and det(R)=1
+                  // std::cout<<"in mm: transpose(R_CPO_K)*R_CPO_K= "<<transpose(R_CPO_K)*R_CPO_K<<std::endl;
+                  // std::cout<<"in mm: transpose(R_CPO_K) "<<transpose(R_CPO_K)<<" invert(R_CPO_K) "<<invert(R)<<std::endl;
+                  // std::cout<<"in mm: det(R)==1 "<<std::endl;
+
                   SymmetricTensor<2,6> A;
                   A[0][0] = 2.0/3.0*(F+H);
                   A[0][1] = 2.0/3.0*(-F);
@@ -999,6 +1016,7 @@ namespace aspect
                   A[3][3] = 2.0/3.0*L;
                   A[4][4] = 2.0/3.0*M;
                   A[5][5] = 2.0/3.0*N;
+                  // std::cout << "A (fluidity) " << A << std::endl;
 
                   //Invert using ScaLAPACK in dealii
                   FullMatrix<double> A_mat(6, 6);
@@ -1028,18 +1046,18 @@ namespace aspect
                   // std::cout << "invA " << invA <<std::endl;
 
                   //Calculate the fluidity tensor in the LPO frame
-                  Tensor<2,6> V = R_CPO_K * invA * transpose(R_CPO_K);
-
-                  // SymmetricTensor<2,6> V;
-                  // V[0][0] = 2.0/3.0;
-                  // V[0][1] = -1.0/3.0;
-                  // V[0][2] = -1.0/3.0;
-                  // V[1][1] = 2.0/3.0;
-                  // V[1][2] = -1.0/3.0;
-                  // V[2][2] = 2.0/3.0;
-                  // V[3][3] = 1;
-                  // V[4][4] = 1;
-                  // V[5][5] = 1;
+                  // Tensor<2,6> V = R_CPO_K * invA * transpose(R_CPO_K);//invA;//
+                  
+                  SymmetricTensor<2,6> V;
+                  V[0][0] = 2.0/3.0;
+                  V[0][1] = -1.0/3.0;
+                  V[0][2] = -1.0/3.0;
+                  V[1][1] = 2.0/3.0;
+                  V[1][2] = -1.0/3.0;
+                  V[2][2] = 2.0/3.0;
+                  V[3][3] = 1;
+                  V[4][4] = 1;
+                  V[5][5] = 1;
 
                   AssertThrow(out.viscosities[q] > 0,
                               ExcMessage("Viscosity should be positive"));
@@ -1107,8 +1125,8 @@ namespace aspect
               }
             const unsigned int ind_vis = this->introspection().compositional_index_for_name("scalar_vis");
             prescribed_field_out->prescribed_field_outputs[q][ind_vis] = out.viscosities[q];
-            std::cout << "Saved V_r4: " << anisotropic_viscosity->stress_strain_directors[q] << std::endl;
-            std::cout << "Saved viscosity: " << out.viscosities[q] << std::endl;
+            // std::cout << "Saved V_r4: " << anisotropic_viscosity->stress_strain_directors[q] << std::endl;
+            // std::cout << "Saved viscosity: " << out.viscosities[q] << std::endl;
             }
         }
     }
@@ -1180,24 +1198,45 @@ namespace aspect
         prm.enter_subsection("AV Hill");
         {
           EquationOfState::LinearizedIncompressible<dim>::declare_parameters (prm);
-          prm.declare_entry ("Coefficients and intercept for F", "4.600447869251792,	-3.432107596,	-0.132855296,	-0.00130425,	2.360195770340767,	-1.503338915,	1.2635426953453306,	0.0071666,	1.2241252112687866,	-2.655458732,	-1.734603653,	0.039704515, 2.241765907780337",
+          // prm.declare_entry ("Coefficients and intercept for F", "4.600447869251792,	-3.432107596,	-0.132855296,	-0.00130425,	2.360195770340767,	-1.503338915,	1.2635426953453306,	0.0071666,	1.2241252112687866,	-2.655458732,	-1.734603653,	0.039704515, 2.241765907780337",
+          //                    Patterns::List(Patterns::Double()),
+          //                    "6 Coefficients and 1 intercept to compute the Hill Parameter F.");
+          // prm.declare_entry ("Coefficients and intercept for G", "-4.684144376,	2.4501679747908645,	-1.291945979,	-0.000447184,	0.7364410668996572,	-1.134353994,	-1.369971542,	0.006638505,	1.8100476263969771,	0.278455287,	2.0422841708796087,	-0.016914332, 0.37853585511038185",
+          //                    Patterns::List(Patterns::Double()),
+          //                    "6 Coefficients and 1 intercept to compute the Hill Parameter G.");
+          // prm.declare_entry ("Coefficients and intercept for H", "4.020574320458808,	-2.637132566,	0.5755508961574253,	0.002686342,	1.5151533596671836,	0.3489226631973101,	1.3802207762705025,	-0.007362419,	1.4996869664711834,	-4.044348002,	-1.978212652,	0.056659336732010734, 0.37853585511038185",
+          //                    Patterns::List(Patterns::Double()),
+          //                    "6 Coefficients and 1 intercept to compute the Hill Parameter H.");
+          // prm.declare_entry ("Coefficients and intercept for L", "1.3973326672504107,	-1.81296565,	0.8981686897139447,	-0.001066616,	-0.063667124,	-0.374885301,	0.7288437733735754,	-0.000503799,	-0.99360894,	-0.153230898,	-1.019483357,	0.007165858, 1.9767970726829662",
+          //                    Patterns::List(Patterns::Double()),
+          //                    "6 Coefficients and 1 intercept to compute the Hill Parameter L.");
+          // prm.declare_entry ("Coefficients and intercept for M", "1.6321611239635443,	0.30732770773835577,	1.1935547119876715,	0.002980557,	3.0859826232991554,	-0.954888925,	0.6077177400767578,	-0.009972845,	-3.089290395,	0.648574284,	-0.558830801,	-0.007724845, 0.8743203613069472",
+          //                    Patterns::List(Patterns::Double()),
+          //                    "6 Coefficients and 1 intercept to compute the Hill Parameter M.");
+          // prm.declare_entry ("Coefficients and intercept for N", "0.558022129,	0.27369095729305215,	0.11267428759159648,	0.001899995,	-1.59528053,	0.17253325907449615,	0.4514508967688472,	-0.010286343,	2.9328835681486245,	-1.375833649,	-0.045106095,	0.015508168775970624, 1.338955424846116",
+          //                    Patterns::List(Patterns::Double()),
+          //                    "6 Coefficients and 1 intercept to compute the Hill Parameter N.");
+          
+          // old
+          prm.declare_entry ("Coefficients and intercept for F", "1.0390459583037057,	-0.767458622,	0.003066208,	0.19651133418307049,	0.413093763,	0.015463162,	-0.935925291,	-2.392877563,	0.051834768, 1.0799807050187482",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter F.");
-          prm.declare_entry ("Coefficients and intercept for G", "-4.684144376,	2.4501679747908645,	-1.291945979,	-0.000447184,	0.7364410668996572,	-1.134353994,	-1.369971542,	0.006638505,	1.8100476263969771,	0.278455287,	2.0422841708796087,	-0.016914332, 0.37853585511038185",
+          prm.declare_entry ("Coefficients and intercept for G", "-2.836270315,	-1.632453092,	0.000687606,	0.2671850239576621,	-0.993392913,	0.002699241,	1.9689530759060374,	2.314442451425019,	-0.018655905, 0.6887411607403755",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter G.");
-          prm.declare_entry ("Coefficients and intercept for H", "4.020574320458808,	-2.637132566,	0.5755508961574253,	0.002686342,	1.5151533596671836,	0.3489226631973101,	1.3802207762705025,	-0.007362419,	1.4996869664711834,	-4.044348002,	-1.978212652,	0.056659336732010734, 0.37853585511038185",
+          prm.declare_entry ("Coefficients and intercept for H", "1.6687493021559732,	0.5797579293682223,	0.003241593,	0.701661336,	0.2513824481429968,	0.000229291,	-2.003227619,	-2.57032429,	0.071454541, 0.7490268673620638",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter H.");
-          prm.declare_entry ("Coefficients and intercept for L", "1.3973326672504107,	-1.81296565,	0.8981686897139447,	-0.001066616,	-0.063667124,	-0.374885301,	0.7288437733735754,	-0.000503799,	-0.99360894,	-0.153230898,	-1.019483357,	0.007165858, 1.9767970726829662",
+          prm.declare_entry ("Coefficients and intercept for L", "-0.325145943,	0.7284642859944138,	0.000404879,	-0.665446098,	0.5152847961409479,	0.002722782,	-1.026786493,	-1.262574542,	0.009168498, 1.595422603",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter L.");
-          prm.declare_entry ("Coefficients and intercept for M", "1.6321611239635443,	0.30732770773835577,	1.1935547119876715,	0.002980557,	3.0859826232991554,	-0.954888925,	0.6077177400767578,	-0.009972845,	-3.089290395,	0.648574284,	-0.558830801,	-0.007724845, 0.8743203613069472",
+          prm.declare_entry ("Coefficients and intercept for M", "1.6427437063774875,	0.8777500120437522,	0.004651732,	2.489417876177839,	0.8162729707609052,	-0.010736521,	-2.49420455,	-0.511446494,	-0.009362491, 0.893677343",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter M.");
-          prm.declare_entry ("Coefficients and intercept for N", "0.558022129,	0.27369095729305215,	0.11267428759159648,	0.001899995,	-1.59528053,	0.17253325907449615,	0.4514508967688472,	-0.010286343,	2.9328835681486245,	-1.375833649,	-0.045106095,	0.015508168775970624, 1.338955424846116",
+          prm.declare_entry ("Coefficients and intercept for N", "0.8122098589701904,	0.15663795996228266,	0.001500252,	-1.648578168,	0.19362392490527092,	-0.009650519,	1.6796559729985163,	-0.103640482,	0.01971017, 1.2132200780065174",
                              Patterns::List(Patterns::Double()),
                              "6 Coefficients and 1 intercept to compute the Hill Parameter N.");
+          
           prm.declare_entry ("Reference viscosity", "1e9",
                              Patterns::Double(),
                              "Magnitude of reference viscosity.");

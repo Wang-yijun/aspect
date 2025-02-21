@@ -179,68 +179,8 @@ namespace aspect
         R_CPO[1][2] = eigvec_c[1];
         R_CPO[2][2] = eigvec_c[2];
 
-        // check if the matrix is orthogonal
-        // if not, we fix the a-axis with the largest eigen value
-        // find the b-axis with the second largest eigen value (find b around its initial direction that is perpendicular to a)
-        // find the c-axis using the cross product of a and b
-        Tensor<2,3> R_CPO_new = R_CPO;
-        if (determinant(R_CPO) != 1)
-          {
-            // std::cout << "R_CPO is not orthogonal" << std::endl;
-            double eigvalue_array[3] = {eigenvalue_a1, eigenvalue_b1, eigenvalue_c1};
-            int ind_array[3] = {0,1,2};
-            // find the index of the largest and smallest eigen values
-            int max_eigvalue_index = std::distance(eigvalue_array, std::max_element(eigvalue_array, eigvalue_array+3));
-            // std::cout << "max_eigvalue_index: " << max_eigvalue_index << std::endl;
-            int min_eigvalue_index = std::distance(eigvalue_array, std::min_element(eigvalue_array, eigvalue_array+3));
-            // std::cout << "min_eigvalue_index: " << min_eigvalue_index << std::endl;
-            std::remove(ind_array, ind_array+3, max_eigvalue_index);
-            std::remove(ind_array, ind_array+3, min_eigvalue_index);
-            int middle_index = ind_array[0];
-            // std::cout << "middle_index: " << middle_index << std::endl;
-            // fix the new cpo a-axis
-            Tensor<1,3,double> eigvec_a_new;
-            eigvec_a_new[0] = R_CPO[0][max_eigvalue_index];
-            eigvec_a_new[1] = R_CPO[1][max_eigvalue_index];
-            eigvec_a_new[2] = R_CPO[2][max_eigvalue_index];
-            R_CPO_new[0][0] = eigvec_a_new[0];
-            R_CPO_new[1][0] = eigvec_a_new[1];
-            R_CPO_new[2][0] = eigvec_a_new[2];
-            // find new cpo b-axis
-            Tensor<1,3,double> eigvec_b_new;
-            eigvec_b_new[0] = R_CPO[0][middle_index];
-            eigvec_b_new[1] = R_CPO[1][middle_index];
-            eigvec_b_new[2] = R_CPO[2][middle_index];
-            // check if new b-axis is orthogonal to the new a-axis, and find it if not
-            if (eigvec_a_new * eigvec_b_new == 0)
-              {
-                // std::cout << "new b-axis is orthogonal to the new a-axis" << std::endl;
-              }
-            else
-              {
-                // std::cout << "new b-axis is not orthogonal to the new a-axis" << std::endl;
-                Tensor<1,3,double> b_projection = (eigvec_a_new*eigvec_b_new)/(eigvec_a_new*eigvec_a_new) * eigvec_a_new;
-                Tensor<1,3,double> b = eigvec_b_new-b_projection;
-                eigvec_b_new = b/b.norm();
-              }
-            R_CPO_new[0][1] = eigvec_b_new[0];
-            R_CPO_new[1][1] = eigvec_b_new[1];
-            R_CPO_new[2][1] = eigvec_b_new[2];
-            // find cpo c-axis as the cross product of the new a-axis and b-axis
-            Tensor<1,3,double> eigvec_c_new = cross_product_3d(eigvec_a_new, eigvec_b_new);
-            R_CPO_new[0][2] = eigvec_c_new[0];
-            R_CPO_new[1][2] = eigvec_c_new[1];
-            R_CPO_new[2][2] = eigvec_c_new[2];
-            // check if R_CPO_new is orthogogal
-            // std::cout << "R_CPO_new is orthogonal when det=1. det = " << determinant(R_CPO_new) << std::endl;
-          }
-        // else
-        //   {
-        //     std::cout << "R_CPO is orthogonal" << std::endl;
-        //   }
-             
         // convert rotation matrix to euler angles phi1, theta, phi2
-        Tensor<2,3> Rot = transpose(R_CPO_new);
+        Tensor<2,3> Rot = transpose(R_CPO);
         std::array<double,3> EA = Utilities::zxz_euler_angles_from_rotation_matrix(Rot); // in degrees
         const double phi1 = EA[0]*constants::degree_to_radians;
         const double theta = EA[1]*constants::degree_to_radians;
