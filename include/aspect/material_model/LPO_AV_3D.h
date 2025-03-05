@@ -94,7 +94,8 @@ namespace aspect
         std::vector<double> cpo_bingham_avg_a, cpo_bingham_avg_b, cpo_bingham_avg_c;
         double grain_size;
         std::vector<double> CnI_F, CnI_G, CnI_H, CnI_L, CnI_M, CnI_N;
-
+        double compositional_delta_rho;
+        
         unsigned int n_grains;
         EquationOfState::LinearizedIncompressible<dim> equation_of_state;
         void set_assemblers(const SimulatorAccess<dim> &,

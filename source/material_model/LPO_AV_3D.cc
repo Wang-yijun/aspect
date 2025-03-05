@@ -816,6 +816,7 @@ namespace aspect
       
       for (unsigned int q=0; q<in.n_evaluation_points(); ++q)
         {
+          // std::cout << "Evaluation point: " << q << std::endl;
           //change these according to diffusion dislocation material model I guess
           equation_of_state.evaluate(in, q, eos_outputs);
 
@@ -826,7 +827,10 @@ namespace aspect
           const std::vector<double> volume_fractions = MaterialUtilities::compute_only_composition_fractions(composition,
                                                        this->introspection().chemical_composition_field_indices());
 
-          out.densities[q] = eos_outputs.densities[0];
+          // Compositional dependence of density, for Stokes sinker test
+          const unsigned int comp_density_ind = this->introspection().compositional_index_for_name("D");
+          double composition_dependence = composition[comp_density_ind];
+          out.densities[q] = eos_outputs.densities[0] + compositional_delta_rho * composition_dependence;
           out.viscosities[q] = eta;
           out.thermal_expansion_coefficients[q] = eos_outputs.thermal_expansion_coefficients[0];
           out.specific_heat[q] = eos_outputs.specific_heat_capacities[0];
@@ -843,13 +847,16 @@ namespace aspect
               strain_rate - 1./3. * trace(strain_rate) * unit_symmetric_tensor<dim>()
               :
               strain_rate);
-          
+          // std::cout << "strain_rate: " << strain_rate << std::endl;
           // The computation of the viscosity tensor is only necessary after the simulator has been initialized
           // and when the condition allows dislocation creep
           if  ((this->simulator_is_past_initialization()) && (this->get_timestep_number() > 0))
             {
-              if ((in.temperature[q]>1000) && (determinant(deviatoric_strain_rate) != 0))
+              // std::cout << "Passed initialization and timestep " << std::endl;
+              // std::cout << "T: " << in.temperature[q] << " det dev_sr: " << determinant(deviatoric_strain_rate) << std::endl;
+              if ((in.temperature[q]>1000) && (isfinite(determinant(deviatoric_strain_rate))))
                 {
+                  // std::cout << "T: " << in.temperature[q] << " det dev_sr: " << determinant(deviatoric_strain_rate) << std::endl;
                   const unsigned int ind_vis = this->introspection().compositional_index_for_name("scalar_vis");
                   // std::cout << "Initial viscosity: " << composition[ind_vis] << std::endl;
                   
@@ -886,6 +893,7 @@ namespace aspect
                   const double phi2 = composition[cpo_bingham_avg_c[0]];
                   // std::cout<<"in mm: phi1 "<<phi1<<" theta "<<theta<<" phi2 "<<phi2<<std::endl;
                   Tensor<2,3> R = transpose(AV<dim>::euler_angles_to_rotation_matrix(phi1, theta, phi2));
+                  // Tensor<2,3> R = transpose(Utilities::zxz_euler_angles_to_rotation_matrix(phi1*constants::radians_to_degree, theta*constants::radians_to_degree, phi2*constants::radians_to_degree));
                   // std::cout << "R in mm " << R << std::endl;
 
                   // // Check if the rotation matrix is orthogonal using R^T=R^(-1) and det(R)=1
@@ -910,11 +918,11 @@ namespace aspect
                   M = std::abs(std::pow(eigvalue_a1,2)*CnI_M[0] + eigvalue_a2*CnI_M[1] + (1/eigvalue_a3)*CnI_M[2] + std::pow(eigvalue_b1,2)*CnI_M[3] + eigvalue_b2*CnI_M[4] + (1/eigvalue_b3)*CnI_M[5] + std::pow(eigvalue_c1,2)*CnI_M[6] + eigvalue_c2*CnI_M[7] + (1/eigvalue_c3)*CnI_M[8] + CnI_M[9]);
                   N = std::abs(std::pow(eigvalue_a1,2)*CnI_N[0] + eigvalue_a2*CnI_N[1] + (1/eigvalue_a3)*CnI_N[2] + std::pow(eigvalue_b1,2)*CnI_N[3] + eigvalue_b2*CnI_N[4] + (1/eigvalue_b3)*CnI_N[5] + std::pow(eigvalue_c1,2)*CnI_N[6] + eigvalue_c2*CnI_N[7] + (1/eigvalue_c3)*CnI_N[8] + CnI_N[9]);   
 
-                  // std::cout<<"eigvalue_a1 "<<eigvalue_a1<<" eigvalue_a2 "<<eigvalue_a2<<" eigvalue_a3 "<<eigvalue_a3<<std::endl;
-                  // std::cout<<"eigvalue_b1 "<<eigvalue_b1<<" eigvalue_b2 "<<eigvalue_b2<<" eigvalue_b3 "<<eigvalue_b3<<std::endl;
-                  // std::cout<<"eigvalue_c1 "<<eigvalue_c1<<" eigvalue_c2 "<<eigvalue_c2<<" eigvalue_c3 "<<eigvalue_c3<<std::endl;
+                  // std::cout<<"pp: eigvalue_a1 "<<eigvalue_a1<<" eigvalue_a2 "<<eigvalue_a2<<" eigvalue_a3 "<<eigvalue_a3<<std::endl;
+                  // std::cout<<"pp: eigvalue_b1 "<<eigvalue_b1<<" eigvalue_b2 "<<eigvalue_b2<<" eigvalue_b3 "<<eigvalue_b3<<std::endl;
+                  // std::cout<<"pp: eigvalue_c1 "<<eigvalue_c1<<" eigvalue_c2 "<<eigvalue_c2<<" eigvalue_c3 "<<eigvalue_c3<<std::endl;
                   // std::cout<<"F "<<F<<" G "<<G<<" H "<<H<<" L "<<L<<" M "<<M<<" N "<<N<<std::endl;
-                  F=0.5; G=0.5, H=0.5; L=1.5; M=1.5; N=1.5;
+                  // F=0.5; G=0.5, H=0.5; L=1.5; M=1.5; N=1.5;
 
                   double scalar_viscosity = composition[ind_vis];
                   double n_iterations = 1;
@@ -931,7 +939,7 @@ namespace aspect
                     // std::cout << "Anisotropic stress " << stress << std::endl;
 
                     Tensor<2,3> S_CPO=transpose(R)*stress*R;
-                    // std::cout << "R " << R <<std::endl;
+                    // std::cout << "stress " << stress <<std::endl;
                     // std::cout << "stress CPO " << S_CPO <<std::endl;
 
                     double Jhill = F*pow((S_CPO[0][0]-S_CPO[1][1]),2) + G*pow((S_CPO[1][1]-S_CPO[2][2]),2) + H*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);
@@ -1046,18 +1054,20 @@ namespace aspect
                   // std::cout << "invA " << invA <<std::endl;
 
                   //Calculate the fluidity tensor in the LPO frame
-                  // Tensor<2,6> V = R_CPO_K * invA * transpose(R_CPO_K);//invA;//
+                  Tensor<2,6> V = R_CPO_K * invA * transpose(R_CPO_K);//invA;//
+                  // Tensor<2,6> V = transpose(R_CPO_K) * invA * R_CPO_K;//invA;//
+                  // std::cout << "V: " << V <<std::endl;
                   
-                  SymmetricTensor<2,6> V;
-                  V[0][0] = 2.0/3.0;
-                  V[0][1] = -1.0/3.0;
-                  V[0][2] = -1.0/3.0;
-                  V[1][1] = 2.0/3.0;
-                  V[1][2] = -1.0/3.0;
-                  V[2][2] = 2.0/3.0;
-                  V[3][3] = 1;
-                  V[4][4] = 1;
-                  V[5][5] = 1;
+                  // SymmetricTensor<2,6> V;
+                  // V[0][0] = 2.0/3.0;
+                  // V[0][1] = -1.0/3.0;
+                  // V[0][2] = -1.0/3.0;
+                  // V[1][1] = 2.0/3.0;
+                  // V[1][2] = -1.0/3.0;
+                  // V[2][2] = 2.0/3.0;
+                  // V[3][3] = 1;
+                  // V[4][4] = 1;
+                  // V[5][5] = 1;
 
                   AssertThrow(out.viscosities[q] > 0,
                               ExcMessage("Viscosity should be positive"));
@@ -1084,8 +1094,10 @@ namespace aspect
             }
           else 
             {
+              // std::cout << "AV is nullptr since dev_strainrate is 0: " << determinant(deviatoric_strain_rate) << std::endl;
               if (anisotropic_viscosity != nullptr)
                 {
+                  // std::cout << "AV is not nullptr but isotropic " << std::endl;
                   SymmetricTensor<2,6> V;
                   V[0][0] = 2.0/3.0;
                   V[0][1] = -1.0/3.0;
@@ -1115,6 +1127,15 @@ namespace aspect
           if (PrescribedFieldOutputs<dim> *prescribed_field_out = out.template get_additional_output<PrescribedFieldOutputs<dim>>())
             {
             std::vector<double> ViscoTensor_array(SymmetricTensor<4,dim>::n_independent_components);
+            // FullMatrix<double> V_mat = dealii::Physics::Notation::Kelvin::to_matrix(anisotropic_viscosity->stress_strain_directors[q]);
+            // SymmetricTensor<2,6> V_r2;
+            // for (unsigned int vi=0; vi<6; ++vi)
+            //   {
+            //     for (unsigned int vj=0; vj<6; ++vj)
+            //       {
+            //         V_r2[vi][vj] = V_mat[vi][vj];
+            //       }
+            //   }
             std::copy(anisotropic_viscosity->stress_strain_directors[q].begin_raw(), anisotropic_viscosity->stress_strain_directors[q].end_raw(), ViscoTensor_array.begin());
             for (unsigned int i = 0; i < SymmetricTensor<4,dim>::n_independent_components ; ++i)
               {
@@ -1125,7 +1146,11 @@ namespace aspect
               }
             const unsigned int ind_vis = this->introspection().compositional_index_for_name("scalar_vis");
             prescribed_field_out->prescribed_field_outputs[q][ind_vis] = out.viscosities[q];
-            // std::cout << "Saved V_r4: " << anisotropic_viscosity->stress_strain_directors[q] << std::endl;
+            // std::cout << "Saved ViscoTensor_array: ";
+            // for (double VT_a_item: ViscoTensor_array)
+            //     std::cout << VT_a_item << ' ';
+            // std::cout << std::endl;
+            // std::cout << "Saved ssd: " << anisotropic_viscosity->stress_strain_directors[q] << std::endl;
             // std::cout << "Saved viscosity: " << out.viscosities[q] << std::endl;
             }
         }
@@ -1170,21 +1195,24 @@ namespace aspect
           CnI_L = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for L")));
           CnI_M = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for M")));
           CnI_N = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for N")));
-
+          compositional_delta_rho    = prm.get_double ("Density differential for compositional field 1");
         }
         prm.leave_subsection();
       }
       prm.leave_subsection();
 
-      prm.enter_subsection("Particles");
-      {
-        prm.enter_subsection("Crystal Preferred Orientation");
-        {
-          n_grains = prm.get_integer("Number of grains per particle");
-        }
-        prm.leave_subsection();
-      }
-      prm.leave_subsection();
+      // prm.enter_subsection("Particles");
+      // {
+      //   prm.enter_subsection("Crystal Preferred Orientation");
+      //   {
+      //     n_grains = prm.get_integer("Number of grains per particle");
+      //   }
+      //   prm.leave_subsection();
+      // }
+      // prm.leave_subsection();
+
+      // Declare dependence
+      this->model_dependence.density = NonlinearDependence::compositional_fields;
     }
 
 
@@ -1245,7 +1273,17 @@ namespace aspect
           prm.declare_entry ("Grain size", "1000",
                              Patterns::Double(),
                              "Olivine anisotropic viscosity is dependent of grain size. Value is given in microns");
-
+          prm.declare_entry ("Density differential for compositional field 1", "0.",
+                             Patterns::Double(),
+                             "If compositional fields are used, then one would frequently want "
+                             "to make the density depend on these fields. In this simple material "
+                             "model, we make the following assumptions: if no compositional fields "
+                             "are used in the current simulation, then the density is simply the usual "
+                             "one with its linear dependence on the temperature. If there are compositional "
+                             "fields, then the density only depends on the first one in such a way that "
+                             "the density has an additional term of the kind $+\\Delta \\rho \\; c_1(\\mathbf x)$. "
+                             "This parameter describes the value of $\\Delta \\rho$. "
+                             "Units: \\si{\\kilogram\\per\\meter\\cubed}/unit change in composition.");
         }
         prm.leave_subsection();
       }
