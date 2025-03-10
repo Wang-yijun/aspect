@@ -86,9 +86,13 @@ namespace aspect
                                                        const std::vector<Tensor<1,dim>> &/*gradients*/,
                                                        typename ParticleHandler<dim>::particle_iterator &particle) const
       {
+        // std::cout << "in bingham EA: update" << std::endl;
         std::vector<double> volume_fractions_grains(n_grains);
         std::vector<Tensor<2,3>> rotation_matrices_grains(n_grains);
         ArrayView<double> data = particle->get_properties();
+        // std::cout << "particle properties data: " << data.size() << std::endl;
+        // std::cout << "particle properties data: " << data[cpo_data_position+3] << std::endl;
+        // std::cout << "cpo_data_position: " << cpo_data_position << std::endl;
         for (unsigned int mineral_i = 0; mineral_i < n_minerals; ++mineral_i)
           {
             // create volume fractions and rotation matrix vectors in the order that it is stored in the data array
@@ -97,8 +101,9 @@ namespace aspect
                 volume_fractions_grains[grain_i] = cpo_particle_property->get_volume_fractions_grains(cpo_data_position,data,mineral_i,grain_i);
                 rotation_matrices_grains[grain_i] = cpo_particle_property->get_rotation_matrix_grains(cpo_data_position,data,mineral_i,grain_i);
               }
-
+              
             const std::vector<Tensor<2,3>> weighted_rotation_matrices = Utilities::rotation_matrices_random_draw_volume_weighting(volume_fractions_grains, rotation_matrices_grains, n_samples, this->random_number_generator);
+            
             std::array<std::array<double,4>,3> bingham_average = compute_bingham_average(weighted_rotation_matrices);
             
             for (unsigned int i = 0; i < 3; ++i)
@@ -166,10 +171,10 @@ namespace aspect
         const Tensor<1,3,double> eigvec_a = eigenvectors_a[0].second;
         const Tensor<1,3,double> eigvec_b = eigenvectors_b[0].second;
         const Tensor<1,3,double> eigvec_c = eigenvectors_c[0].second;
-
-        // std::cout << "eigen values a (a1, a2, a3): " << eigenvalue_a1 << eigenvalue_a2 << eigenvalue_a3 << std::endl;
-        // std::cout << "eigen values b (b1, b2, b3): " << eigenvalue_b1 << eigenvalue_b2 << eigenvalue_b3 << std::endl;
-        // std::cout << "eigen values c (c1, c2, c3): " << eigenvalue_c1 << eigenvalue_c2 << eigenvalue_c3 << std::endl;
+        
+        // std::cout << "in pp: eigen values a (a1, a2, a3): " << eigenvalue_a1 << eigenvalue_a2 << eigenvalue_a3 << std::endl;
+        // std::cout << "in pp: eigen values b (b1, b2, b3): " << eigenvalue_b1 << eigenvalue_b2 << eigenvalue_b3 << std::endl;
+        // std::cout << "in pp: eigen values c (c1, c2, c3): " << eigenvalue_c1 << eigenvalue_c2 << eigenvalue_c3 << std::endl;
 
         // build rotation matrix from the eigen vectors
         Tensor<2,3> R_CPO;
@@ -186,25 +191,12 @@ namespace aspect
         // convert rotation matrix to euler angles phi1, theta, phi2
         Tensor<2,3> Rot = transpose(R_CPO);
         // Tensor<2,3> Rot = R_CPO;
-
-        // double sy=sqrt(Rot[2][0]*Rot[2][0] + Rot[2][1]*Rot[2][1]);
-        // double phi1, theta, phi2;
-        // theta = std::atan2(sy, Rot[2][2]);
-        // if (sy < 0)
-        //   {
-        //     phi1 = 0;
-        //     phi2 = std::atan2(-Rot[0][1], Rot[0][0]);
-        //   }
-        // else
-        //   {
-        //     phi1 = std::atan2(Rot[0][2], -Rot[1][2]);
-        //     phi2 = std::atan2(Rot[2][0], Rot[2][1]);
-        //   }
-
+        Rot = dealii::project_onto_orthogonal_tensors(Rot);
+        
         std::array<double,3> EA = Utilities::zxz_euler_angles_from_rotation_matrix(Rot); // in degrees
-        const double phi1 = EA[0];//*constants::degree_to_radians;
-        const double theta = EA[1];//*constants::degree_to_radians;
-        const double phi2 = EA[2];//*constants::degree_to_radians;
+        const double phi1 = EA[0]*constants::degree_to_radians;
+        const double theta = EA[1]*constants::degree_to_radians;
+        const double phi2 = EA[2]*constants::degree_to_radians;
         // std::cout << "phi1: " << phi1  << "phi2: " << phi2  << "theta: " << theta <<std::endl;
 
         return

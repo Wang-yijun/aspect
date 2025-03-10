@@ -376,26 +376,30 @@ namespace aspect
 
                 rotation_matrix = dealii::project_onto_orthogonal_tensors(rotation_matrix);
                 for (size_t i = 0; i < 3; ++i)
-                  for (size_t j = 0; j < 3; ++j)
-                    {
-                      // I don't think this should happen with the projection, but D-Rex
-                      // does not do the orthogonal projection, but just clamps the values
-                      // to 1 and -1.
-                      Assert(std::fabs(rotation_matrix[i][j]) <= 1.0,
-                             ExcMessage("The rotation_matrix has a entry larger than 1."));
+                  {
+                    for (size_t j = 0; j < 3; ++j)
+                      {
+                        // I don't think this should happen with the projection, but D-Rex
+                        // does not do the orthogonal projection, but just clamps the values
+                        // to 1 and -1.
+                        Assert(std::fabs(rotation_matrix[i][j]) <= 1.0,
+                              ExcMessage("The rotation_matrix has a entry larger than 1."));
 
-                      Assert(!std::isnan(rotation_matrix[i][j]),
-                             ExcMessage("rotation_matrix is nan after orthoganalization: "
-                                        + std::to_string(rotation_matrix[i][j])));
+                        Assert(!std::isnan(rotation_matrix[i][j]),
+                              ExcMessage("rotation_matrix is nan after orthoganalization: "
+                                          + std::to_string(rotation_matrix[i][j])));
 
-                      Assert(abs(rotation_matrix[i][j]) <= 1.0,
-                             ExcMessage("3. rotation_matrix[" + std::to_string(i) + "][" + std::to_string(j) +
-                                        "] is larger than one: "
-                                        + std::to_string(rotation_matrix[i][j]) + " (" + std::to_string(rotation_matrix[i][j]-1.0) + "). rotation_matrix = \n"
-                                        + std::to_string(rotation_matrix[0][0]) + " " + std::to_string(rotation_matrix[0][1]) + " " + std::to_string(rotation_matrix[0][2]) + "\n"
-                                        + std::to_string(rotation_matrix[1][0]) + " " + std::to_string(rotation_matrix[1][1]) + " " + std::to_string(rotation_matrix[1][2]) + "\n"
-                                        + std::to_string(rotation_matrix[2][0]) + " " + std::to_string(rotation_matrix[2][1]) + " " + std::to_string(rotation_matrix[2][2])));
-                    }
+                        Assert(abs(rotation_matrix[i][j]) <= 1.0,
+                              ExcMessage("3. rotation_matrix[" + std::to_string(i) + "][" + std::to_string(j) +
+                                          "] is larger than one: "
+                                          + std::to_string(rotation_matrix[i][j]) + " (" + std::to_string(rotation_matrix[i][j]-1.0) + "). rotation_matrix = \n"
+                                          + std::to_string(rotation_matrix[0][0]) + " " + std::to_string(rotation_matrix[0][1]) + " " + std::to_string(rotation_matrix[0][2]) + "\n"
+                                          + std::to_string(rotation_matrix[1][0]) + " " + std::to_string(rotation_matrix[1][1]) + " " + std::to_string(rotation_matrix[1][2]) + "\n"
+                                          + std::to_string(rotation_matrix[2][0]) + " " + std::to_string(rotation_matrix[2][1]) + " " + std::to_string(rotation_matrix[2][2])));
+                      }
+                  }
+                set_rotation_matrix_grains(data_position,data,mineral_i,grain_i,rotation_matrix);
+                // std::cout << "after projection rotmat: " << rotation_matrix << std::endl;
               }
           }
       }
@@ -500,6 +504,7 @@ namespace aspect
                                                               const double dt,
                                                               const std::pair<std::vector<double>, std::vector<Tensor<2,3>>> &derivatives) const
       {
+        // std::cout << "in cpo: backward euler" << std::endl;
         double sum_volume_fractions = 0;
         Tensor<2,3> cosine_ref;
         for (unsigned int grain_i = 0; grain_i < n_grains; ++grain_i)
@@ -533,18 +538,26 @@ namespace aspect
             cosine_ref = get_rotation_matrix_grains(cpo_index,data,mineral_i,grain_i);
             Tensor<2,3> cosine_old = cosine_ref;
             Tensor<2,3> cosine_new = cosine_ref;
-
+            // if (grain_i == 9) {
+            //   std::cout << "before advection rotmat: " << cosine_ref << std::endl;
+            // }
             for (size_t iteration = 0; iteration < property_advection_max_iterations; ++iteration)
               {
                 cosine_new = cosine_ref + dt * cosine_new * derivatives.second[grain_i];
-
+      
                 if ((cosine_new-cosine_old).norm() < property_advection_tolerance)
                   {
                     break;
                   }
                 cosine_old = cosine_new;
+                // if (grain_i == 9) {
+                //   std::cout << "loop advection rotmat: " << cosine_new << std::endl;
+                // }
               }
-
+            // if (grain_i == 9) {
+            //   std::cout << "dt: " << dt << std::endl;
+            //   std::cout << "derivatives.second[grain_i]: " << derivatives.second[grain_i] << std::endl;
+            // }
             set_rotation_matrix_grains(cpo_index,data,mineral_i,grain_i,cosine_new);
 
           }

@@ -281,7 +281,7 @@ namespace aspect
                   if (scratch.dof_component_indices[i] ==
                       scratch.dof_component_indices[j])
                     {
-                      data.local_matrix(i, j) += ((2.0 * eta * (scratch.grads_phi_u[i] * stress_strain_director 
+                      data.local_matrix(i, j) += ((eta * (scratch.grads_phi_u[i] * stress_strain_director 
                                                                 * scratch.grads_phi_u[j]))
                                                  )
                                                  * JxW;
@@ -491,7 +491,7 @@ namespace aspect
                               scratch.material_model_outputs.viscosities[q]
                               :
                               numbers::signaling_nan<double>());
-
+          // std::cout << "eta in stokes incompressibility: " << eta << std::endl;
           const SymmetricTensor<4,dim> &stress_strain_director = anisotropic_viscosity->stress_strain_directors[q];
           const double one_over_eta = (scratch.rebuild_stokes_matrix
                                        &&
@@ -543,7 +543,7 @@ namespace aspect
                 {
                   for (unsigned int j=0; j<stokes_dofs_per_cell; ++j)
                     {
-                      data.local_matrix(i,j) += ( (2.0 * eta * (scratch.grads_phi_u[i] * stress_strain_director * scratch.grads_phi_u[j]))
+                      data.local_matrix(i,j) += ( (eta * (scratch.grads_phi_u[i] * stress_strain_director * scratch.grads_phi_u[j]))
                                                   // assemble \nabla p as -(p, div v):
                                                   - (pressure_scaling *
                                                     scratch.div_phi_u[i] * scratch.phi_p[j])
@@ -847,14 +847,13 @@ namespace aspect
               strain_rate - 1./3. * trace(strain_rate) * unit_symmetric_tensor<dim>()
               :
               strain_rate);
-          // std::cout << "strain_rate: " << strain_rate << std::endl;
+          // std::cout << "deviatoric_strain_rate: " << deviatoric_strain_rate << std::endl;
           // The computation of the viscosity tensor is only necessary after the simulator has been initialized
           // and when the condition allows dislocation creep
           if  ((this->simulator_is_past_initialization()) && (this->get_timestep_number() > 0))
             {
-              // std::cout << "Passed initialization and timestep " << std::endl;
               // std::cout << "T: " << in.temperature[q] << " det dev_sr: " << determinant(deviatoric_strain_rate) << std::endl;
-              if ((in.temperature[q]>1000) && (isfinite(determinant(deviatoric_strain_rate))))
+              if ((in.temperature[q]>1000) && (isfinite(determinant(deviatoric_strain_rate))))// && (determinant(deviatoric_strain_rate) != 0)) && (isfinite(determinant(deviatoric_strain_rate)))
                 {
                   // std::cout << "T: " << in.temperature[q] << " det dev_sr: " << determinant(deviatoric_strain_rate) << std::endl;
                   const unsigned int ind_vis = this->introspection().compositional_index_for_name("scalar_vis");
@@ -918,22 +917,24 @@ namespace aspect
                   M = std::abs(std::pow(eigvalue_a1,2)*CnI_M[0] + eigvalue_a2*CnI_M[1] + (1/eigvalue_a3)*CnI_M[2] + std::pow(eigvalue_b1,2)*CnI_M[3] + eigvalue_b2*CnI_M[4] + (1/eigvalue_b3)*CnI_M[5] + std::pow(eigvalue_c1,2)*CnI_M[6] + eigvalue_c2*CnI_M[7] + (1/eigvalue_c3)*CnI_M[8] + CnI_M[9]);
                   N = std::abs(std::pow(eigvalue_a1,2)*CnI_N[0] + eigvalue_a2*CnI_N[1] + (1/eigvalue_a3)*CnI_N[2] + std::pow(eigvalue_b1,2)*CnI_N[3] + eigvalue_b2*CnI_N[4] + (1/eigvalue_b3)*CnI_N[5] + std::pow(eigvalue_c1,2)*CnI_N[6] + eigvalue_c2*CnI_N[7] + (1/eigvalue_c3)*CnI_N[8] + CnI_N[9]);   
 
-                  // std::cout<<"pp: eigvalue_a1 "<<eigvalue_a1<<" eigvalue_a2 "<<eigvalue_a2<<" eigvalue_a3 "<<eigvalue_a3<<std::endl;
-                  // std::cout<<"pp: eigvalue_b1 "<<eigvalue_b1<<" eigvalue_b2 "<<eigvalue_b2<<" eigvalue_b3 "<<eigvalue_b3<<std::endl;
-                  // std::cout<<"pp: eigvalue_c1 "<<eigvalue_c1<<" eigvalue_c2 "<<eigvalue_c2<<" eigvalue_c3 "<<eigvalue_c3<<std::endl;
+                  // std::cout<<"in mm: eigvalue_a1 "<<eigvalue_a1<<" eigvalue_a2 "<<eigvalue_a2<<" eigvalue_a3 "<<eigvalue_a3<<std::endl;
+                  // std::cout<<"mm: eigvalue_b1 "<<eigvalue_b1<<" eigvalue_b2 "<<eigvalue_b2<<" eigvalue_b3 "<<eigvalue_b3<<std::endl;
+                  // std::cout<<"mm: eigvalue_c1 "<<eigvalue_c1<<" eigvalue_c2 "<<eigvalue_c2<<" eigvalue_c3 "<<eigvalue_c3<<std::endl;
                   // std::cout<<"F "<<F<<" G "<<G<<" H "<<H<<" L "<<L<<" M "<<M<<" N "<<N<<std::endl;
-                  // F=0.5; G=0.5, H=0.5; L=1.5; M=1.5; N=1.5;
+                  F=0.5; G=0.5, H=0.5; L=1.5; M=1.5; N=1.5;
 
                   double scalar_viscosity = composition[ind_vis];
                   double n_iterations = 1;
                   double max_iteration = 25;
                   double residual = scalar_viscosity;
-                  double threshold = 1;
-                  SymmetricTensor<2,dim> stress;stress = 2 * scalar_viscosity * old_stress_strain_director * deviatoric_strain_rate / 1e6; // Use stress in MPa                    
+                  double threshold = 1e3;
+                  SymmetricTensor<2,dim> stress;
+                  stress = scalar_viscosity * old_stress_strain_director * deviatoric_strain_rate / 1e6; // Use stress in MPa                    
+                  // std::cout << "Initial stress: " << stress << std::endl;
                   while (std::abs(residual) > threshold && n_iterations < max_iteration)
                   {
                     // std::cout << "n_iterations: " << n_iterations << std::endl;
-                    stress = 0.5 * (stress + 2 * scalar_viscosity * old_stress_strain_director * deviatoric_strain_rate / 1e6);         
+                    stress = (1./2.) * (stress) + (1./2.) * (scalar_viscosity * old_stress_strain_director * deviatoric_strain_rate / 1e6);         
                     // std::cout << "old_stress_strain_director " << old_stress_strain_director << std::endl;
                     // std::cout << "deviatoric_strain_rate " << deviatoric_strain_rate << std::endl;
                     // std::cout << "Anisotropic stress " << stress << std::endl;
@@ -957,13 +958,13 @@ namespace aspect
                     double scalar_viscosity_new = (1 / (Gamma * std::pow(Jhill,(n-1)/2))) * 1e6; // convert from MPa to Pa
                     residual = std::abs(scalar_viscosity_new - scalar_viscosity);
                     scalar_viscosity = scalar_viscosity_new;
-                    // std::cout << "scalar_viscosity: " << scalar_viscosity <<std::endl;
+                    // std::cout << "scalar_viscosity in loop: " << scalar_viscosity <<std::endl;
                     // std::cout << "residual: " << residual <<std::endl;
                     n_iterations += 1;
                   }
                   //Overwrite the scalar viscosity with an effective viscosity
-                  out.viscosities[q] = scalar_viscosity;
-                  // std::cout << "scalar_viscosity: " << scalar_viscosity <<std::endl;
+                  out.viscosities[q] = scalar_viscosity;//composition[ind_vis];//
+                  // std::cout << "Final scalar_viscosity: " << scalar_viscosity <<std::endl;
 
                   //Compute Rotation matrix
                   Tensor<2,6> R_CPO_K;
@@ -1054,20 +1055,20 @@ namespace aspect
                   // std::cout << "invA " << invA <<std::endl;
 
                   //Calculate the fluidity tensor in the LPO frame
-                  Tensor<2,6> V = R_CPO_K * invA * transpose(R_CPO_K);//invA;//
+                  // Tensor<2,6> V = R_CPO_K * invA * transpose(R_CPO_K);//invA;//
                   // Tensor<2,6> V = transpose(R_CPO_K) * invA * R_CPO_K;//invA;//
                   // std::cout << "V: " << V <<std::endl;
                   
-                  // SymmetricTensor<2,6> V;
-                  // V[0][0] = 2.0/3.0;
-                  // V[0][1] = -1.0/3.0;
-                  // V[0][2] = -1.0/3.0;
-                  // V[1][1] = 2.0/3.0;
-                  // V[1][2] = -1.0/3.0;
-                  // V[2][2] = 2.0/3.0;
-                  // V[3][3] = 1;
-                  // V[4][4] = 1;
-                  // V[5][5] = 1;
+                  SymmetricTensor<2,6> V;
+                  V[0][0] = 2.0/3.0;
+                  V[0][1] = -1.0/3.0;
+                  V[0][2] = -1.0/3.0;
+                  V[1][1] = 2.0/3.0;
+                  V[1][2] = -1.0/3.0;
+                  V[2][2] = 2.0/3.0;
+                  V[3][3] = 1;
+                  V[4][4] = 1;
+                  V[5][5] = 1;
 
                   AssertThrow(out.viscosities[q] > 0,
                               ExcMessage("Viscosity should be positive"));
