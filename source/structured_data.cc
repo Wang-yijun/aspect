@@ -507,10 +507,11 @@ namespace aspect
                 {
                   // This is a coordinate. Store (and check that they are consistent)
                   const double old_value = coordinate_values[column_num][idx[column_num]];
-
+                  // std::cout << "temp_data: " << temp_data << std::endl;
                   AssertThrow(old_value == 0. ||
                               (std::abs(old_value-temp_data) < 1e-8*std::abs(old_value)),
-                              ExcMessage("Invalid coordinate in column "
+                              ExcMessage("Invalid coordinate "
+                                         + Utilities::int_to_string(old_value) + " in column "
                                          + Utilities::int_to_string(column_num) + " in row "
                                          + Utilities::int_to_string(row_num)
                                          + " in file " + filename +
