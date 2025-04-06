@@ -921,20 +921,21 @@ namespace aspect
                   // std::cout<<"mm: eigvalue_b1 "<<eigvalue_b1<<" eigvalue_b2 "<<eigvalue_b2<<" eigvalue_b3 "<<eigvalue_b3<<std::endl;
                   // std::cout<<"mm: eigvalue_c1 "<<eigvalue_c1<<" eigvalue_c2 "<<eigvalue_c2<<" eigvalue_c3 "<<eigvalue_c3<<std::endl;
                   // std::cout<<"F "<<F<<" G "<<G<<" H "<<H<<" L "<<L<<" M "<<M<<" N "<<N<<std::endl;
-                  F=0.5; G=0.5, H=0.5; L=1.5; M=1.5; N=1.5;
+                  // F=0.5; G=0.5, H=0.5; L=1.5; M=1.5; N=1.5;
 
                   double scalar_viscosity = composition[ind_vis];
                   double n_iterations = 1;
-                  double max_iteration = 25;
+                  double max_iteration = 100;
                   double residual = scalar_viscosity;
-                  double threshold = 1e3;
+                  double threshold = 1;
                   SymmetricTensor<2,dim> stress;
                   stress = scalar_viscosity * old_stress_strain_director * deviatoric_strain_rate / 1e6; // Use stress in MPa                    
                   // std::cout << "Initial stress: " << stress << std::endl;
                   while (std::abs(residual) > threshold && n_iterations < max_iteration)
+                  // while (n_iterations < max_iteration)
                   {
                     // std::cout << "n_iterations: " << n_iterations << std::endl;
-                    stress = (1./2.) * (stress) + (1./2.) * (scalar_viscosity * old_stress_strain_director * deviatoric_strain_rate / 1e6);         
+                    stress = (1./2.) * (stress + scalar_viscosity * old_stress_strain_director * deviatoric_strain_rate / 1e6);         
                     // std::cout << "old_stress_strain_director " << old_stress_strain_director << std::endl;
                     // std::cout << "deviatoric_strain_rate " << deviatoric_strain_rate << std::endl;
                     // std::cout << "Anisotropic stress " << stress << std::endl;
@@ -955,17 +956,29 @@ namespace aspect
                     AssertThrow(Jhill >= 0,
                                 ExcMessage("Jhill should not be negative"));
 
-                    double scalar_viscosity_new = (1 / (Gamma * std::pow(Jhill,(n-1)/2))) * 1e6; // convert from MPa to Pa
+                    double scalar_viscosity_new = (1 / (Gamma * std::pow(Jhill,(n-1)/2))) * 1e6; // convert from MPa to Pa                                
                     residual = std::abs(scalar_viscosity_new - scalar_viscosity);
                     scalar_viscosity = scalar_viscosity_new;
                     // std::cout << "scalar_viscosity in loop: " << scalar_viscosity <<std::endl;
                     // std::cout << "residual: " << residual <<std::endl;
                     n_iterations += 1;
+
+                    // std::cout<<"F "<<F<<" G "<<G<<" H "<<H<<" L "<<L<<" M "<<M<<" N "<<N<<std::endl;
+                    // std::cout << "old_stress_strain_director " << old_stress_strain_director << std::endl;
+                    // std::cout << "deviatoric_strain_rate " << deviatoric_strain_rate << std::endl;
+                    // std::cout << "stress " << stress <<std::endl;
+                    // std::cout << "R " << R <<std::endl;
+                    // std::cout << "stress CPO " << S_CPO <<std::endl;
+                    // std::cout << "Jhill " << Jhill <<std::endl;
                   }
                   //Overwrite the scalar viscosity with an effective viscosity
                   out.viscosities[q] = scalar_viscosity;//composition[ind_vis];//
                   // std::cout << "Final scalar_viscosity: " << scalar_viscosity <<std::endl;
-
+                  
+                  AssertThrow(out.viscosities[q] > 0,
+                              ExcMessage("Viscosity should be positive"));
+                  AssertThrow(isfinite(out.viscosities[q]),
+                              ExcMessage("Viscosity should be finite"));
                   //Compute Rotation matrix
                   Tensor<2,6> R_CPO_K;
                   R_CPO_K[0][0] = std::pow(R[0][0],2);
@@ -1055,25 +1068,20 @@ namespace aspect
                   // std::cout << "invA " << invA <<std::endl;
 
                   //Calculate the fluidity tensor in the LPO frame
-                  // Tensor<2,6> V = R_CPO_K * invA * transpose(R_CPO_K);//invA;//
+                  Tensor<2,6> V = R_CPO_K * invA * transpose(R_CPO_K);//invA;//
                   // Tensor<2,6> V = transpose(R_CPO_K) * invA * R_CPO_K;//invA;//
                   // std::cout << "V: " << V <<std::endl;
                   
-                  SymmetricTensor<2,6> V;
-                  V[0][0] = 2.0/3.0;
-                  V[0][1] = -1.0/3.0;
-                  V[0][2] = -1.0/3.0;
-                  V[1][1] = 2.0/3.0;
-                  V[1][2] = -1.0/3.0;
-                  V[2][2] = 2.0/3.0;
-                  V[3][3] = 1;
-                  V[4][4] = 1;
-                  V[5][5] = 1;
-
-                  AssertThrow(out.viscosities[q] > 0,
-                              ExcMessage("Viscosity should be positive"));
-                  AssertThrow(isfinite(out.viscosities[q]),
-                              ExcMessage("Viscosity should be finite"));
+                  // SymmetricTensor<2,6> V;
+                  // V[0][0] = 2.0/3.0;
+                  // V[0][1] = -1.0/3.0;
+                  // V[0][2] = -1.0/3.0;
+                  // V[1][1] = 2.0/3.0;
+                  // V[1][2] = -1.0/3.0;
+                  // V[2][2] = 2.0/3.0;
+                  // V[3][3] = 1;
+                  // V[4][4] = 1;
+                  // V[5][5] = 1;
 
                   //Convert rank 2 viscosity tensor to rank 4
                   FullMatrix<double> V_mat(6,6);
