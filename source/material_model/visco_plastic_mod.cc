@@ -190,13 +190,16 @@ namespace aspect
       // The first time this function is called (first iteration of first time step)
       // a specified "reference" strain rate is used as the returned value would
       // otherwise be zero.
-      const double edot_ii = ( (this->get_timestep_number() == 0 && strain_rate.norm() <= std::numeric_limits<double>::min())
+      double edot_ii = ( (this->get_timestep_number() == 0 && strain_rate.norm() <= std::numeric_limits<double>::min())
                                ?
                                ref_strain_rate
                                :
                                std::max(std::sqrt(std::fabs(second_invariant(deviator(strain_rate)))),
                                         min_strain_rate) );
-
+      if (std::isnan(edot_ii))
+      {
+        edot_ii = ref_strain_rate;
+      }
       // Choice of activation volume depends on whether there is an adiabatic temperature
       // gradient used when calculating the viscosity. This allows the same activation volume
       // to be used in incompressible and compressible models.
@@ -392,6 +395,20 @@ namespace aspect
           else
             {
               composition_viscosities[j] = std::min(std::max(viscosity_composite, min_field_viscs[j]), max_field_viscs[j]);
+            }
+          
+            if (j==1 && std::isnan(viscosity_dislocation))
+            {
+              std::cout<<"deviator: "<<deviator(strain_rate)<<std::endl;
+              std::cout<<"edot_ii: "<<edot_ii<<std::endl;
+              std::cout<<"vis_disl A: "<<std::pow(prefactors_dislocation[j],-1/stress_exponents_dislocation[j])<<std::endl;
+              std::cout<<"vis_disl exp: "<<std::exp((activation_energies_dislocation[j] + pressure*activation_volumes_dislocation[j])/(constants::gas_constant*temperature_for_viscosity*stress_exponents_dislocation[j]))<<std::endl;
+              std::cout<<"vis_disl strainrate: "<<std::pow(edot_ii,((1. - stress_exponents_dislocation[j])/stress_exponents_dislocation[j]))<<std::endl;
+              std::cout<<"disl viscosity: "<<viscosity_dislocation<<std::endl;
+              std::cout<<"diff viscosity: "<<viscosity_diffusion<<std::endl;
+              std::cout<<"comp viscosity: "<<viscosity_pre_yield<<std::endl;
+              std::cout<<"yield viscosity: "<<viscosity_yield<<std::endl;
+              std::cout<<"composition_viscosities[j]: "<<composition_viscosities[j]<<std::endl;
             }
 
 
