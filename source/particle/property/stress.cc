@@ -42,7 +42,7 @@ namespace aspect
                                             const std::vector<Tensor<1,dim> > &gradients,
                                             typename ParticleHandler<dim>::particle_iterator &particle) const
       {
-        auto &data = particle->get_properties();
+        ArrayView<double> data = particle->get_properties();
         // Velocity gradients
         Tensor<2,dim> grad_u;
         for (unsigned int d=0; d<dim; ++d)
