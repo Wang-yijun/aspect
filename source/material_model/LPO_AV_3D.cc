@@ -864,16 +864,16 @@ namespace aspect
                   const double n = 3.5;
                   const double Gamma = (A_o/(std::pow(grain_size/1e6,0.73)));// in MPa^(-n)
                   // std::cout << "Gamma: " << Gamma << std::endl;
-                  SymmetricTensor<4,dim> old_stress_strain_director;
-                  std::vector<double> ssd_array(SymmetricTensor<4,dim>::n_independent_components);
-                  for (unsigned int i = 0; i < SymmetricTensor<4,dim>::n_independent_components ; ++i)
-                    {
-                      const unsigned int ind = this->introspection().compositional_index_for_name(ssd_names[i]);
-                      ssd_array[i] = composition[ind];
-                      AssertThrow(isfinite(composition[ind]),
-                          ExcMessage("Assigned prescribed field should be finite"));
-                    }
-                  std::copy(ssd_array.begin(), ssd_array.end(), old_stress_strain_director.begin_raw());
+                  //SymmetricTensor<4,dim> old_stress_strain_director;
+                  //std::vector<double> ssd_array(SymmetricTensor<4,dim>::n_independent_components);
+                  //for (unsigned int i = 0; i < SymmetricTensor<4,dim>::n_independent_components ; ++i)
+                    //{
+                      //const unsigned int ind = this->introspection().compositional_index_for_name(ssd_names[i]);
+                      //ssd_array[i] = composition[ind];
+                      //AssertThrow(isfinite(composition[ind]),
+                          //ExcMessage("Assigned prescribed field should be finite"));
+                    //}
+                  //std::copy(ssd_array.begin(), ssd_array.end(), old_stress_strain_director.begin_raw());
                   
                   //Get eigen values from compositional fields
                   const double eigvalue_a1 = composition[cpo_bingham_avg_a[1]];
@@ -922,64 +922,6 @@ namespace aspect
                   // std::cout<<"mm: eigvalue_c1 "<<eigvalue_c1<<" eigvalue_c2 "<<eigvalue_c2<<" eigvalue_c3 "<<eigvalue_c3<<std::endl;
                   // std::cout<<"F "<<F<<" G "<<G<<" H "<<H<<" L "<<L<<" M "<<M<<" N "<<N<<std::endl;
                   // F=0.5; G=0.5, H=0.5; L=1.5; M=1.5; N=1.5;
-
-                  double scalar_viscosity = composition[ind_vis];
-                  double n_iterations = 1;
-                  double max_iteration = 100;
-                  double residual = scalar_viscosity;
-                  double threshold = 0.0001*scalar_viscosity;
-                  SymmetricTensor<2,dim> stress;
-                  stress = scalar_viscosity * old_stress_strain_director * deviatoric_strain_rate / 1e6; // Use stress in MPa                    
-                  // std::cout << "Initial stress: " << stress << std::endl;
-                  while (std::abs(residual) > threshold && n_iterations < max_iteration)
-                  // while (n_iterations < max_iteration)
-                  {
-                    // std::cout << "n_iterations: " << n_iterations << std::endl;
-                    stress = (1./2.) * (stress + scalar_viscosity * old_stress_strain_director * deviatoric_strain_rate / 1e6);         
-                    // std::cout << "old_stress_strain_director " << old_stress_strain_director << std::endl;
-                    // std::cout << "deviatoric_strain_rate " << deviatoric_strain_rate << std::endl;
-                    // std::cout << "Anisotropic stress " << stress << std::endl;
-
-                    Tensor<2,3> S_CPO=transpose(R)*stress*R;
-                    // std::cout << "stress " << stress <<std::endl;
-                    // std::cout << "stress CPO " << S_CPO <<std::endl;
-
-                    double Jhill = F*pow((S_CPO[0][0]-S_CPO[1][1]),2) + G*pow((S_CPO[1][1]-S_CPO[2][2]),2) + H*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);
-                    if (Jhill < 0)
-                      {
-                        Jhill = std::abs(F)*pow((S_CPO[0][0]-S_CPO[1][1]),2) + std::abs(G)*pow((S_CPO[1][1]-S_CPO[2][2]),2) + std::abs(H)*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);            
-                      }              
-                    // std::cout << "Jhill " << Jhill <<std::endl;
-
-                    AssertThrow(isfinite(Jhill),
-                                ExcMessage("Jhill should be finite"));
-                    AssertThrow(Jhill >= 0,
-                                ExcMessage("Jhill should not be negative"));
-
-                    double scalar_viscosity_new = (1 / (Gamma * std::pow(Jhill,(n-1)/2))) * 1e6; // convert from MPa to Pa                                
-                    residual = std::abs(scalar_viscosity_new - scalar_viscosity);
-                    scalar_viscosity = scalar_viscosity_new;
-                    // std::cout << "scalar_viscosity in loop: " << scalar_viscosity <<std::endl;
-                    // std::cout << "residual: " << residual <<std::endl;
-                    n_iterations += 1;
-
-                    // std::cout<<"F "<<F<<" G "<<G<<" H "<<H<<" L "<<L<<" M "<<M<<" N "<<N<<std::endl;
-                    // std::cout << "old_stress_strain_director " << old_stress_strain_director << std::endl;
-                    // std::cout << "deviatoric_strain_rate " << deviatoric_strain_rate << std::endl;
-                    // std::cout << "stress " << stress <<std::endl;
-                    // std::cout << "R " << R <<std::endl;
-                    // std::cout << "stress CPO " << S_CPO <<std::endl;
-                    // std::cout << "Jhill " << Jhill <<std::endl;
-                  }
-                  //Overwrite the scalar viscosity with an effective viscosity
-                  out.viscosities[q] = scalar_viscosity;//composition[ind_vis];//
-                  // std::cout << "Final scalar_viscosity: " << scalar_viscosity <<std::endl;
-                  
-                  AssertThrow(out.viscosities[q] > 0,
-                              ExcMessage("Viscosity should be positive"));
-                  AssertThrow(isfinite(out.viscosities[q]),
-                              ExcMessage("Viscosity should be finite"));
-                  //Compute Rotation matrix
                   Tensor<2,6> R_CPO_K;
                   R_CPO_K[0][0] = std::pow(R[0][0],2);
                   R_CPO_K[0][1] = std::pow(R[0][1],2);
@@ -1099,6 +1041,65 @@ namespace aspect
                     {
                       anisotropic_viscosity->stress_strain_directors[q] = V_r4;
                     }    
+
+                  double scalar_viscosity = composition[ind_vis];
+                  double n_iterations = 1;
+                  double max_iteration = 100;
+                  double residual = scalar_viscosity;
+                  double threshold = 0.0001*scalar_viscosity;
+                  SymmetricTensor<2,dim> stress;
+                  stress = scalar_viscosity * V_r4 * deviatoric_strain_rate / 1e6; // Use stress in MPa                    
+                  // std::cout << "Initial stress: " << stress << std::endl;
+                  while (std::abs(residual) > threshold && n_iterations < max_iteration)
+                  // while (n_iterations < max_iteration)
+                  {
+                    // std::cout << "n_iterations: " << n_iterations << std::endl;
+                    stress = (1./2.) * (stress + scalar_viscosity * V_r4 * deviatoric_strain_rate / 1e6);         
+                    // std::cout << "old_stress_strain_director " << old_stress_strain_director << std::endl;
+                    // std::cout << "deviatoric_strain_rate " << deviatoric_strain_rate << std::endl;
+                    // std::cout << "Anisotropic stress " << stress << std::endl;
+
+                    Tensor<2,3> S_CPO=transpose(R)*stress*R;
+                    // std::cout << "stress " << stress <<std::endl;
+                    // std::cout << "stress CPO " << S_CPO <<std::endl;
+
+                    double Jhill = F*pow((S_CPO[0][0]-S_CPO[1][1]),2) + G*pow((S_CPO[1][1]-S_CPO[2][2]),2) + H*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);
+                    if (Jhill < 0)
+                      {
+                        Jhill = std::abs(F)*pow((S_CPO[0][0]-S_CPO[1][1]),2) + std::abs(G)*pow((S_CPO[1][1]-S_CPO[2][2]),2) + std::abs(H)*pow((S_CPO[2][2]-S_CPO[0][0]),2) + 2*L*pow(S_CPO[1][2],2) + 2*M*pow(S_CPO[0][2],2) + 2*N*pow(S_CPO[0][1],2);            
+                      }              
+                    // std::cout << "Jhill " << Jhill <<std::endl;
+
+                    AssertThrow(isfinite(Jhill),
+                                ExcMessage("Jhill should be finite"));
+                    AssertThrow(Jhill >= 0,
+                                ExcMessage("Jhill should not be negative"));
+
+                    double scalar_viscosity_new = (1 / (Gamma * std::pow(Jhill,(n-1)/2))) * 1e6; // convert from MPa to Pa                                
+                    residual = std::abs(scalar_viscosity_new - scalar_viscosity);
+                    scalar_viscosity = scalar_viscosity_new;
+                    // std::cout << "scalar_viscosity in loop: " << scalar_viscosity <<std::endl;
+                    // std::cout << "residual: " << residual <<std::endl;
+                    n_iterations += 1;
+
+                    // std::cout<<"F "<<F<<" G "<<G<<" H "<<H<<" L "<<L<<" M "<<M<<" N "<<N<<std::endl;
+                    // std::cout << "old_stress_strain_director " << old_stress_strain_director << std::endl;
+                    // std::cout << "deviatoric_strain_rate " << deviatoric_strain_rate << std::endl;
+                    // std::cout << "stress " << stress <<std::endl;
+                    // std::cout << "R " << R <<std::endl;
+                    // std::cout << "stress CPO " << S_CPO <<std::endl;
+                    // std::cout << "Jhill " << Jhill <<std::endl;
+                  }
+                  //Overwrite the scalar viscosity with an effective viscosity
+                  out.viscosities[q] = scalar_viscosity;//composition[ind_vis];//
+                  // std::cout << "Final scalar_viscosity: " << scalar_viscosity <<std::endl;
+                  
+                  AssertThrow(out.viscosities[q] > 0,
+                              ExcMessage("Viscosity should be positive"));
+                  AssertThrow(isfinite(out.viscosities[q]),
+                              ExcMessage("Viscosity should be finite"));
+                  //Compute Rotation matrix
+                  
                 }   
             }
           else 
@@ -1145,14 +1146,14 @@ namespace aspect
             //         V_r2[vi][vj] = V_mat[vi][vj];
             //       }
             //   }
-            std::copy(anisotropic_viscosity->stress_strain_directors[q].begin_raw(), anisotropic_viscosity->stress_strain_directors[q].end_raw(), ViscoTensor_array.begin());
-            for (unsigned int i = 0; i < SymmetricTensor<4,dim>::n_independent_components ; ++i)
-              {
-                const unsigned int ind = this->introspection().compositional_index_for_name(ssd_names[i]);
-                prescribed_field_out->prescribed_field_outputs[q][ind] = ViscoTensor_array[i];
-                AssertThrow(isfinite(ViscoTensor_array[i]),
-                        ExcMessage("Assigning prescribed field should be finite"));
-              }
+            //std::copy(anisotropic_viscosity->stress_strain_directors[q].begin_raw(), anisotropic_viscosity->stress_strain_directors[q].end_raw(), ViscoTensor_array.begin());
+            //for (unsigned int i = 0; i < SymmetricTensor<4,dim>::n_independent_components ; ++i)
+              //{
+                //const unsigned int ind = this->introspection().compositional_index_for_name(ssd_names[i]);
+                //prescribed_field_out->prescribed_field_outputs[q][ind] = ViscoTensor_array[i];
+                //AssertThrow(isfinite(ViscoTensor_array[i]),
+                        //ExcMessage("Assigning prescribed field should be finite"));
+              //}
             const unsigned int ind_vis = this->introspection().compositional_index_for_name("scalar_vis");
             prescribed_field_out->prescribed_field_outputs[q][ind_vis] = out.viscosities[q];
             // std::cout << "Saved ViscoTensor_array: ";
