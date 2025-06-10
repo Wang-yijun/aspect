@@ -927,7 +927,7 @@ namespace aspect
                   double n_iterations = 1;
                   double max_iteration = 100;
                   double residual = scalar_viscosity;
-                  double threshold = 1;
+                  double threshold = 0.0001*scalar_viscosity;
                   SymmetricTensor<2,dim> stress;
                   stress = scalar_viscosity * old_stress_strain_director * deviatoric_strain_rate / 1e6; // Use stress in MPa                    
                   // std::cout << "Initial stress: " << stress << std::endl;
