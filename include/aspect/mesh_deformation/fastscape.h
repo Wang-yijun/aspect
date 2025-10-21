@@ -475,7 +475,8 @@ namespace aspect
          * otherwise, the units are ${m^(1-2drainage_area_exponent)/s}$. Then a time scale factor will be applied to
          * convert it into  ${m^(1-2drainage_area_exponent)/yr}$ for Fastscape.
          */
-        double constant_bedrock_river_incision_rate;
+        // double constant_bedrock_river_incision_rate;
+        std::vector<double> constant_bedrock_river_incision_rate;
 
         /**
          * Sediment river incision rate for the stream power law.
@@ -509,7 +510,8 @@ namespace aspect
          * convert it into  ${m²/yr}$ for Fastscape.
          * This function is only used only if use_kf_distribution_function is false.
          */
-        double constant_bedrock_transport_coefficient;
+        // double constant_bedrock_transport_coefficient;
+        std::vector<double> constant_bedrock_transport_coefficient;
 
         /**
          * Sediment transport coefficient for hillslope diffusion.

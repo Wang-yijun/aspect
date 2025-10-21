@@ -811,21 +811,34 @@ namespace aspect
           // Set time scaling factor based on time unit
           // This factor is use to scale the quantities when "Use years instead of seconds" in ASPECT is off.
           double time_scaling_factor = (this->convert_output_to_years() ? 1.0 : year_in_seconds);
+          // const std::vector<double> volume_fractions = MaterialUtilities::compute_composition_fractions(in.composition[i]);
           // Update bedrock transport coefficient kd
+          double bedrock_transport_coefficient = constant_bedrock_transport_coefficient[1]; //0.0;
+          // for (unsigned int c=0; c < volume_fractions.size(); ++c)
+          //   {
+          //     //adding each compositional bedrock transport coefficient weighted by its volume fraction
+          //     bedrock_transport_coefficient += volume_fractions[c] * constant_bedrock_transport_coefficient[c];
+          //   }
           bedrock_transport_coefficient_array[i] =
             (use_kd_distribution_function
              ?  // update with time scaling
              time_scaling_factor * kd_distribution_function.value(Point<2>(x, y))
              :
-             time_scaling_factor * constant_bedrock_transport_coefficient);
+             time_scaling_factor * bedrock_transport_coefficient);
 
           // Update Bedrock river incision rate kf
+          double bedrock_river_incision_rate = constant_bedrock_river_incision_rate[0]; // 0.0;
+          // for (unsigned int c=0; c < volume_fractions.size(); ++c)
+          //   {
+          //     //adding each compositional bedrock river incision rate weighted by its volume fraction
+          //     bedrock_river_incision_rate += volume_fractions[c] * constant_bedrock_river_incision_rate[c];
+          //   }
           bedrock_river_incision_rate_array[i] =
             (use_kf_distribution_function)
             ?  // update with time scaling
             time_scaling_factor * kf_distribution_function.value(Point<2>(x, y))
             :
-            time_scaling_factor * constant_bedrock_river_incision_rate;
+            time_scaling_factor * bedrock_river_incision_rate;
 
 
           // If this is a boundary node that is a ghost node then ignore that it
@@ -1783,7 +1796,7 @@ namespace aspect
                               "Whether to define bedrock river incision rate using a distribution function. "
                               "If false, a constant kf value will be used.");
             prm.declare_entry("Bedrock river incision rate", "1e-5",
-                              Patterns::Double(),
+                              Patterns::Anything(),
                               "River incision rate for bedrock in the Stream Power Law. Units: ${m^(1-2drainage_area_exponent)/yr}$ if ``Use years instead of seconds in output'' is true; otherwise, the units are ${m^(1-2drainage_area_exponent)/s}$");
             prm.enter_subsection ("kf distribution function");
             {
@@ -1800,7 +1813,7 @@ namespace aspect
                               "Whether to define Bedrock transport coefficient (diffusivity) using a distribution function. "
                               "If false, a constant kd value will be used.");
             prm.declare_entry("Bedrock diffusivity", "1e-2",
-                              Patterns::Double(),
+                              Patterns::Anything(),
                               "Transport coefficient (diffusivity) for bedrock. Units: ${m^2/yr}$ if ``Use years instead of seconds in output'' is true; otherwise, the units are ${m^2/s}$.");
             prm.enter_subsection ("kd distribution function");
             {
@@ -1994,6 +2007,35 @@ namespace aspect
             drainage_area_exponent_m = prm.get_double("Drainage area exponent");
             slope_exponent_n = prm.get_double("Slope exponent");
             sediment_river_incision_rate = prm.get_double("Sediment river incision rate");
+            
+            // Retrieve the list of composition names
+            std::vector<std::string> compositional_field_names = this->introspection().get_composition_names();
+
+            // For compositional erosional coefficients（bedrock river incision rate & transport rate)
+            // Retrieve the list of names of fields that represent chemical compositions, and not, e.g.,
+            // plastic strain
+            std::vector<std::string> chemical_field_names = this->introspection().chemical_composition_field_names();
+            
+            // Establish that a background field is required here
+            compositional_field_names.insert(compositional_field_names.begin(), "background");
+            chemical_field_names.insert(chemical_field_names.begin(), "background");
+            
+            // Make options file for parsing maps to double arrays
+            Utilities::MapParsing::Options options(chemical_field_names, "Bedrock river incision rate");
+            options.list_of_allowed_keys = compositional_field_names;
+            
+            // std::cout << "compositional field names: ";
+            // for (const auto& c : compositional_field_names)
+            //   std::cout << c << " ";
+            // std::cout << std::endl;
+
+            // std::cout << "chemical_field_names: ";
+            // for (const auto& c : chemical_field_names)
+            //   std::cout << c << " ";
+            // std::cout << std::endl;
+
+            // std::cout << "compositional_field_names.size()" << compositional_field_names.size() << std::endl;
+
             // kf
             use_kf_distribution_function = prm.get_bool("Use kf distribution function");
             if (use_kf_distribution_function)
@@ -2006,11 +2048,13 @@ namespace aspect
                 // If using the function description for the kf, no parts of the code
                 // base should use the constant_bedrock_river_incision_rate variable. Poison it to
                 // make sure it really isn't used anywhere:
-                constant_bedrock_river_incision_rate = numbers::signaling_nan<double>();
+                // constant_bedrock_river_incision_rate = numbers::signaling_nan<double>();
               }
             else
               {
-                constant_bedrock_river_incision_rate = prm.get_double("Bedrock river incision rate");
+                // constant_bedrock_river_incision_rate = prm.get_double("Bedrock river incision rate");
+                constant_bedrock_river_incision_rate = Utilities::MapParsing::parse_map_to_double_array (prm.get("Bedrock river incision rate"),
+                                                                                             options);
               }
             sediment_transport_coefficient = prm.get_double("Sediment diffusivity");
             // kd
@@ -2025,12 +2069,19 @@ namespace aspect
                 // If using the function description for the kd, no parts of the code
                 // base should use the constant_bedrock_river_incision_rate variable. Poison it to
                 // make sure it really isn't used anywhere:
-                constant_bedrock_transport_coefficient = numbers::signaling_nan<double>();
+                // constant_bedrock_transport_coefficient = numbers::signaling_nan<double>();
               }
             else
               {
-                constant_bedrock_transport_coefficient = prm.get_double("Bedrock diffusivity");
+                // constant_bedrock_transport_coefficient = prm.get_double("Bedrock diffusivity");
+                constant_bedrock_transport_coefficient = Utilities::MapParsing::parse_map_to_double_array (prm.get("Bedrock diffusivity"),
+                                                                                               options);
               }
+            double index1 = this->introspection().compositional_index_for_name("Crust_1");
+            double index2 = this->introspection().compositional_index_for_name("Crust_2");
+            std::cout << "constant_bedrock_transport_coefficient[index1]: " << constant_bedrock_transport_coefficient[index1] << std::endl;
+            std::cout << "constant_bedrock_transport_coefficient[index2]: " << constant_bedrock_transport_coefficient[index2] << std::endl;
+
             bedrock_deposition_g = prm.get_double("Bedrock deposition coefficient");
             sediment_deposition_g = prm.get_double("Sediment deposition coefficient");
             slope_exponent_p = prm.get_double("Multi-direction slope exponent");
