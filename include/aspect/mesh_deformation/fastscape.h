@@ -45,11 +45,6 @@ namespace aspect
     {
       public:
         /**
-         * Destructor for FastScape.
-         */
-        ~FastScape() override;
-
-        /**
          * Initialize variables for FastScape.
          */
         virtual void initialize () override;
@@ -58,6 +53,11 @@ namespace aspect
          * Update input variables for FastScape.
          */
         void update() override;
+
+        /**
+         * Destructor for FastScape.
+         */
+        ~FastScape() override;
 
         /**
          * A function that creates constraints for the velocity of certain mesh
@@ -475,7 +475,8 @@ namespace aspect
          * otherwise, the units are ${m^(1-2drainage_area_exponent)/s}$. Then a time scale factor will be applied to
          * convert it into  ${m^(1-2drainage_area_exponent)/yr}$ for Fastscape.
          */
-        double constant_bedrock_river_incision_rate;
+        // double constant_bedrock_river_incision_rate;
+        std::vector<double> constant_bedrock_river_incision_rate;
 
         /**
          * Sediment river incision rate for the stream power law.
@@ -490,9 +491,9 @@ namespace aspect
         /**
          * Function of bedrock transport coefficient for hillslope diffusion.
          * Represents the parameter `kd` in the FastScape landscape evolution equation.
-         * Units: ${m^2/yr}$ if "Use years instead of seconds in output" is true;
-         * otherwise, the units are ${m^2/s}$. Then a time scale factor will be applied to
-         * convert it into  ${m^2/yr}$ for Fastscape.
+         * Units: ${m²/yr}$ if "Use years instead of seconds in output" is true;
+         * otherwise, the units are ${m²/s}$. Then a time scale factor will be applied to
+         * convert it into  ${m²/yr}$ for Fastscape.
          * This function is used only if `use_kd_distribution_function` is set to true.
          */
         Functions::ParsedFunction<2> kd_distribution_function;
@@ -504,18 +505,19 @@ namespace aspect
 
         /**
          * Constant bedrock transport coefficient value for hillslope diffusion
-         * Units: ${m^2/yr}$ if "Use years instead of seconds in output" is true;
-         * otherwise, the units are ${m^2/s}$. Then a time scale factor will be applied to
-         * convert it into  ${m^2/yr}$ for Fastscape.
+         * Units: ${m²/yr}$ if "Use years instead of seconds in output" is true;
+         * otherwise, the units are ${m²/s}$. Then a time scale factor will be applied to
+         * convert it into  ${m²/yr}$ for Fastscape.
          * This function is only used only if use_kf_distribution_function is false.
          */
-        double constant_bedrock_transport_coefficient;
+        // double constant_bedrock_transport_coefficient;
+        std::vector<double> constant_bedrock_transport_coefficient;
 
         /**
          * Sediment transport coefficient for hillslope diffusion.
-         * Units: ${m^2/yr}$ if "Use years instead of seconds in output" is true;
-         * otherwise, the units are ${m^2/s}$. Then a time scale factor will be applied to
-         * convert it into  ${m^2/yr}$ for Fastscape.
+         * Units: ${m²/yr}$ if "Use years instead of seconds in output" is true;
+         * otherwise, the units are ${m²/s}$. Then a time scale factor will be applied to
+         * convert it into  ${m²/yr}$ for Fastscape.
          * When set to -1 this is identical to the bedrock value.
          * (kd in FastScape surface equation applied to sediment).
          */
