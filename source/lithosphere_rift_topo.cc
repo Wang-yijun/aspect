@@ -21,6 +21,7 @@
 
 #include <aspect/lithosphere_rift_IC.h>
 #include <aspect/lithosphere_rift_IT.h>
+#include <aspect/lithosphere_rift_topo.h>
 #include <aspect/geometry_model/box.h>
 #include <aspect/gravity_model/interface.h>
 #include <aspect/utilities.h>
