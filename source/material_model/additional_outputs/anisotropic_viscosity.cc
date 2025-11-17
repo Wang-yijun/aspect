@@ -62,6 +62,25 @@ namespace aspect
         }
       return output;
     }
+
+    template<int dim>
+    Tensor<2,3>
+    AnisotropicViscosity<dim>::euler_angles_to_rotation_matrix(double phi1, double theta, double phi2)
+    {
+      Tensor<2,3> rot_matrix;
+      //R3*R2*R1 ZXZ rotation. Note it is not exactly the same as in utilities.cc
+      rot_matrix[0][0] = cos(phi2)*cos(phi1) - cos(theta)*sin(phi1)*sin(phi2); //
+      rot_matrix[0][1] = -cos(phi2)*sin(phi1) - cos(theta)*cos(phi1)*sin(phi2); //cos(phi2)*sin(phi1) + cos(theta)*cos(phi1)*sin(phi2);
+      rot_matrix[0][2] = sin(phi2)*sin(theta);
+      rot_matrix[1][0] = sin(phi2)*cos(phi1) + cos(theta)*sin(phi1)*cos(phi2); //-sin(phi2)*cos(phi1) - cos(theta)*sin(phi1)*cos(phi2);
+      rot_matrix[1][1] = -sin(phi2)*sin(phi1) + cos(theta)*cos(phi1)*cos(phi2);
+      rot_matrix[1][2] = -cos(phi2)*sin(theta); //cos(phi2)*sin(theta);
+      rot_matrix[2][0] = sin(theta)*sin(phi1);
+      rot_matrix[2][1] = sin(theta)*cos(phi1); //-sin(theta)*cos(phi1);
+      rot_matrix[2][2] = cos(theta); //
+      AssertThrow(rot_matrix[2][2] <= 1.0, ExcMessage("rot_matrix[2][2] > 1.0"));
+      return rot_matrix;
+    }
   }
 }
 
