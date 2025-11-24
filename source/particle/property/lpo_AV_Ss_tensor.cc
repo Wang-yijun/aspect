@@ -242,7 +242,7 @@ namespace aspect
                 //std::cout<<"1.0/A_ss[0]: "<<1.0/A_ss[0]<<  std::endl;
                 //std::cout<<"1.0/A0: "<<1.0/A0<<std::endl;
                 AssertThrow(isfinite(1./A0),
-                            ExcMessage("1/A0 is infinite"))
+                            ExcMessage("1/A0 is infinite"));
                 tau_ss[0][0]= std::copysignf(1.0,r_ss[0][0])*std::pow(1.0/A_ss[0]*1.0/A0*std::pow(grain_size,0.73)*std::fabs(r_ss[0][0]/2),1.0/nFo);
                 tau_ss[1][0]= std::copysignf(1.0,r_ss[1][0])*std::pow(1.0/A_ss[1]*1.0/A0*std::pow(grain_size,0.73)*std::fabs(r_ss[1][0]/2),1.0/nFo);
                 tau_ss[2][0]= std::copysignf(1.0,r_ss[2][0])*std::pow(1.0/A_ss[2]*1.0/A0*std::pow(grain_size,0.73)*std::fabs(r_ss[2][0]/2),1.0/nFo);

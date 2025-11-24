@@ -127,7 +127,7 @@ namespace aspect
 
       AssertThrow (out, ExcMessage(std::string("Trying to write to file <") +
                                    filename +
-                                   ">, but the file can't be opened!"))
+                                   ">, but the file can't be opened!"));
 
       // now write and then move the tmp file to its final destination
       // if necessary
@@ -485,7 +485,7 @@ namespace aspect
           background_thread_master.join ();
 
           // then continue with writing the master file
-          background_thread_master = Threads::new_thread (&writer,
+          background_thread_master = std::thread (&writer,
                                                           filename_master,
                                                           temporary_output_location,
                                                           file_contents_master,
@@ -498,7 +498,7 @@ namespace aspect
               background_thread_content_raw.join ();
 
               // then continue with writing our own data.
-              background_thread_content_raw = Threads::new_thread (&writer,
+              background_thread_content_raw = std::thread (&writer,
                                                                    filename_raw,
                                                                    temporary_output_location,
                                                                    file_contents_raw,
@@ -512,7 +512,7 @@ namespace aspect
               background_thread_content_draw_volume_weighting.join ();
 
               // then continue with writing our own data.
-              background_thread_content_draw_volume_weighting = Threads::new_thread (&writer,
+              background_thread_content_draw_volume_weighting = std::thread (&writer,
                                                                                      filename_draw_volume_weighting,
                                                                                      temporary_output_location,
                                                                                      file_contents_draw_volume_weighting,
@@ -951,7 +951,7 @@ namespace aspect
               Output lpo_fabric_instruction = string_to_output_enum(split_raw_lpo_instructions[1]);
 
               AssertThrow(lpo_fabric_instruction != Output::not_found,
-                          ExcMessage("Value \""+ write_raw_lpo_list[i] +"\", set in \"Write out raw lpo data\", is not a correct option."))
+                          ExcMessage("Value \""+ write_raw_lpo_list[i] +"\", set in \"Write out raw lpo data\", is not a correct option."));
 
               if (lpo_fabric_instruction == Output::EulerAngles)
                 found_euler_angles = true;
@@ -992,7 +992,7 @@ namespace aspect
               Output lpo_fabric_instruction = string_to_output_enum(split_draw_volume_weighted_lpo_instructions[1]);
 
               AssertThrow(lpo_fabric_instruction != Output::not_found,
-                          ExcMessage("Value \""+ write_draw_volume_weighted_lpo_list[i] +"\", set in \"Write out draw volume weighted lpo data\", is not a correct option."))
+                          ExcMessage("Value \""+ write_draw_volume_weighted_lpo_list[i] +"\", set in \"Write out draw volume weighted lpo data\", is not a correct option."));
 
               if (lpo_fabric_instruction == Output::RotationMatrix)
                 found_A_matrix = true;

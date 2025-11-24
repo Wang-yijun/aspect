@@ -1680,7 +1680,7 @@ namespace aspect
                 {
                   AssertThrow(false,
                               ExcMessage("The LPO derivatives algorithm needs to be one of the following: "
-                                         "Spin tensor, D-Rex 2004."))
+                                         "Spin tensor, D-Rex 2004."));
                 }
 
               const std::string temp_advection_method = prm.get("Property advection method");
@@ -1754,7 +1754,7 @@ namespace aspect
                         AssertThrow(false,
                                     ExcMessage("The  fabric needs to be one of the following: Olivine: Karato 2008, "
                                                "Olivine: A-fabric,Olivine: B-fabric,Olivine: C-fabric,Olivine: D-fabric,"
-                                               "Olivine: E-fabric and Enstatite."))
+                                               "Olivine: E-fabric and Enstatite."));
                       }
                   }
               }

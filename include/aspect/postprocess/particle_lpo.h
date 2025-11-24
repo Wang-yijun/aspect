@@ -28,6 +28,7 @@
 
 #include <deal.II/particles/particle_handler.h>
 #include <deal.II/base/data_out_base.h>
+#include <deal.II/base/thread_management.h>
 #include <tuple>
 DEAL_II_DISABLE_EXTRA_DIAGNOSTICS
 #include <boost/random.hpp>
@@ -250,7 +251,7 @@ namespace aspect
          * Handle to a thread that is used to write master file data in the
          * background. The writer() function runs on this background thread.
          */
-        Threads::Thread<void> background_thread_master;
+        std::thread background_thread_master;
 
         /**
          * What raw lpo data to write out
@@ -266,7 +267,7 @@ namespace aspect
          * Handle to a thread that is used to write content file data in the
          * background. The writer() function runs on this background thread.
          */
-        Threads::Thread<void> background_thread_content_raw;
+        std::thread background_thread_content_raw;
 
         /**
          * What draw volume weighted lpo data to write out
@@ -282,7 +283,7 @@ namespace aspect
          * Handle to a thread that is used to write content file data in the
          * background. The writer() function runs on this background thread.
          */
-        Threads::Thread<void> background_thread_content_draw_volume_weighting;
+        std::thread background_thread_content_draw_volume_weighting;
 
         /**
          * Whether to compress the raw and weighed lpo data output files with zlib.

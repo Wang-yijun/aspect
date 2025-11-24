@@ -608,7 +608,7 @@ namespace aspect
                            ExcMessage (std::string("The direct Stokes solver "
                                                    "did not succeed. It reported the following error:\n\n")
                                        +
-                                       exc.what()))
+                                       exc.what()));
               else
                 throw QuietException();
           }
