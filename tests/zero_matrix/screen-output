@@ -1,0 +1,45 @@
+
+Number of active cells: 1,000 (on 1 levels)
+Number of degrees of freedom: 22,216 (8,442+1,111+4,221+4,221+4,221)
+
+*** Timestep 0:  t=0 years, dt=0 years
+   Skipping temperature solve because RHS is zero.
+   Skipping C_1 composition solve because RHS is zero.
+   Solving C_2 system ... 0 iterations.
+   Solving Stokes system (GMG)... 479+0 iterations.
+      Relative nonlinear residual (Stokes system) after nonlinear iteration 1: 0.820077
+
+   Solving Stokes system (GMG)... 240+0 iterations.
+      Relative nonlinear residual (Stokes system) after nonlinear iteration 2: 0.0030758
+
+   Solving Stokes system (GMG)... 169+0 iterations.
+      Relative nonlinear residual (Stokes system) after nonlinear iteration 3: 5.92742e-05
+
+   Solving Stokes system (GMG)... 36+0 iterations.
+      Relative nonlinear residual (Stokes system) after nonlinear iteration 4: 7.6951e-07
+
+
+   Postprocessing:
+     Writing graphical output: output-zero_matrix/solution/solution-00000
+     RMS, max velocity:        0.0102 m/year, 0.0103 m/year
+
+*** Timestep 1:  t=48350 years, dt=48350 years
+TimerOutput objects finalize timed values printed to the
+screen by communicating over MPI in their destructors.
+Since an exception is currently uncaught, this
+synchronization (and subsequent output) will be skipped
+to avoid a possible deadlock.
+
+
+Exception 'ExcMessage ("The " + field_name + " equation can not be solved, because the matrix is zero, " "but the right-hand side is nonzero.")' on rank 0 on processing: 
+
+An error occurred in file <solver.cc> in function
+(line in output replaced by default.sh script)
+The violated condition was: 
+    system_matrix.block(block_idx, block_idx).linfty_norm() > std::numeric_limits<double>::min()
+Additional information: 
+    The temperature equation can not be solved, because the matrix is
+    zero, but the right-hand side is nonzero.
+
+Stacktrace:
+(rest of the output replaced by default.sh script)

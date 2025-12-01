@@ -1,0 +1,7 @@
+codecov:
+  ci:
+    - !appveyor
+    - !codacy
+ignore:
+  - tests/.*
+  - include/.*

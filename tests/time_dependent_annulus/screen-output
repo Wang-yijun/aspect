@@ -1,0 +1,45 @@
+
+Loading shared library <./libtime_dependent_annulus.debug.so>
+
+Number of active cells: 48 (on 2 levels)
+Number of degrees of freedom: 1,224 (480+72+240+432)
+
+*** Timestep 0:  t=0 seconds, dt=0 seconds
+   Skipping temperature solve because RHS is zero.
+   Advecting particles...  done.
+   Rebuilding Stokes preconditioner...
+   Solving Stokes system (AMG)... 28+0 iterations.
+
+   Postprocessing:
+     Errors u_L2, p_L2, rho_L2 4.407832e+00, 4.560843e+00, 2.028187e+02
+     Writing particle output:  output-time_dependent_annulus/particles/particles-00000
+     Writing graphical output: output-time_dependent_annulus/solution/solution-00000
+
+*** Timestep 1:  t=0.0015296 seconds, dt=0.0015296 seconds
+   Skipping temperature solve because RHS is zero.
+   Advecting particles...  done.
+   Rebuilding Stokes preconditioner...
+   Solving Stokes system (AMG)... 22+0 iterations.
+
+   Postprocessing:
+     Errors u_L2, p_L2, rho_L2 4.769034e+00, 4.551835e+00, 2.186217e+02
+     Writing particle output:  output-time_dependent_annulus/particles/particles-00001
+     Writing graphical output: output-time_dependent_annulus/solution/solution-00001
+
+*** Timestep 2:  t=0.003 seconds, dt=0.0014704 seconds
+   Skipping temperature solve because RHS is zero.
+   Advecting particles...  done.
+   Rebuilding Stokes preconditioner...
+   Solving Stokes system (AMG)... 23+0 iterations.
+
+   Postprocessing:
+     Errors u_L2, p_L2, rho_L2 4.560728e+00, 4.555384e+00, 2.094610e+02
+     Writing particle output:  output-time_dependent_annulus/particles/particles-00002
+     Writing graphical output: output-time_dependent_annulus/solution/solution-00002
+
+Termination requested by criterion: end time
+*** Snapshot created!
+
+
+
+

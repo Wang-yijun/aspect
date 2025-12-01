@@ -1,0 +1,23 @@
+# 1: Time step number
+# 2: Time (years)
+# 3: Time step size (years)
+# 4: Number of mesh cells
+# 5: Number of Stokes degrees of freedom
+# 6: Number of temperature degrees of freedom
+# 7: Iterations for temperature solver
+# 8: Iterations for Stokes solver
+# 9: Velocity iterations in Stokes preconditioner
+# 10: Schur complement iterations in Stokes preconditioner
+# 11: Visualization file name
+# 12: RMS velocity (m/year)
+# 13: Max. velocity (m/year)
+# 14: Minimal temperature (K)
+# 15: Average temperature (K)
+# 16: Maximal temperature (K)
+# 17: Average nondimensional temperature (K)
+# 18: Outward heat flux through boundary with indicator 0 ("bottom") (W)
+# 19: Outward heat flux through boundary with indicator 1 ("top") (W)
+# 20: Outward heat flux through boundary with indicator 2 ("left") (W)
+# 21: Outward heat flux through boundary with indicator 3 ("right") (W)
+0 0.000000000000e+00 0.000000000000e+00 192 1891 833 0 592 599 599 output-steinberger_seismic_velocities/solution/solution-00000 3.26201809e-02 8.58545628e-02 2.73000000e+02 2.06266978e+03 4.25000000e+03 4.50004974e-01 -7.35374774e+04 -3.04379061e+06 0.00000000e+00 0.00000000e+00 
+1 1.000000000000e+05 1.000000000000e+05 192 1891 833 8 458 464 464 output-steinberger_seismic_velocities/solution/solution-00001 3.33141983e-02 9.27852511e-02 2.73000000e+02 2.06225996e+03 4.25000000e+03 4.49901925e-01 -1.92305590e+05 -1.96032605e+06 0.00000000e+00 0.00000000e+00 

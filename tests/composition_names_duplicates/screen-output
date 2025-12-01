@@ -1,0 +1,27 @@
+
+Number of active cells: 1 (on 1 levels)
+Number of degrees of freedom: 49 (18+4+9+9+9)
+
+*** Timestep 0:  t=0 years, dt=0 years
+   Solving temperature system... 0 iterations.
+   Skipping peridotite composition solve because RHS is zero.
+   Skipping density composition solve because RHS is zero.
+   Solving Stokes system (GMG)... 4+0 iterations.
+
+   Postprocessing:
+
+
+An exception happened on MPI process <0> while running the visualization postprocessor <N6aspect11Postprocess27VisualizationPostprocessors18MaterialPropertiesILi2EEE>: 
+
+An error occurred in file <visualization.cc> in function
+(line in output replaced by default.sh script)
+The violated condition was: 
+    output_data_names_and_units.find(name) == output_data_names_and_units.end()
+Additional information: 
+    The output variable <density> already exists in the list of output
+    variables. Make sure there is no duplication in the names of
+    visualization output variables, otherwise output files may be
+    corrupted.
+
+Stacktrace:
+(rest of the output replaced by default.sh script)

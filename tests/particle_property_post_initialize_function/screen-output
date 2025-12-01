@@ -1,0 +1,7 @@
+
+Loading shared library <./libparticle_property_post_initialize_function.debug.so>
+
+initialize
+initial position: post_initialized_info = 0
+initial composition C_1: post_initialized_info = 1
+velocity: post_initialized_info = 11

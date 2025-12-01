@@ -1,0 +1,28 @@
+# 1: Time step number
+# 2: Time (years)
+# 3: Time step size (years)
+# 4: Number of mesh cells
+# 5: Number of Stokes degrees of freedom
+# 6: Number of temperature degrees of freedom
+# 7: Number of degrees of freedom for all compositions
+# 8: Iterations for temperature solver
+# 9: Iterations for Stokes solver
+# 10: Velocity iterations in Stokes preconditioner
+# 11: Schur complement iterations in Stokes preconditioner
+# 12: Minimal value for composition ve_stress_xx
+# 13: Maximal value for composition ve_stress_xx
+# 14: Global mass for composition ve_stress_xx
+# 15: Minimal value for composition ve_stress_yy
+# 16: Maximal value for composition ve_stress_yy
+# 17: Global mass for composition ve_stress_yy
+# 18: Minimal value for composition ve_stress_xy
+# 19: Maximal value for composition ve_stress_xy
+# 20: Global mass for composition ve_stress_xy
+# 21: Minimal value for composition beam
+# 22: Maximal value for composition beam
+# 23: Global mass for composition beam
+# 24: Number of advected particles
+# 25: Particle file name
+0 0.000000000000e+00 0.000000000000e+00 150 1478 176 5400 0 150 153 153  0.00000000e+00 0.00000000e+00  0.00000000e+00  0.00000000e+00 0.00000000e+00 0.00000000e+00  0.00000000e+00 0.00000000e+00  0.00000000e+00 0.00000000e+00 1.00000000e+00 2.25000000e+06 4474 output-viscoelastic_bending_beam_particles/particles/particles-00000 
+1 1.000000000000e+03 1.000000000000e+03 150 1478 176 5400 0 113 116 116 -1.25996205e+07 1.16949265e+07 -7.56344529e+11 -1.16949265e+07 1.25996205e+07 7.56344529e+11 -3.40560693e+06 1.21625854e+06 -3.73560033e+12 0.00000000e+00 1.00000000e+00 2.27467523e+06 4471                                                                   "" 
+2 2.000000000000e+03 1.000000000000e+03 150 1478 176 5400 0 108 111 111 -1.90128485e+07 1.79886915e+07 -7.83577061e+11 -1.79886915e+07 1.90128485e+07 7.83577061e+11 -4.45113808e+06 1.47611537e+06 -4.02766048e+12 0.00000000e+00 1.00000000e+00 2.29262576e+06 4464                                                                   "" 

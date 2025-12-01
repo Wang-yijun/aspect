@@ -1,0 +1,31 @@
+
+Number of active cells: 4 (on 2 levels)
+Number of degrees of freedom: 156 (50+9+25+36+36)
+
+*** Timestep 0:  t=0 seconds, dt=0 seconds
+   Solving temperature system... 0 iterations.
+   Advecting particles...  done.
+   Skipping adv_field composition solve because RHS is zero.
+   Solving Stokes system (GMG)... 7+0 iterations.
+
+   Postprocessing:
+                                   
+Total system matrix memory consumption: 0.04 MB.
+Total system matrix nnz: 1,101
+system matrix nnz by block: 
+           0           0           0           0           0
+           0           0           0           0           0
+           0           0         129           0           0
+           0           0           0         972           0
+           0           0           0           0           0
+
+Total system preconditioner matrix memory consumption: 0.00 MB.
+Total system preconditioner matrix nnz: 0
+system preconditioner matrix nnz by block: 
+
+     Number of advected particles: 100
+
+Termination requested by criterion: end time
+
+
+

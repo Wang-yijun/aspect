@@ -1,0 +1,23 @@
+# 1: Time step number
+# 2: Time (seconds)
+# 3: Time step size (seconds)
+# 4: Number of mesh cells
+# 5: Number of Stokes degrees of freedom
+# 6: Number of temperature degrees of freedom
+# 7: Number of degrees of freedom for all compositions
+# 8: Iterations for temperature solver
+# 9: Iterations for composition solver 1
+# 10: Iterations for Stokes solver
+# 11: Velocity iterations in Stokes preconditioner
+# 12: Schur complement iterations in Stokes preconditioner
+# 13: Minimal temperature (K)
+# 14: Average temperature (K)
+# 15: Maximal temperature (K)
+# 16: Minimal value for composition grain_size
+# 17: Maximal value for composition grain_size
+# 18: Global mass for composition grain_size
+0 0.000000000000e+00 0.000000000000e+00 320 3303 1449 1449  0 0 25 27 27 9.99000000e+02 9.99500000e+02 1.00000000e+03 8.00000000e-05 8.00000000e-05 4.00000000e+06 
+1 2.916572522281e+14 2.916572522281e+14 320 3303 1449 1449 36 0 23 25 25 9.99016803e+02 1.00107603e+03 1.00560977e+03 8.00000000e-05 8.00000000e-05 4.00000000e+06 
+2 5.738258578374e+14 2.821686056093e+14 320 3303 1449 1449 26 0 21 23 23 9.99027251e+02 1.00263115e+03 1.01140273e+03 8.00000000e-05 8.00000000e-05 4.00000000e+06 
+3 8.556661813231e+14 2.818403234857e+14 320 3303 1449 1449 26 0 21 23 23 9.99026324e+02 1.00417817e+03 1.01689936e+03 8.00000000e-05 8.00000000e-05 4.00000000e+06 
+4 1.000000000000e+15 1.443338186769e+14 320 3303 1449 1449 18 0 20 22 22 9.99031489e+02 1.00496838e+03 1.01960943e+03 8.00000000e-05 8.00000000e-05 4.00000000e+06 

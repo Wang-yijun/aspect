@@ -1,0 +1,30 @@
+
+Loading shared library <./libsimple_compressibility_iterated_stokes_gmg.debug.so>
+
+Number of active cells: 64 (on 4 levels)
+Number of degrees of freedom: 948 (578+81+289)
+
+*** Timestep 0:  t=0 seconds, dt=0 seconds
+   Solving Stokes system (GMG)... 11+0 iterations.
+      Relative nonlinear residual (Stokes system) after nonlinear iteration 1: 1.00145
+
+   Solving Stokes system (GMG)... 7+0 iterations.
+      Relative nonlinear residual (Stokes system) after nonlinear iteration 2: 0.037238
+
+   Solving Stokes system (GMG)... 6+0 iterations.
+      Relative nonlinear residual (Stokes system) after nonlinear iteration 3: 0.00199851
+
+   Solving Stokes system (GMG)... 5+0 iterations.
+      Relative nonlinear residual (Stokes system) after nonlinear iteration 4: 7.05906e-05
+
+   Solving Stokes system (GMG)... 4+0 iterations.
+      Relative nonlinear residual (Stokes system) after nonlinear iteration 5: 1.70422e-06
+
+
+   Postprocessing:
+     Top/bottom flux: 1/1
+
+Termination requested by criterion: end time
+
+
+

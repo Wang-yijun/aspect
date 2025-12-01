@@ -1,0 +1,46 @@
+
+*** Resuming from snapshot!
+
+Number of active cells: 2,560 (on 5 levels)
+Number of degrees of freedom: 34,068 (20,930+2,673+10,465)
+
+Number of mesh deformation degrees of freedom: 5,346
+   Solving mesh displacement system... 0 iterations.
+   Added initial topography to grid
+
+*** Timestep 2:  t=9251.13 years, dt=5480.62 years
+   Solving mesh displacement system... 4 iterations.
+   Solving temperature system... 10 iterations.
+   Solving Stokes system (GMG)... 50+0 iterations.
+
+   Postprocessing:
+     Topography min/max:       -203.3 m, 122.2 m
+     RMS, max velocity:        0.036 m/year, 0.144 m/year
+     Writing graphical output: output1.tmp/solution/solution-00002
+
+*** Timestep 3:  t=19719.1 years, dt=10468 years
+   Solving mesh displacement system... 4 iterations.
+   Solving temperature system... 10 iterations.
+   Solving Stokes system (GMG)... 62+0 iterations.
+
+   Postprocessing:
+     Topography min/max:       -101.6 m, 84.24 m
+     RMS, max velocity:        0.0381 m/year, 0.156 m/year
+     Writing graphical output: output1.tmp/solution/solution-00003
+
+*** Snapshot created!
+
+*** Timestep 4:  t=29766.4 years, dt=10047.2 years
+   Solving mesh displacement system... 4 iterations.
+   Solving temperature system... 10 iterations.
+   Solving Stokes system (GMG)... 61+0 iterations.
+
+   Postprocessing:
+     Topography min/max:       -136.8 m, 77.66 m
+     RMS, max velocity:        0.0383 m/year, 0.156 m/year
+     Writing graphical output: output1.tmp/solution/solution-00004
+
+Termination requested by criterion: end step
+
+
+

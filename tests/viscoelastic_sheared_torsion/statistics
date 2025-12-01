@@ -1,0 +1,39 @@
+# 1: Time step number
+# 2: Time (seconds)
+# 3: Time step size (seconds)
+# 4: Number of mesh cells
+# 5: Number of Stokes degrees of freedom
+# 6: Number of temperature degrees of freedom
+# 7: Number of degrees of freedom for all compositions
+# 8: Number of nonlinear iterations
+# 9: Iterations for temperature solver
+# 10: Iterations for composition solver 1
+# 11: Iterations for composition solver 2
+# 12: Iterations for composition solver 3
+# 13: Iterations for composition solver 4
+# 14: Iterations for composition solver 5
+# 15: Iterations for composition solver 6
+# 16: Iterations for Stokes solver
+# 17: Velocity iterations in Stokes preconditioner
+# 18: Schur complement iterations in Stokes preconditioner
+# 19: Minimal value for composition ve_stress_xx
+# 20: Maximal value for composition ve_stress_xx
+# 21: Global mass for composition ve_stress_xx
+# 22: Minimal value for composition ve_stress_yy
+# 23: Maximal value for composition ve_stress_yy
+# 24: Global mass for composition ve_stress_yy
+# 25: Minimal value for composition ve_stress_zz
+# 26: Maximal value for composition ve_stress_zz
+# 27: Global mass for composition ve_stress_zz
+# 28: Minimal value for composition ve_stress_xy
+# 29: Maximal value for composition ve_stress_xy
+# 30: Global mass for composition ve_stress_xy
+# 31: Minimal value for composition ve_stress_xz
+# 32: Maximal value for composition ve_stress_xz
+# 33: Global mass for composition ve_stress_xz
+# 34: Minimal value for composition ve_stress_yz
+# 35: Maximal value for composition ve_stress_yz
+# 36: Global mass for composition ve_stress_yz
+0 0.000000000000e+00 0.000000000000e+00 125 4209 1331 7986 2 0  0  0  0  0  0  0         18 21 21  0.00000000e+00 0.00000000e+00  0.00000000e+00  0.00000000e+00 0.00000000e+00 0.00000000e+00  0.00000000e+00  0.00000000e+00  0.00000000e+00  0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00  0.00000000e+00 0.00000000e+00 0.00000000e+00 
+1 1.000000000000e-02 1.000000000000e-02 125 4209 1331 7986 1 0 13 13 13 13 12 13 4294967295  0  0 -7.39409005e-06 6.57201183e-06 -1.79074101e-09 -5.94512628e-06 5.79718107e-06 8.93484201e-10 -4.50329173e-06  4.59880565e-06  8.97256805e-10 -5.17837301e-06 4.78882039e-06 3.22583917e-11 2.97025134e-01 2.97036346e-01 2.97029703e-01 -6.26135807e-06 6.36346496e-06 3.35350842e-10 
+2 2.000000000000e-02 1.000000000000e-02 125 4209 1331 7986 1 0 12 11 12 11 10 12          0  2  2  1.16182524e-03 1.18872802e-03  1.17635055e-03 -1.16142870e-05 1.12423999e-05 2.34766473e-09 -1.18515289e-03 -1.16735011e-03 -1.17635290e-03 -9.99462408e-06 9.40683622e-06 9.26591980e-11 5.90129151e-01 5.90151051e-01 5.90138222e-01  4.45378936e-04 4.69816143e-04 4.57472372e-04 
