@@ -27,6 +27,10 @@
 #include <aspect/postprocess/visualization.h>
 #include <ctime>
 #include <aspect/simulator.h>
+#include <aspect/material_model/utilities.h>
+#include <aspect/utilities.h>
+#include <aspect/material_model/interface.h>
+#include <aspect/simulator_access.h>
 
 namespace aspect
 {
@@ -612,7 +616,7 @@ namespace aspect
     std::vector<std::vector<double>>
     FastScape<dim>::get_aspect_values() const
     {
-
+      const unsigned int n_chemical_composition_fields = this->introspection().get_number_of_fields_of_type(CompositionalFieldDescription::chemical_composition);
       const types::boundary_id relevant_boundary = this->get_geometry_model().translate_symbolic_boundary_name_to_id ("top");
       std::vector<std::vector<double>> local_aspect_values(dim+2, std::vector<double>());
 
@@ -638,6 +642,22 @@ namespace aspect
                 fe_face_values.reinit(cell, face_no);
                 fe_face_values[this->introspection().extractors.velocities].get_function_values(this->get_solution(), vel);
 
+                // Get compositional erosional parameters
+                std::vector<std::vector<double>> composition_values(this->n_compositional_fields(), std::vector<double>(fe_face_values.n_quadrature_points));
+                for (unsigned int c=0; c<n_chemical_composition_fields+1; ++c)
+                  {
+                    fe_face_values[this->introspection().extractors.compositional_fields[c]].get_function_values(this->get_solution(), composition_values[c]);
+                    // std::cout<<"Composition: ";
+                    // for (unsigned int j=0; j<sizeof(composition_values[c]); ++j)
+                    //   {
+                    //     std::cout<<composition_values[c][j]<<" ";
+                    //   }
+                    // std::cout<<std::endl;
+                  }
+                // 24 * 24 ?
+                // std::cout<<"sizeof(composition_values): "<<sizeof(composition_values)<<std::endl;
+                // std::cout<<"sizeof(composition_values[0]): "<<sizeof(composition_values[0])<<std::endl;
+              
                 for (unsigned int corner = 0; corner < face_corners.size(); ++corner)
                   {
                     const Point<dim> vertex = fe_face_values.quadrature_point(corner);
@@ -676,6 +696,8 @@ namespace aspect
                                 // Always convert to m/yr for FastScape
                                 local_aspect_values[2+d].push_back(vel[corner][d]*year_in_seconds);
                               }
+                            
+                            double bedrock_river_incision_rate_at_point = MaterialUtilities::average_value (composition_values[corner], bedrock_river_incision_rate, MaterialUtilities::arithmetic);
                           }
                       }
                     // 3D case
@@ -783,8 +805,8 @@ namespace aspect
       const unsigned int fastscape_array_size = fastscape_nx*fastscape_ny;
       for (unsigned int i=0; i<fastscape_array_size; ++i)
         {
-          bedrock_river_incision_rate_array[i] = bedrock_river_incision_rate;
-          bedrock_transport_coefficient_array[i] = bedrock_transport_coefficient;
+          bedrock_river_incision_rate_array[i] = bedrock_river_incision_rate[0];
+          bedrock_transport_coefficient_array[i] = bedrock_transport_coefficient[0];
 
           // If this is a boundary node that is a ghost node then ignore that it
           // has not filled yet as the ghost nodes haven't been set.
@@ -1086,8 +1108,8 @@ namespace aspect
                       // and apply the flat_erosional_factor.
                       else
                         {
-                          bedrock_river_incision_rate_array[fastscape_nx*i+j] = bedrock_river_incision_rate*flat_erosional_factor;
-                          bedrock_transport_coefficient_array[fastscape_nx*i+j] = bedrock_transport_coefficient*flat_erosional_factor;
+                          bedrock_river_incision_rate_array[fastscape_nx*i+j] = bedrock_river_incision_rate[0]*flat_erosional_factor;
+                          bedrock_transport_coefficient_array[fastscape_nx*i+j] = bedrock_transport_coefficient[0]*flat_erosional_factor;
                         }
                     }
                 }
@@ -1151,13 +1173,13 @@ namespace aspect
               // will set it equal to the node next to it, and finally adjust based on user-defined
               // influx if necessary. FastScape calculates the slope by looking at all
               // nodes surrounding the point so we need to consider the slope over 2 dx.
-              slope = left_flux/bedrock_transport_coefficient;
+              slope = left_flux/bedrock_transport_coefficient[0];
               if (left == 1 && use_fixed_erosional_base)
                 elevation[index_left] = h_erosional_base;
               else
                 elevation[index_left] = elevation[index_left+1] + slope*2*fastscape_dx;
 
-              slope = right_flux/bedrock_transport_coefficient;
+              slope = right_flux/bedrock_transport_coefficient[0];
               if (right == 1 && use_fixed_erosional_base)
                 elevation[index_right] = h_erosional_base;
               else
@@ -1176,11 +1198,11 @@ namespace aspect
                 {
                   slope = 0;
                   if (j == 0)
-                    slope = left_flux / bedrock_transport_coefficient - std::tan(slopep[index_left + fastscape_nx + 1] * numbers::PI / 180.);
+                    slope = left_flux / bedrock_transport_coefficient[0] - std::tan(slopep[index_left + fastscape_nx + 1] * numbers::PI / 180.);
                   else if (j == (fastscape_ny - 1))
-                    slope = left_flux / bedrock_transport_coefficient - std::tan(slopep[index_left - fastscape_nx + 1] * numbers::PI / 180.);
+                    slope = left_flux / bedrock_transport_coefficient[0] - std::tan(slopep[index_left - fastscape_nx + 1] * numbers::PI / 180.);
                   else
-                    slope = left_flux / bedrock_transport_coefficient - std::tan(slopep[index_left + 1] * numbers::PI / 180.);
+                    slope = left_flux / bedrock_transport_coefficient[0] - std::tan(slopep[index_left + 1] * numbers::PI / 180.);
 
                   elevation[index_left] = elevation[index_left] + slope * 2 * fastscape_dx;
                 }
@@ -1195,11 +1217,11 @@ namespace aspect
                 {
                   slope = 0;
                   if (j == 0)
-                    slope = right_flux / bedrock_transport_coefficient - std::tan(slopep[index_right + fastscape_nx - 1] * numbers::PI / 180.);
+                    slope = right_flux / bedrock_transport_coefficient[0] - std::tan(slopep[index_right + fastscape_nx - 1] * numbers::PI / 180.);
                   else if (j == (fastscape_ny - 1))
-                    slope = right_flux / bedrock_transport_coefficient - std::tan(slopep[index_right - fastscape_nx - 1] * numbers::PI / 180.);
+                    slope = right_flux / bedrock_transport_coefficient[0] - std::tan(slopep[index_right - fastscape_nx - 1] * numbers::PI / 180.);
                   else
-                    slope = right_flux / bedrock_transport_coefficient - std::tan(slopep[index_right - 1] * numbers::PI / 180.);
+                    slope = right_flux / bedrock_transport_coefficient[0] - std::tan(slopep[index_right - 1] * numbers::PI / 180.);
 
                   elevation[index_right] = elevation[index_right] + slope * 2 * fastscape_dx;
                 }
@@ -1299,13 +1321,13 @@ namespace aspect
 
           if (init)
             {
-              slope = top_flux / bedrock_transport_coefficient;
+              slope = top_flux / bedrock_transport_coefficient[0];
               if (top == 1 && use_fixed_erosional_base)
                 elevation[index_top] = h_erosional_base;
               else
                 elevation[index_top] = elevation[index_top-fastscape_nx] + slope*2*fastscape_dx;
 
-              slope = bottom_flux / bedrock_transport_coefficient;
+              slope = bottom_flux / bedrock_transport_coefficient[0];
               if (bottom == 1 && use_fixed_erosional_base)
                 elevation[index_bot] = h_erosional_base;
               else
@@ -1318,11 +1340,11 @@ namespace aspect
                 {
                   slope = 0;
                   if (j == 0)
-                    slope = top_flux / bedrock_transport_coefficient - std::tan(slopep[index_top - fastscape_nx + 1] * numbers::PI / 180.);
+                    slope = top_flux / bedrock_transport_coefficient[0] - std::tan(slopep[index_top - fastscape_nx + 1] * numbers::PI / 180.);
                   else if (j == (fastscape_nx - 1))
-                    slope = top_flux / bedrock_transport_coefficient - std::tan(slopep[index_top - fastscape_nx - 1] * numbers::PI / 180.);
+                    slope = top_flux / bedrock_transport_coefficient[0] - std::tan(slopep[index_top - fastscape_nx - 1] * numbers::PI / 180.);
                   else
-                    slope = top_flux / bedrock_transport_coefficient - std::tan(slopep[index_top - fastscape_nx] * numbers::PI / 180.);
+                    slope = top_flux / bedrock_transport_coefficient[0] - std::tan(slopep[index_top - fastscape_nx] * numbers::PI / 180.);
 
                   elevation[index_top] = elevation[index_top] + slope * 2 * fastscape_dx;
                 }
@@ -1336,11 +1358,11 @@ namespace aspect
                 {
                   slope = 0;
                   if (j == 0)
-                    slope = bottom_flux / bedrock_transport_coefficient - std::tan(slopep[index_bot + fastscape_nx + 1] * numbers::PI / 180.);
+                    slope = bottom_flux / bedrock_transport_coefficient[0] - std::tan(slopep[index_bot + fastscape_nx + 1] * numbers::PI / 180.);
                   else if (j == (fastscape_nx - 1))
-                    slope = bottom_flux / bedrock_transport_coefficient - std::tan(slopep[index_bot + fastscape_nx - 1] * numbers::PI / 180.);
+                    slope = bottom_flux / bedrock_transport_coefficient[0] - std::tan(slopep[index_bot + fastscape_nx - 1] * numbers::PI / 180.);
                   else
-                    slope = bottom_flux / bedrock_transport_coefficient - std::tan(slopep[index_bot + fastscape_nx] * numbers::PI / 180.);
+                    slope = bottom_flux / bedrock_transport_coefficient[0] - std::tan(slopep[index_bot + fastscape_nx] * numbers::PI / 180.);
 
                   elevation[index_bot] = elevation[index_bot] + slope * 2 * fastscape_dx;
                 }
@@ -1733,13 +1755,13 @@ namespace aspect
                               Patterns::Double(),
                               "Deposition coefficient for sediment, -1 sets this to the same as the bedrock deposition coefficient.");
             prm.declare_entry("Bedrock river incision rate", "1e-5",
-                              Patterns::Double(),
+                              Patterns::List(Patterns::Double(0.)),
                               "River incision rate for bedrock in the Stream Power Law. Units: $\\{m^(1-2*drainage_area_exponent)/yr}$");
             prm.declare_entry("Sediment river incision rate", "-1",
                               Patterns::Double(),
                               "River incision rate for sediment in the Stream Power Law. -1 sets this to the bedrock river incision rate. Units: $\\{m^(1-2*drainage_area_exponent)/yr}$ ");
             prm.declare_entry("Bedrock diffusivity", "1e-2",
-                              Patterns::Double(),
+                              Patterns::List(Patterns::Double(0.)),
                               "Transport coefficient (diffusivity) for bedrock. Units: $\\{m^2/yr}$ ");
             prm.declare_entry("Sediment diffusivity", "-1",
                               Patterns::Double(),
@@ -1901,10 +1923,32 @@ namespace aspect
           {
             drainage_area_exponent_m = prm.get_double("Drainage area exponent");
             slope_exponent_n = prm.get_double("Slope exponent");
+
             sediment_river_incision_rate = prm.get_double("Sediment river incision rate");
-            bedrock_river_incision_rate = prm.get_double("Bedrock river incision rate");
+            // Make options file for parsing maps to double arrays for bedrock river incision rate and bedrock transport coefficient
+            std::vector<std::string> chemical_field_names = this->introspection().chemical_composition_field_names();
+            chemical_field_names.insert(chemical_field_names.begin(),"background");
+            const unsigned int n_chemical_composition_fields = this->introspection().get_number_of_fields_of_type(CompositionalFieldDescription::chemical_composition);
+            // std::vector<std::string> compositional_field_names = this->introspection().get_composition_names();
+            // compositional_field_names.insert(compositional_field_names.begin(),"background");
+            Utilities::MapParsing::Options options(chemical_field_names, "Bedrock river incision rate");
+            options.list_of_allowed_keys = chemical_field_names;
+            // options.allow_multiple_values_per_key = true;
+            // options.n_values_per_key = n_phases_for_each_chemical_composition;
+            // options.check_values_per_key = (options.n_values_per_key.size() != 0);
+            // options.store_values_per_key = (options.n_values_per_key.size() == 0);
+            bedrock_river_incision_rate = Utilities::MapParsing::parse_map_to_double_array(prm.get("Bedrock river incision rate"), options);
+            std::cout << "bedrock_river_incision_rate is: ";
+            for (unsigned int i=0; i<n_chemical_composition_fields+1; i++)
+              {
+                 std::cout<< chemical_field_names[i] << ": " << bedrock_river_incision_rate[i] << " ";
+              }
+            std::cout<<std::endl;
+
             sediment_transport_coefficient = prm.get_double("Sediment diffusivity");
-            bedrock_transport_coefficient = prm.get_double("Bedrock diffusivity");
+            options.property_name = "Bedrock diffusivity";
+            bedrock_transport_coefficient = Utilities::MapParsing::parse_map_to_double_array(prm.get("Bedrock diffusivity"), options);
+
             bedrock_deposition_g = prm.get_double("Bedrock deposition coefficient");
             sediment_deposition_g = prm.get_double("Sediment deposition coefficient");
             slope_exponent_p = prm.get_double("Multi-direction slope exponent");
@@ -1917,10 +1961,13 @@ namespace aspect
 
             if (!this->convert_output_to_years())
               {
-                bedrock_river_incision_rate *= year_in_seconds;
-                bedrock_transport_coefficient *= year_in_seconds;
+                for (unsigned int i=0; i<n_chemical_composition_fields+1; ++i)
+                  {
+                    bedrock_river_incision_rate[i] *= year_in_seconds;
+                    bedrock_transport_coefficient[i] *= year_in_seconds;
+                  }
                 sediment_river_incision_rate *= year_in_seconds;
-                bedrock_transport_coefficient *= year_in_seconds;
+                sediment_transport_coefficient *= year_in_seconds;
               }
 
             // Wind direction

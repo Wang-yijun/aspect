@@ -446,7 +446,7 @@ namespace aspect
          * Bedrock river incision rate for the stream power law.
          * (meters^(1-2m)/yr, $kf$ variable in FastScape surface equation.)
          */
-        double bedrock_river_incision_rate;
+        std::vector<double>  bedrock_river_incision_rate;
 
         /**
          * Sediment river incision rate for the stream power law (meters^(1-2m)/yr).
@@ -458,7 +458,7 @@ namespace aspect
         /**
          * Bedrock transport coefficient for hillslope diffusion (m^2/yr, kd in FastScape surface equation.)
          */
-        double bedrock_transport_coefficient;
+        std::vector<double>  bedrock_transport_coefficient;
 
         /**
          * Sediment transport coefficient for hillslope diffusion (m^2/yr). When set to -1 this is
