@@ -618,7 +618,7 @@ namespace aspect
     {
       const unsigned int n_chemical_composition_fields = this->introspection().get_number_of_fields_of_type(CompositionalFieldDescription::chemical_composition);
       const types::boundary_id relevant_boundary = this->get_geometry_model().translate_symbolic_boundary_name_to_id ("top");
-      std::vector<std::vector<double>> local_aspect_values(dim+2, std::vector<double>());
+      std::vector<std::vector<double>> local_aspect_values(dim+4, std::vector<double>());
 
       // Get a quadrature rule that exists only on the corners, and increase the refinement if specified.
       const QIterated<dim-1> face_corners (QTrapezoid<1>(),
@@ -697,7 +697,10 @@ namespace aspect
                                 local_aspect_values[2+d].push_back(vel[corner][d]*year_in_seconds);
                               }
                             
-                            double bedrock_river_incision_rate_at_point = MaterialUtilities::average_value (composition_values[corner], bedrock_river_incision_rate, MaterialUtilities::arithmetic);
+                            double bedrock_river_incision_rate_at_point = MaterialModel::MaterialUtilities::average_value (composition_values[corner], bedrock_river_incision_rate, MaterialModel::MaterialUtilities::arithmetic);
+                            double bedrock_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values[corner], bedrock_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
+                            local_aspect_values[2+dim].push_back(bedrock_river_incision_rate_at_point);
+                            local_aspect_values[3+dim].push_back(bedrock_transport_coefficient_at_point);
                           }
                       }
                     // 3D case
@@ -718,6 +721,11 @@ namespace aspect
                           {
                             local_aspect_values[2+d].push_back(vel[corner][d]*year_in_seconds);
                           }
+                        
+                        double bedrock_river_incision_rate_at_point = MaterialModel::MaterialUtilities::average_value (composition_values[corner], bedrock_river_incision_rate, MaterialModel::MaterialUtilities::arithmetic);
+                        double bedrock_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values[corner], bedrock_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
+                        local_aspect_values[2+dim].push_back(bedrock_river_incision_rate_at_point);
+                        local_aspect_values[3+dim].push_back(bedrock_transport_coefficient_at_point);
                       }
                   }
               }

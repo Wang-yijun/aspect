@@ -26,6 +26,11 @@
 #ifdef ASPECT_WITH_FASTSCAPE
 
 #include <aspect/mesh_deformation/interface.h>
+#include <aspect/material_model/interface.h>
+#include <aspect/utilities.h>
+#include <aspect/simulator_access.h>
+#include <aspect/material_model/utilities.h>
+
 
 namespace aspect
 {
