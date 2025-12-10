@@ -196,20 +196,26 @@ endif()
 
 
 # FastScape library and link it to ASPECT if requested
-set(ASPECT_WITH_FASTSCAPE OFF CACHE BOOL "Whether the user wants to compile ASPECT with the landscape evolution code FastScape, or not.")
+set(ASPECT_WITH_FASTSCAPE OFF CACHE BOOL
+    "Whether to compile ASPECT with the landscape evolution code FastScape (the 
+     older, Fortran-based version), or not.")
 message(STATUS "Using ASPECT_WITH_FASTSCAPE = '${ASPECT_WITH_FASTSCAPE}'")
+
 if(ASPECT_WITH_FASTSCAPE)
-  find_library(FASTSCAPE NAMES fastscapelib_fortran PATHS $ENV{FASTSCAPE_DIR} ${FASTSCAPE_DIR} PATH_SUFFIXES lib NO_DEFAULT_PATH)
-  if(FASTSCAPE)
+  find_library(FASTSCAPE_LIB_NAME NAMES fastscapelib_fortran
+               PATHS $ENV{FASTSCAPE_DIR} ${FASTSCAPE_DIR} PATH_SUFFIXES lib
+               NO_DEFAULT_PATH)
+  if(FASTSCAPE_LIB_NAME)
      message(STATUS "FastScape library found at ${FASTSCAPE_DIR}")
 
-    # Get the fastscape source path so we can check the version.
+    # Get the fastscape source path so we can check the version further down below.
     file(STRINGS "${FASTSCAPE_DIR}/Makefile" _fastscape_makefile)
     foreach(_line ${_fastscape_makefile})
         if("${_line}" MATCHES "^CMAKE_SOURCE_DIR")
           string(REPLACE "CMAKE_SOURCE_DIR = " "" FASTSCAPE_SOURCE_DIR ${_line})
         endif()
     endforeach()
+    message(STATUS "FastScape source path found at ${FASTSCAPE_SOURCE_DIR}")
 
     # Now get the version from setup.py
     message(STATUS "Parsing '${FASTSCAPE_SOURCE_DIR}/setup.py' for version information")
@@ -220,13 +226,38 @@ if(ASPECT_WITH_FASTSCAPE)
         string(REGEX REPLACE "[^0-9.]" "" FASTSCAPE_VERSION ${_line})
       endif()
     endforeach()
+    message(STATUS "FastScape version number is ${FASTSCAPE_VERSION}")
 
     # Throw an error if the version is too old.
     if(${FASTSCAPE_VERSION} VERSION_LESS 2.8)
       message(FATAL_ERROR "The linked FastScape version is ${FASTSCAPE_VERSION}, however at least 2.8.0 is required.")
     endif()
+
+    # FastScape is written in Fortran 90, and as a consequence we will have
+    # to link against the Fortran 90 support libraries. This is necessary
+    # because FastScape-lib-fortran is only a static library that does not
+    # record which support library it needs to link against when we form
+    # the executable.
+    enable_language(Fortran)
+
+    # Our wrappers call a function fastscape_named_vtk() that does not
+    # exist in the upstream fastscapelib_fortran library, but has been
+    # added to Derek Neuharth's branch that is used by most of those
+    # who are using FastScape.  Check for the existence of this
+    # symbol, and if so set the ASPECT_HAVE_FASTSCAPE_NAMED_VTK
+    # variable that we can #define or not in config.h
+    include(CheckLibraryExists)
+    set(_required_libs "${CMAKE_REQUIRED_LIBRARIES}")
+    set(CMAKE_REQUIRED_LIBRARIES "gfortran")
+    check_library_exists(${FASTSCAPE_LIB_NAME} fastscape_named_vtk_ "" ASPECT_HAVE_FASTSCAPE_NAMED_VTK)
+    if (ASPECT_HAVE_FASTSCAPE_NAMED_VTK)
+      message(STATUS "Found fastscape_named_vtk -- enabling its use")
+    else()
+      message(STATUS "Did not find fastscape_named_vtk -- disabling its use")
+    endif()
+    set(CMAKE_REQUIRED_LIBRARIES "${_required_libs}")
   else()
-     message(FATAL_ERROR "Trying to link with FastScape but libfastscapelib_fortran.so was not found in ${FASTSCAPE_DIR}")
+     message(FATAL_ERROR "Trying to link with FastScape but neither libfastscapelib_fortran.so nor libfastscapelib_fortran.a was found in ${FASTSCAPE_DIR} or its subdirectories.")
   endif()
 endif()
 
