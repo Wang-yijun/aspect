@@ -1,0 +1,189 @@
+set Dimension                              = 2
+set Start time                             = 0
+set End time                               = 1e5
+set Use years instead of seconds           = true
+set Output directory                       = $ASPECT_SOURCE_DIR/../output/viscoelastic-series/out-ve-cheap
+
+### solver specifications
+set Nonlinear solver scheme                = iterated Advection and Stokes
+set Maximum time step                      = 1e3
+set CFL number                             = 0.5
+set Pressure normalization                 = no
+set Use operator splitting                 = true 
+
+subsection Solver parameters
+
+  subsection Stokes solver parameters 
+    set Number of cheap Stokes solver steps = 500
+    set Linear solver tolerance = 1e-6 # standart
+    set GMRES solver restart length = 100 # standart 
+  end
+
+  subsection Operator splitting parameters
+    set Reaction solver type               = fixed step  
+    set Reaction time step                 = 5000
+    set Reaction time steps per advection step = 1
+  end
+end
+
+subsection Discretization
+  set Use discontinuous composition discretization = true
+  set Temperature polynomial degree     = 1 #standart 2
+end
+
+
+### geometry, gravity, mesh ### 
+
+subsection Geometry model
+  set Model name = box
+
+  subsection Box
+    set X extent = 500.e3
+    set Y extent = 500.e3
+    set X repetitions = 20
+    set Y repetitions = 20
+    set Box origin X coordinate = -250e3
+  end
+end
+
+subsection Gravity model
+  set Model name = vertical
+
+  subsection Vertical
+    set Magnitude = 9.8
+  end
+end
+
+subsection Mesh deformation
+  set Mesh deformation boundary indicators = top: free surface
+  set Additional tangential mesh velocity boundary indicators = left, right # allow mesh to deform tangentially 
+  subsection Free surface
+    set Free surface stabilization theta = 0.5
+    set Surface velocity projection = normal 
+  end
+end
+
+subsection Mesh refinement
+  set Initial adaptive refinement        = 0 # 2
+  set Initial global refinement          = 0 # 2
+  #set Strategy                           = strain rate
+  set Time steps between mesh refinement = 0 # 2
+end
+
+### material model ### 
+
+subsection Formulation
+  set Enable elasticity = true
+end
+
+## compositional fields ##
+subsection Compositional fields
+  set Number of fields = 8 
+  set Names of fields = ve_stress_xx, ve_stress_yy, ve_stress_xy, ve_stress_xx_old, ve_stress_yy_old, ve_stress_xy_old, Asth, Lith
+end
+
+subsection Initial composition model
+  set Model name = function
+
+  subsection Function
+    set Variable names      = x,y
+    set Function constants = Tasth=200.e3, Tlith=45.e3, Dbox=500.e3, Rasth=100.e3
+    # 6xstress, Asth, lith
+    set Function expression = 0; 0; 0; 0; 0; 0; (y<=Dbox-Tlith && y>=Dbox-Tasth-Tlith) ? 1 : 0 ; (y>Dbox-Tlith ? 1 : 0); 
+  end
+end
+
+subsection Material model
+  #set Material averaging = harmonic average
+  set Model name =  viscoelastic
+
+  subsection Viscoelastic
+    # viscoelastic specifications 
+    set Densities                   = 4450
+    # background, compositional fields = Ncomp + 1
+    set Viscosities                 = 5.0e20, 5.0e20, 5.0e20, 5.0e20, 5.0e20, 5.0e20, 5.0e20, 1.0e19, 1.e40
+    set Elastic shear moduli        = 175.e9, 175.e9, 175.e9, 175.e9, 175.e9, 175.e9, 175.e9, 175.e9, 45.e9
+    # set Thermal conductivities = 
+    set Viscosity averaging scheme  = harmonic
+
+    # elastic rheology
+    set Use fixed elastic time step = true
+    set Fixed elastic time step     = 2.5e3
+    #set use_oper
+    #set Use stress averaging        = false
+    
+  end
+end
+
+### boundary conditions ### 
+
+subsection Boundary velocity model
+  set Tangential velocity boundary indicators = left, right, bottom
+end
+
+## surface loading 
+subsection Boundary traction model 
+  set Prescribed traction boundary indicators = top y: function
+
+  subsection Function 
+    set Variable names = x, y, t
+    set Function constants = g=9.8, x0=50.e3, H0=2.e3, rhoi = 931, t1=90.e3, t2=10.e3
+    # const. increase until t1 then decrease until t2 
+    # repeat until end time  
+    # n_cyc = floor(t/(t1+t2))
+    # t_c = t-(t1+t2)*n_cyc -> time in the cycle
+    # p0 = g*H0*rhoi
+    # readable: t_cyc =< t1 ? -p0*t_c/t1 : -p0*(t1+t2-t_c)/t2)
+    # probably wrong actually. 
+    set Function expression = 0; abs(x)<x0 ? (t-(t1+t2)*floor(t/(t1+t2)) <= t1) ? -g*H0*rhoi*(t-(t1+t2)*floor(t/(t1+t2)))/t1 : -g*H0*rhoi*(t2+t1-(t-(t1+t2)*floor(t/(t1+t2))))/t2 : 0;
+  end 
+end 
+
+subsection Boundary temperature model
+  set Fixed temperature boundary indicators = bottom, top, left, right
+  set List of model names = initial temperature
+end
+
+subsection Initial temperature model
+  set Model name = function
+  subsection Function
+    set Function expression = 293
+  end
+end
+
+subsection Boundary composition model
+  set Allow fixed composition on outflow boundaries = true
+  set List of model names = initial composition
+end
+
+### post process 
+
+subsection Postprocess
+  set List of postprocessors = visualization, velocity statistics, topography, composition statistics, particles
+
+  subsection Visualization
+    set Time between graphical output = 5.e3
+    set List of output variables = stress, strain rate, material properties 
+  end
+
+  subsection Particles
+    set Time between data output = 5.e3
+    set Data output format       = vtu
+  end 
+
+end
+
+subsection Particles
+  set List of particle properties =  integrated strain invariant, velocity, 
+  set Particle generator name =  ascii file
+
+  subsection Generator
+    subsection Ascii file
+      set Data directory = $ASPECT_SOURCE_DIR/local_prm_files/gia_project/particle_positions/
+      set Data file name = particles_ve.dat
+    end 
+  end 
+end
+
+    
+

@@ -18,6 +18,7 @@
   <http://www.gnu.org/licenses/>.
  */
 
+#include "cpo_induced_anisotropic_viscosity.cc"
 #include <aspect/geometry_model/interface.h>
 #include <aspect/global.h>
 #include <aspect/geometry_model/box.h>
@@ -408,6 +409,8 @@ namespace aspect
       {
         prm.enter_subsection("Tosi benchmark");
         {
+          EquationOfState::LinearizedIncompressible<dim>::declare_parameters (prm);
+
           prm.declare_entry ("Reference density", "1",
                              Patterns::Double (0),
                              "The value of the reference density $\\rho_0$.");
@@ -452,6 +455,40 @@ namespace aspect
           prm.declare_entry ("Use analytical derivative", "false",
                              Patterns::Bool (),
                              "Whether to use the analytical or the finite difference derivative for the Newton method.");
+          prm.declare_entry ("Coefficients and intercept for F", "1.0390459583037057,  -0.767458622,  0.003066208,  0.19651133418307049,  0.413093763,  0.015463162,  -0.935925291,  -2.392877563,  0.051834768, 1.0799807050187482",
+                             Patterns::List(Patterns::Double()),
+                             "9 Coefficients and 1 intercept to compute the Hill Parameter F "
+                             "according to the linear regression relation provided in the cookbook documentation. "
+                             "The first 3 coefficients are multiplied respectively by: "
+                             "the square of the largest eigenvalue, the second-largest eigenvalue, "
+                             "and the inverse of the smallest eigenvalue of the a-axis orientation tensor. "
+                             "The next 3 coefficients are used in the same way for the b-axis, "
+                             "and the final 3 for the c-axis. Together with the intercept, "
+                             "these values form the full regression expression for F.");
+          prm.declare_entry ("Coefficients and intercept for G", "-2.836270315,  -1.632453092,  0.000687606,  0.2671850239576621,  -0.993392913,  0.002699241,  1.9689530759060374,  2.314442451425019,  -0.018655905, 0.6887411607403755",
+                            Patterns::List(Patterns::Double()),
+                            "9 Coefficients and 1 intercept to compute the Hill Parameter G in the same way as above.");
+          prm.declare_entry ("Coefficients and intercept for H", "1.6687493021559732,  0.5797579293682223,  0.003241593,  0.701661336,  0.2513824481429968,  0.000229291,  -2.003227619,  -2.57032429,  0.071454541, 0.7490268673620638", 
+                            Patterns::List(Patterns::Double()),
+                            "9 Coefficients and 1 intercept to compute the Hill Parameter H in the same way as above.");
+          prm.declare_entry ("Coefficients and intercept for L", "-0.325145943,  0.7284642859944138,  0.000404879,  -0.665446098,  0.5152847961409479,  0.002722782,  -1.026786493,  -1.262574542,  0.009168498, 1.595422603",
+                            Patterns::List(Patterns::Double()),
+                            "9 Coefficients and 1 intercept to compute the Hill Parameter L in the same way as above.");
+          prm.declare_entry ("Coefficients and intercept for M", "1.6427437063774875,  0.8777500120437522,  0.004651732,  2.489417876177839,  0.8162729707609052,  -0.010736521,  -2.49420455,  -0.511446494,  -0.009362491, 0.893677343",
+                            Patterns::List(Patterns::Double()),
+                            "9 Coefficients and 1 intercept to compute the Hill Parameter M in the same way as above.");
+          prm.declare_entry ("Coefficients and intercept for N", "0.8122098589701904,  0.15663795996228266,  0.001500252,  -1.648578168,  0.19362392490527092,  -0.009650519,  1.6796559729985163,  -0.103640482,  0.01971017, 1.2132200780065174",
+                             Patterns::List(Patterns::Double()),
+                             "9 Coefficients and 1 intercept to compute the Hill Parameter N in the same way as above.");
+
+          prm.declare_entry ("Reference viscosity", "1e9",
+                             Patterns::Double(),
+                             "Magnitude of reference viscosity.");
+          prm.declare_entry ("Minimum strain rate", "1.4e-20", Patterns::Double(),
+                             "Stabilizes strain dependent viscosity. Units: \\si{\\per\\second}");
+          prm.declare_entry ("Grain size", "1e-3",
+                             Patterns::Double(),
+                             "Olivine anisotropic viscosity is dependent of grain size. Value is given in meters");
         }
         prm.leave_subsection();
       }
@@ -481,6 +518,16 @@ namespace aspect
           eta_initial                = prm.get_double ("Initial viscosity");
           use_analytical_derivative  = prm.get_bool ("Use analytical derivative");
 
+          equation_of_state.parse_parameters (prm);
+          eta = prm.get_double("Reference viscosity");
+          min_strain_rate = prm.get_double("Minimum strain rate");
+          grain_size = prm.get_double("Grain size");
+          CnI_F = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for F")));
+          CnI_G = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for G")));
+          CnI_H = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for H")));
+          CnI_L = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for L")));
+          CnI_M = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for M")));
+          CnI_N = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for N")));
         }
         prm.leave_subsection();
       }
