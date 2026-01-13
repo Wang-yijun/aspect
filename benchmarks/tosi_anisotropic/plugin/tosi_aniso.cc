@@ -18,7 +18,12 @@
   <http://www.gnu.org/licenses/>.
  */
 
-#include "cpo_induced_anisotropic_viscosity.cc"
+#include "cpo_induced_anisotropic_viscosity.h"
+#include <aspect/material_model/additional_outputs/anisotropic_viscosity.h>
+#include <aspect/simulator/assemblers/stokes.h>
+#include <aspect/simulator/assemblers/stokes_anisotropic_viscosity.h>
+#include <aspect/simulator_signals.h>
+
 #include <aspect/geometry_model/interface.h>
 #include <aspect/global.h>
 #include <aspect/geometry_model/box.h>
@@ -64,10 +69,57 @@ namespace aspect
     /**
      * @ingroup MaterialModels
      */
+
+    
     template <int dim>
     class TosiMaterial : public MaterialModel::Interface<dim>, public ::aspect::SimulatorAccess<dim>
     {
       public:
+        void
+        set_assemblers(const SimulatorAccess<dim> &,
+                                      Assemblers::Manager<dim> &assemblers) const
+        {
+          for (unsigned int i=0; i<assemblers.stokes_preconditioner.size(); ++i)
+            {
+              if (Plugins::plugin_type_matches<Assemblers::StokesPreconditioner<dim>>(*(assemblers.stokes_preconditioner[i])))
+                assemblers.stokes_preconditioner[i] = std::make_unique<Assemblers::StokesPreconditionerAnisotropicViscosity<dim>> ();
+            }
+
+          // Search for the regular Stokes assembler and preconditioner assembler
+          // and replace them with the versions for anisotropic viscosity
+          for (unsigned int i=0; i<assemblers.stokes_system.size(); ++i)
+            {
+              if (Plugins::plugin_type_matches<Assemblers::StokesIncompressibleTerms<dim>>(*(assemblers.stokes_system[i])))
+                assemblers.stokes_system[i] = std::make_unique<Assemblers::StokesIncompressibleTermsAnisotropicViscosity<dim>> ();
+            }
+        }
+
+        void
+        initialize() override
+        {
+          this->get_signals().set_assemblers.connect (std::bind(&TosiMaterial<dim>::set_assemblers,
+                                                                std::cref(*this),
+                                                                std::placeholders::_1,
+                                                                std::placeholders::_2));
+          AssertThrow(dim==3,
+                      ExcMessage("Olivine has 3 independent slip systems, allowing for deformation in 3 independent directions, hence these models only work in 3D"));
+
+          cpo_av_3d.cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("phi1"));
+          cpo_av_3d.cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a1"));
+          cpo_av_3d.cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a2"));
+          cpo_av_3d.cpo_bingham_avg_a.push_back (this->introspection().compositional_index_for_name("eigvalue_a3"));
+
+          cpo_av_3d.cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("theta"));
+          cpo_av_3d.cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b1"));
+          cpo_av_3d.cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b2"));
+          cpo_av_3d.cpo_bingham_avg_b.push_back (this->introspection().compositional_index_for_name("eigvalue_b3"));
+
+          cpo_av_3d.cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("phi2"));
+          cpo_av_3d.cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c1"));
+          cpo_av_3d.cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c2"));
+          cpo_av_3d.cpo_bingham_avg_c.push_back (this->introspection().compositional_index_for_name("eigvalue_c3"));
+        }
+        
         void evaluate(const MaterialModel::MaterialModelInputs<dim> &in,
                       MaterialModel::MaterialModelOutputs<dim> &out) const override
         {
@@ -313,6 +365,8 @@ namespace aspect
          */
         bool use_analytical_derivative;
 
+        aspect::MaterialModel::CPO_AV_3D<dim> cpo_av_3d;
+
     };
 
     /*
@@ -409,7 +463,7 @@ namespace aspect
       {
         prm.enter_subsection("Tosi benchmark");
         {
-          EquationOfState::LinearizedIncompressible<dim>::declare_parameters (prm);
+          // EquationOfState::LinearizedIncompressible<dim>::declare_parameters (prm);
 
           prm.declare_entry ("Reference density", "1",
                              Patterns::Double (0),
@@ -518,16 +572,17 @@ namespace aspect
           eta_initial                = prm.get_double ("Initial viscosity");
           use_analytical_derivative  = prm.get_bool ("Use analytical derivative");
 
-          equation_of_state.parse_parameters (prm);
-          eta = prm.get_double("Reference viscosity");
-          min_strain_rate = prm.get_double("Minimum strain rate");
-          grain_size = prm.get_double("Grain size");
-          CnI_F = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for F")));
-          CnI_G = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for G")));
-          CnI_H = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for H")));
-          CnI_L = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for L")));
-          CnI_M = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for M")));
-          CnI_N = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for N")));
+          cpo_av_3d.equation_of_state.parse_parameters (prm);
+          cpo_av_3d.eta = prm.get_double("Reference viscosity");
+          cpo_av_3d.min_strain_rate = prm.get_double("Minimum strain rate");
+          cpo_av_3d.grain_size = prm.get_double("Grain size");
+          cpo_av_3d.CnI_F = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for F")));
+          cpo_av_3d.CnI_G = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for G")));
+          cpo_av_3d.CnI_H = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for H")));
+          cpo_av_3d.CnI_L = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for L")));
+          cpo_av_3d.CnI_M = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for M")));
+          cpo_av_3d.CnI_N = dealii::Utilities::string_to_double(dealii::Utilities::split_string_list(prm.get("Coefficients and intercept for N")));
+
         }
         prm.leave_subsection();
       }

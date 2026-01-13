@@ -52,7 +52,7 @@ namespace aspect
 
         void create_additional_named_outputs(MaterialModel::MaterialModelOutputs<dim> &out) const override;
 
-      private:
+      
 
         /**
          * Reference viscosity.
