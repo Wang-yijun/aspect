@@ -520,7 +520,7 @@ namespace aspect
 
           // select additional output for Fastscape vtu
           // the default output is kf.
-          std::vector<double> additional_output_field;
+          // std::vector<double> additional_output_field;
           switch (additional_output_variable)
             {
               case FastscapeOutputVariable::kf:
@@ -912,7 +912,7 @@ namespace aspect
             // FastScape by default visualizes a field called HHHHH,
             // and the parameter this shows will be whatever is given as the first
             // position. At the moment it visualizes the bedrock diffusivity.
-            fastscape_named_vtk_(extra_vtk_field.data(),
+            fastscape_named_vtk_(additional_output_field.data(),
                                  &vexp,
                                  &visualization_step,
                                  dirname_char,
@@ -987,7 +987,9 @@ namespace aspect
 #ifdef ASPECT_HAVE_FASTSCAPE_NAMED_VTK
             this->get_pcout() << "      Writing FastScape VTK..." << std::endl;
             visualization_step = current_timestep;
-            fastscape_named_vtk_(extra_vtk_field.data(),
+            // Replace the default HHHHH field (bedrock river incision rate) with user specified field:
+            // river incirion rate (combined_kf), deposition rate (combined_kd), or uplift rate.
+            fastscape_named_vtk_(additional_output_field.data(),
                                  &vexp,
                                  &visualization_step,
                                  dirname_char,
