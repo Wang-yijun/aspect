@@ -100,6 +100,8 @@ namespace aspect
         };
         FastscapeOutputVariable additional_output_variable;
 
+        mutable std::vector<double> additional_output_field;
+
         /**
          * Serialize the contents of this class as far as they are not read
          * from input parameter files.
