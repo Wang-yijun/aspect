@@ -148,6 +148,9 @@ namespace aspect
        * ASPECT output folder.
        */
       void fastscape_named_vtk_(double *fp,
+                                double *additional_outputs,
+                                unsigned int *n_additional_outputs,
+                                int *ids,
                                 const double *vexp,
                                 unsigned int *astep,
                                 const char *c,
@@ -520,27 +523,44 @@ namespace aspect
 
           // select additional output for Fastscape vtu
           // the default output is kf.
-          // std::vector<double> additional_output_field;
-          switch (additional_output_variable)
+          std::vector<std::vector<double>> additional_output_fields;
+          additional_output_fields.clear();
+          additional_output_fields.resize(additional_output_variables.size());
+          for (auto &v : additional_output_fields)
+            v.resize(fastscape_array_size);
+          
+          for (unsigned int k = 0; k < additional_output_variables.size(); ++k)
             {
-              case FastscapeOutputVariable::kf:
+              switch (additional_output_variables[k])
               {
-                additional_output_field = combined_kf;
-                break;
+                case FastscapeOutputVariable::kf:
+                  additional_output_fields[k] = combined_kf;
+                  break;
+
+                case FastscapeOutputVariable::kd:
+                  additional_output_fields[k] = combined_kd;
+                  break;
+
+                case FastscapeOutputVariable::uplift_rate:
+                  additional_output_fields[k] = velocity_z;
+                  break;
+
+                default:
+                  AssertThrow(false, ExcMessage("Invalid Fastscape variable."));
               }
-              case FastscapeOutputVariable::kd:
-              {
-                additional_output_field = combined_kd;
-                break;
-              }
-              case FastscapeOutputVariable::uplift_rate:
-              {
-                additional_output_field = velocity_z;
-                break;
-              }
-              default:
-                AssertThrow(false, ExcMessage("Invalid Fastscape variable."));
             }
+          
+          // Sanity checks
+          for (unsigned int k = 0; k < n_outputs; ++k)
+            AssertThrow(additional_output_fields[k].size() == fastscape_array_size,
+                        ExcMessage("additional_output_fields[k] has wrong size"));
+          // Flatten the 2D vector into a 1D vector for passing to FastScape.
+          additional_output_fields_flattened.clear();
+          additional_output_fields_flattened.reserve(n_outputs * fastscape_array_size);
+          for (unsigned int k = 0; k < n_outputs; ++k)
+            std::copy(additional_output_fields[k].begin(),
+                      additional_output_fields[k].end(),
+                      additional_output_fields_flattened.begin() + k*fastscape_array_size);
 
           // Find timestep size, run FastScape, and make visualizations.
           execute_fastscape(elevation,
@@ -912,13 +932,19 @@ namespace aspect
             // FastScape by default visualizes a field called HHHHH,
             // and the parameter this shows will be whatever is given as the first
             // position. At the moment it visualizes the bedrock diffusivity.
-            fastscape_named_vtk_(additional_output_field.data(),
+            fastscape_named_vtk_(extra_vtk_field.data(),
+                                 additional_output_fields_flattened.data(),
+                                 &n_outputs,
+                                 additional_output_variable_ids.data(),
                                  &vexp,
                                  &visualization_step,
                                  dirname_char,
                                  &dirname_length);
 #else
             (void)extra_vtk_field;
+            (void)additional_output_fields_flattened;
+            (void)n_outputs;
+            (void)additional_output_variable_ids;
             (void)vexp;
             (void)visualization_step;
             (void)dirname_char;
@@ -989,13 +1015,19 @@ namespace aspect
             visualization_step = current_timestep;
             // Replace the default HHHHH field (bedrock river incision rate) with user specified field:
             // river incirion rate (combined_kf), deposition rate (combined_kd), or uplift rate.
-            fastscape_named_vtk_(additional_output_field.data(),
+            fastscape_named_vtk_(extra_vtk_field.data(),
+                                 additional_output_fields_flattened.data(),
+                                 &n_outputs,
+                                 additional_output_variable_ids.data(),
                                  &vexp,
                                  &visualization_step,
                                  dirname_char,
                                  &dirname_length);
 #else
             (void)extra_vtk_field;
+            (void)additional_output_fields_flattened;
+            (void)n_outputs;
+            (void)additional_output_variable_ids;
             (void)vexp;
             (void)visualization_step;
             (void)dirname_char;
@@ -1720,8 +1752,9 @@ namespace aspect
                             Patterns::Double(),
                             "Maximum topography change from the initial noise. Units: ${m}$");
           prm.declare_entry("Additional output variables", "river incision rate",
-                            Patterns::Selection("river incision rate|deposition coefficient|uplift rate"),
-                            "Select one additional Fastscape variable to output in the Fastcape vtk. "
+                            Patterns::List (Patterns::Selection("river incision rate|deposition coefficient|uplift rate")),
+                            "Select additional Fastscape variables from river incision rate, deposition coefficient, "
+                            "or uplift rate to outputs in the Fastcape vtk. "
                             "Output are in units of per year. "
                            );
 
@@ -1987,17 +2020,34 @@ namespace aspect
           prm.leave_subsection();
 
           // Set up Fastscape vtu output parameters
-          const std::string output_choice = prm.get("Additional output variables");
+          // const std::string output_choice = prm.get("Additional output variables");
+          std::vector<std::string> output_choices = Utilities::split_string_list
+              (prm.get ("Additional output variables"));
+          n_outputs = output_choices.size();
 
-          if (output_choice == "river incision rate")
-            additional_output_variable = FastscapeOutputVariable::kf;
-          else if (output_choice == "deposition coefficient")
-            additional_output_variable = FastscapeOutputVariable::kd;
-          else if (output_choice == "uplift rate")
-            additional_output_variable = FastscapeOutputVariable::uplift_rate;
-          else
-            AssertThrow(false, ExcMessage("Not a valid Fastscape field."));
+          for (const std::string &choice_raw : output_choices)
+            {
+              const std::string choice = dealii::Utilities::trim(choice_raw);
 
+              if (choice == "river incision rate")
+                {
+                  additional_output_variables.push_back(FastscapeOutputVariable::kf);
+                  additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::kf));
+                }
+              else if (choice == "deposition coefficient")
+                {
+                  additional_output_variables.push_back(FastscapeOutputVariable::kd);
+                  additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::kd));
+                }
+              else if (choice == "uplift rate")
+                {
+                  additional_output_variables.push_back(FastscapeOutputVariable::uplift_rate);
+                  additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::uplift_rate));
+                }
+              else
+                AssertThrow(false, ExcMessage("Not a valid FastScape field: " + choice));
+            }
+          
           prm.enter_subsection("Erosional parameters");
           {
             drainage_area_exponent_m = prm.get_double("Drainage area exponent");
