@@ -25,7 +25,7 @@
 #include <aspect/postprocess/visualization.h>
 #include <ctime>
 #include <aspect/simulator.h>
-#include <aspect/material_model/utilities.h>
+// #include <aspect/material_model/utilities.h>
 
 namespace aspect
 {
@@ -383,7 +383,7 @@ namespace aspect
                                 velocity_z,
                                 local_aspect_values);
 
-          if (current_timestep == 1 || restart)
+          if (current_timestep == 1) // || restart
             {
               this->get_pcout() << "   Initializing FastScape... " << (1+maximum_surface_refinement_level+additional_refinement_levels) <<
                                 " levels, cell size: " << fastscape_dx << " m." << std::endl;
@@ -591,7 +591,7 @@ namespace aspect
               mesh_velocity_z[i] = (elevation[i] - elevation_old[i])/aspect_timestep_in_years;
             }
 
-          Utilities::MPI::broadcast(this->get_mpi_communicator(), mesh_velocity_z, 0);
+          // Utilities::MPI::broadcast(this->get_mpi_communicator(), mesh_velocity_z, 0);
         }
       else
         // For ranks other than the root:
@@ -695,21 +695,26 @@ namespace aspect
                 fe_face_values[this->introspection().extractors.velocities].get_function_values(this->get_solution(), vel);
 
                 // Get compositional erosional parameters
-                std::vector<std::vector<double>> composition_values(this->n_compositional_fields(), std::vector<double>(fe_face_values.n_quadrature_points));
+                std::vector<std::vector<double>> composition_values_array(this->n_compositional_fields(), std::vector<double>(fe_face_values.n_quadrature_points));
+                std::vector<double> composition_values;
+                // std::cout<<"n_chemical_composition_fields: "<<n_chemical_composition_fields<<std::endl;
+               // 4 chemical compositions
                 for (unsigned int c=0; c<n_chemical_composition_fields+1; ++c)
                   {
-                    fe_face_values[this->introspection().extractors.compositional_fields[c]].get_function_values(this->get_solution(), composition_values[c]);
-                    // std::cout<<"Composition: ";
+                    fe_face_values[this->introspection().extractors.compositional_fields[c]].get_function_values(this->get_solution(), composition_values_array.at(c));
+                    // std::cout<<"Compositional fields: ";
                     // for (unsigned int j=0; j<sizeof(composition_values[c]); ++j)
                     //   {
                     //     std::cout<<composition_values[c][j]<<" ";
                     //   }
                     // std::cout<<std::endl;
+                    composition_values.at(c) = composition_values_array.at(c).at(0);
+                    // std::cout<<"compositional_values[c][0]: "<<compositional_values[c][0]<<std::endl;
                   }
                 // 24 * 24 ?
                 // std::cout<<"sizeof(composition_values): "<<sizeof(composition_values)<<std::endl;
                 // std::cout<<"sizeof(composition_values[0]): "<<sizeof(composition_values[0])<<std::endl;
-              
+                 
                 for (unsigned int corner = 0; corner < face_corners.size(); ++corner)
                   {
                     const Point<dim> vertex = fe_face_values.quadrature_point(corner);
@@ -752,9 +757,13 @@ namespace aspect
                                 // Always convert to m/yr for FastScape
                                 local_aspect_values[2+d].push_back(vel[corner][d]*year_in_seconds);
                               }
-                            
-                            double bedrock_river_incision_rate_at_point = MaterialModel::MaterialUtilities::average_value (composition_values[corner], bedrock_river_incision_rate, MaterialModel::MaterialUtilities::arithmetic);
-                            double bedrock_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values[corner], bedrock_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
+
+                            // std::cout<< "composition_values[corner].size(): " << composition_values[corner].size() << std::endl; //2
+                            // std::cout<< "composition_values.size(): " << composition_values.size() << std::endl; //7
+                            std::cout<< "bedrock_river_incision_rate.size(): " << bedrock_river_incision_rate.size() << std::endl; //5
+                            double bedrock_river_incision_rate_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, bedrock_river_incision_rate, MaterialModel::MaterialUtilities::arithmetic);
+                            std::cout<< "bedrock_river_incision_rate_at_point: " << bedrock_river_incision_rate_at_point << std::endl;
+                            double bedrock_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, bedrock_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
                             local_aspect_values[2+dim].push_back(bedrock_river_incision_rate_at_point);
                             local_aspect_values[3+dim].push_back(bedrock_transport_coefficient_at_point);
                           }
@@ -782,8 +791,8 @@ namespace aspect
                             local_aspect_values[2+d].push_back(vel[corner][d]*year_in_seconds);
                           }
                         
-                        double bedrock_river_incision_rate_at_point = MaterialModel::MaterialUtilities::average_value (composition_values[corner], bedrock_river_incision_rate, MaterialModel::MaterialUtilities::arithmetic);
-                        double bedrock_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values[corner], bedrock_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
+                        double bedrock_river_incision_rate_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, bedrock_river_incision_rate, MaterialModel::MaterialUtilities::arithmetic);
+                        double bedrock_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, bedrock_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
                         local_aspect_values[2+dim].push_back(bedrock_river_incision_rate_at_point);
                         local_aspect_values[3+dim].push_back(bedrock_transport_coefficient_at_point);
                       }
@@ -803,6 +812,13 @@ namespace aspect
                                                std::vector<double> &velocity_z,
                                                std::vector<std::vector<double>> &local_aspect_values) const
     {
+      // std::cout<<"Size of velocity_x: "<<velocity_x.size()<<std::endl; //2119
+      // std::cout<<"Size of bedrock_transport_coefficient_array: "<<bedrock_transport_coefficient_array.size()<<std::endl;
+      // std::cout<<"Size of local_aspect_values[dim+2]: "<<local_aspect_values[dim+2].size()<<std::endl; //4160
+      // std::cout<<"Size of local_aspect_values[2]: "<<local_aspect_values[2].size()<<std::endl;
+      // Set time scaling factor based on time unit
+      // This factor is use to scale the quantities when "Use years instead of seconds" in ASPECT is off.
+      double time_scaling_factor = (this->convert_output_to_years() ? 1.0 : year_in_seconds);
       for (unsigned int i=0; i<local_aspect_values[1].size(); ++i)
         {
           // In get_aspect_values(), we store an integer value in local_aspect_values[1][...].
@@ -816,6 +832,9 @@ namespace aspect
             velocity_y[index] = 0;
           else
             velocity_y[index] = local_aspect_values[3][i];
+
+          // bedrock_transport_coefficient_array[index] = time_scaling_factor * local_aspect_values[2+dim][i];
+          // bedrock_river_incision_rate_array[index] = time_scaling_factor *local_aspect_values[3+dim][i];
         }
 
       for (unsigned int p=1; p<Utilities::MPI::n_mpi_processes(this->get_mpi_communicator()); ++p)
@@ -853,6 +872,9 @@ namespace aspect
                 velocity_y[index] = 0;
               else
                 velocity_y[index] = local_aspect_values[3][i];
+
+              // bedrock_transport_coefficient_array[index] = time_scaling_factor * local_aspect_values[2+dim][i];
+              // bedrock_river_incision_rate_array[index] = time_scaling_factor *local_aspect_values[3+dim][i];
             }
         }
 
@@ -862,6 +884,14 @@ namespace aspect
       // and surface_refinement_difference
       bool fastscape_mesh_filled = true;
       const unsigned int fastscape_array_size = fastscape_nx*fastscape_ny;
+
+      std::vector<int> global_to_local(bedrock_transport_coefficient_array.size(),-1);
+      for (unsigned int i = 0; i < local_aspect_values[1].size(); ++i)
+      {
+        const unsigned int global_index = local_aspect_values[1][i];
+        global_to_local[global_index] = i;
+      }
+
       for (unsigned int i=0; i<fastscape_array_size; ++i)
         {
           //reset index
@@ -872,16 +902,42 @@ namespace aspect
           const double x = grid_extent[0].first + (ix - use_ghost_nodes) * fastscape_dx;
           const double y = grid_extent[1].first + (iy - use_ghost_nodes) * fastscape_dy;
 
-          // Set time scaling factor based on time unit
-          // This factor is use to scale the quantities when "Use years instead of seconds" in ASPECT is off.
-          double time_scaling_factor = (this->convert_output_to_years() ? 1.0 : year_in_seconds);
+          const int index = global_to_local[i];
           // Update bedrock transport coefficient kd
-          bedrock_transport_coefficient_array[i] =
-            (use_kd_distribution_function
-             ?  // update with time scaling
-             time_scaling_factor * kd_distribution_function.value(Point<2>(x, y))
-             :
-             time_scaling_factor * bedrock_transport_coefficient[0]);
+          // std::cout << "local_aspect_values[dim+3][index]: " << time_scaling_factor * local_aspect_values[dim+3][index] << std::endl;
+          // std::cout << "bedrock_transport_coefficient_array[i]: " << bedrock_transport_coefficient_array[i] << std::endl;
+          // std::cout << "index: " << index << std::endl;
+          // std::cout << "local_aspect_values[dim+3].size(): " << local_aspect_values[dim+3].size() <<  std::endl;
+          // AssertThrow(index < local_aspect_values[dim+3].size(),
+          //   ExcMessage("index out of range for local_aspect_values[dim+3]"));
+          // AssertThrow(i < bedrock_transport_coefficient_array.size(),
+          //   ExcMessage("i out of range for bedrock_transport_coefficient_array"));
+
+          double bedrock_transport_coefficient_local = 0.0;
+          double bedrock_river_incision_rate_local = 0.0;
+          if (index >= 0 && index < local_aspect_values[dim+3].size())
+            {
+              // std::cout << "index: " << index << std::endl;
+              // AssertThrow(index < local_aspect_values[dim+3].size(),
+              //   ExcMessage("index out of range for local_aspect_values[dim+3]"));
+              double bedrock_transport_coefficient_local = time_scaling_factor * local_aspect_values[dim+3][index];
+              double bedrock_river_incision_rate_local = time_scaling_factor * local_aspect_values[dim+4][index];
+            }
+          bedrock_transport_coefficient_array.at(i) =
+            (use_kd_distribution_function)
+            ?  // update with time scaling
+            time_scaling_factor * kd_distribution_function.value(Point<2>(x, y))
+            :
+            bedrock_transport_coefficient_local; //bedrock_transport_coefficient[0]; //
+
+          // if (use_kd_distribution_function)
+          //   {
+          //     bedrock_transport_coefficient_array[i] = time_scaling_factor * kd_distribution_function.value(Point<2>(x, y));
+          //   }
+          // else
+          //   {
+          //     bedrock_transport_coefficient_array[i] = time_scaling_factor * bedrock_transport_coefficient[0];
+          //   }
 
           // Update Bedrock river incision rate kf
           bedrock_river_incision_rate_array[i] =
@@ -889,14 +945,14 @@ namespace aspect
             ?  // update with time scaling
             time_scaling_factor * kf_distribution_function.value(Point<2>(x, y))
             :
-            time_scaling_factor * bedrock_river_incision_rate[0];
+            bedrock_river_incision_rate_local;
 
 
           // If this is a boundary node that is a ghost node then ignore that it
           // has not filled yet as the ghost nodes haven't been set.
           if (elevation[i] == std::numeric_limits<double>::max() && !is_ghost_node(i,false))
             fastscape_mesh_filled = false;
-        }
+        }  
 
       fastscape_mesh_filled = Utilities::MPI::broadcast(this->get_mpi_communicator(), fastscape_mesh_filled, 0);
       AssertThrow (fastscape_mesh_filled == true,
@@ -1177,6 +1233,7 @@ namespace aspect
               if (elevation[fastscape_nx*i+j] > flat_elevation)
                 {
                   if ( stack_controls==true || !stack_controls && (control_applied[fastscape_nx*i+j]==0) )
+                  // if ( stack_controls==true || (!stack_controls && (control_applied[fastscape_nx*i+j]==0)) )
                     {
                       bedrock_river_incision_rate_array[fastscape_nx*i+j] *= flat_erosional_factor;
                       bedrock_transport_coefficient_array[fastscape_nx*i+j] *= flat_erosional_factor;
