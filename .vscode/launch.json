@@ -6,11 +6,11 @@
             "type": "cppdbg",
             "request": "launch",
             // Resolved by CMake Tools:
-            "program": "${command:cmake.launchTargetPath}",
-	    // *** replace --test by the name of the .prm file you want to run: ***
-            "args": ["--test"],
-            "stopAtEntry": true,
-	    // *** append to the path here if you want to run inside some directory like /cookbooks/ ***
+            "program": "/home/bbkyijun/aspect/build_compositional_main/aspect",
+	        // *** replace --test by the name of the .prm file you want to run: ***
+            "args": ["/home/bbkyijun/prmfiles/fastscape_kf_function.prm"],
+            "stopAtEntry": false,
+	        // *** append to the path here if you want to run inside some directory like /cookbooks/ ***
             "cwd": "${workspaceFolder}",
             "environment": [
                 {
