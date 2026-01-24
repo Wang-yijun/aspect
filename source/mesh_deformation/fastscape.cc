@@ -632,9 +632,9 @@ namespace aspect
     std::vector<std::vector<double>>
     FastScape<dim>::get_aspect_values() const
     {
-      const unsigned int n_chemical_composition_fields = this->introspection().get_number_of_fields_of_type(CompositionalFieldDescription::chemical_composition)+1;
+      const unsigned int n_chemical_composition_fields = this->introspection().get_number_of_fields_of_type(CompositionalFieldDescription::chemical_composition);
       // std::cout<<"n_chemical_composition_fields in get_aspect_values: "<<n_chemical_composition_fields<<std::endl;
-      // std::cout<<"this->n_compositional_fields(): "<<this->n_compositional_fields()<<std::endl;
+      // std::cout<<"this->n_compositional_fields()+1: "<<this->n_compositional_fields()+1<<std::endl;
       AssertThrow(n_chemical_composition_fields <= this->n_compositional_fields(),
                   ExcMessage("n_chemical_composition_fields exceeds n_compositional_fields."));
 
@@ -669,22 +669,27 @@ namespace aspect
                 std::vector<double> composition_values;
                 // composition_values.reserve(n_chemical_composition_fields);
                 // std::cout<<"n_chemical_composition_fields: "<<n_chemical_composition_fields<<std::endl;
+                double volume_fraction_sum = 0.0;
                 for (unsigned int c=0; c<n_chemical_composition_fields; ++c)
                   {
+                    this->introspection().extractors.compositional_fields[c];
+                    // std::cout<<"Getting values for compositional field[c] "<<std::endl;
                     fe_face_values[this->introspection().extractors.compositional_fields[c]].get_function_values(this->get_solution(), composition_values_array[c]);
+                    
+                    // std::cout<<"get values successful for compositional field "<<c<<std::endl;
+                    // std::cout<<"composition_values_array.size(): "<<composition_values_array.size()<<std::endl;
+                    // std::cout<<"composition_values_array[c].size(): "<<composition_values_array[c].size()<<std::endl;
                     // std::cout<<"Compositional fields: ";
                     // for (unsigned int j=0; j<composition_values_array[c].size(); ++j)
                     //   {
                     //     std::cout<<composition_values_array[c][j]<<" ";
                     //   }
                     // std::cout<<std::endl;
-                    // std::cout<<"get values successful for compositional field "<<c<<std::endl;
-                    // std::cout<<"composition_values_array.size(): "<<composition_values_array.size()<<std::endl;
-                    // std::cout<<"composition_values_array[c].size(): "<<composition_values_array[c].size()<<std::endl;
-                    // composition_values.at(c) = composition_values_array[c][0];
                     composition_values.push_back(composition_values_array[c][0]);
                     // std::cout<<"composition_values[c]: "<<composition_values[c]<<std::endl;
+                    volume_fraction_sum += composition_values_array[c][0];
                   }
+                composition_values.push_back(std::max(0.0, 1.0 - volume_fraction_sum));
                 // 24 * 24 ?
                 // std::cout<<"sizeof(composition_values): "<<sizeof(composition_values)<<std::endl;
                 // std::cout<<"sizeof(composition_values[0]): "<<sizeof(composition_values[0])<<std::endl;
@@ -735,7 +740,6 @@ namespace aspect
                               }
                             // std::cout << "saved vy." << std::endl;
 
-                            // std::cout<< "composition_values[corner].size(): " << composition_values[corner].size() << std::endl; //2
                             // std::cout<< "composition_values.size(): " << composition_values.size() << std::endl; //7
                             // std::cout<< "constant_bedrock_river_incision_rate.size(): " << constant_bedrock_river_incision_rate.size() << std::endl; //5
                             double bedrock_river_incision_rate_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, constant_bedrock_river_incision_rate, MaterialModel::MaterialUtilities::arithmetic);
@@ -2097,8 +2101,8 @@ namespace aspect
             std::vector<std::string> chemical_field_names = this->introspection().chemical_composition_field_names();
             chemical_field_names.insert(chemical_field_names.begin(),"background");
             const unsigned int n_chemical_composition_fields = this->introspection().get_number_of_fields_of_type(CompositionalFieldDescription::chemical_composition)+1;
-            // std::vector<std::string> compositional_field_names = this->introspection().get_composition_names();
-            // compositional_field_names.insert(compositional_field_names.begin(),"background");
+            std::vector<std::string> compositional_field_names = this->introspection().get_composition_names();
+            compositional_field_names.insert(compositional_field_names.begin(),"background");
             Utilities::MapParsing::Options options(chemical_field_names, "Bedrock river incision rate");
             sediment_river_incision_rate = prm.get_double("Sediment river incision rate");
             // kf
