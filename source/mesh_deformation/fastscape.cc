@@ -901,30 +901,28 @@ namespace aspect
           // AssertThrow(i < bedrock_transport_coefficient_array.size(),
           //   ExcMessage("i out of range for bedrock_transport_coefficient_array"));
 
-          double bedrock_transport_coefficient_local = constant_bedrock_transport_coefficient[0];
           double bedrock_river_incision_rate_local = constant_bedrock_river_incision_rate[0];
+          double bedrock_transport_coefficient_local = constant_bedrock_transport_coefficient[0];
           if (index >= 0 && index < local_aspect_values[dim+3].size())
             {
               // std::cout << "index: " << index << std::endl;
-              bedrock_transport_coefficient_local = time_scaling_factor * local_aspect_values[dim+2][index];
-              bedrock_river_incision_rate_local = time_scaling_factor * local_aspect_values[dim+3][index];
+              bedrock_river_incision_rate_local = time_scaling_factor * local_aspect_values[dim+2][index];
+              bedrock_transport_coefficient_local = time_scaling_factor * local_aspect_values[dim+3][index];              
             }
-
-          bedrock_transport_coefficient_array[i] =
-            (use_kd_distribution_function)
-            ?  // update with time scaling
-            time_scaling_factor * kd_distribution_function.value(Point<2>(x, y))
-            :
-            bedrock_transport_coefficient_local; //constant_bedrock_transport_coefficient[0]; //
-          // Update Bedrock river incision rate kf
+          
           bedrock_river_incision_rate_array[i] =
             (use_kf_distribution_function)
             ?  // update with time scaling
             time_scaling_factor * kf_distribution_function.value(Point<2>(x, y))
             :
             bedrock_river_incision_rate_local; //constant_bedrock_river_incision_rate[0]; //
-
-
+          bedrock_transport_coefficient_array[i] =
+            (use_kd_distribution_function)
+            ?  // update with time scaling
+            time_scaling_factor * kd_distribution_function.value(Point<2>(x, y))
+            :
+            bedrock_transport_coefficient_local; //constant_bedrock_transport_coefficient[0]; //
+          
           // If this is a boundary node that is a ghost node then ignore that it
           // has not filled yet as the ghost nodes haven't been set.
           if (elevation[i] == std::numeric_limits<double>::max() && !is_ghost_node(i,false))
