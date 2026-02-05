@@ -98,7 +98,10 @@ namespace aspect
           kd,
           uplift_rate
         };
-        FastscapeOutputVariable additional_output_variable;
+        std::vector<FastscapeOutputVariable> additional_output_variables;
+        mutable std::vector<int> additional_output_variable_ids;
+        mutable std::vector<double> additional_output_fields_flattened;
+        mutable unsigned int n_outputs;
 
         /**
          * Serialize the contents of this class as far as they are not read
