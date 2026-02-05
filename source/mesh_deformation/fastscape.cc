@@ -123,6 +123,8 @@ namespace aspect
       const types::boundary_id relevant_boundary = this->get_geometry_model().translate_symbolic_boundary_name_to_id ("top");
       const int current_timestep = this->get_timestep_number ();
 
+      const unsigned int n_fields = this->n_compositional_fields();
+
       double a_dt = this->get_timestep();
       if (this->convert_output_to_years())
         {
@@ -135,7 +137,7 @@ namespace aspect
           /*
            * Initialize a vector of temporary variables to hold: z component, index, Vx, Vy, and Vz.
            */
-          std::vector<std::vector<double>> temporary_variables(dim+2, std::vector<double>());
+          std::vector<std::vector<double>> temporary_variables(dim+4, std::vector<double>());
           //Vector to hold the velocities that represent the change to the surface.
           std::vector<double> V(array_size);
           //precision = 0.001;
@@ -165,6 +167,26 @@ namespace aspect
                     std::vector<Tensor<1,dim> > vel(face_corners.size());
                     fe_face_values.reinit(cell, face_no);
                     fe_face_values[this->introspection().extractors.velocities].get_function_values(this->get_solution(), vel);
+
+                    // Get compositional erosional parameters
+                    std::vector<std::vector<double>> composition_values_array(this->n_compositional_fields(), std::vector<double>(fe_face_values.n_quadrature_points));
+                    // std::vector<double> composition_values(n_chemical_composition_fields);
+                    std::vector<double> composition_values;
+                    // composition_values.reserve(n_chemical_composition_fields);
+                    // std::cout<<"n_chemical_composition_fields: "<<n_chemical_composition_fields<<std::endl;
+                    double volume_fraction_sum = 0.0;
+                    for (unsigned int c=0; c<n_fields; ++c)
+                      {
+                        this->introspection().extractors.compositional_fields[c];
+                        // std::cout<<"Getting values for compositional field "<<c<<std::endl;
+                        fe_face_values[this->introspection().extractors.compositional_fields[c]].get_function_values(this->get_solution(), composition_values_array[c]);
+                        // std::cout<<"get values successful for compositional field "<<c<<std::endl;
+                        // std::cout<<"composition_values_array[c][0]: "<<composition_values_array[c][0]<<std::endl;
+                        composition_values.push_back(composition_values_array[c][0]);
+                        // std::cout<<"composition_values[c]: "<<composition_values[c]<<std::endl;
+                        volume_fraction_sum += composition_values_array[c][0];
+                      }
+                    composition_values.push_back(std::max(0.0, 1.0 - volume_fraction_sum));
 
                     for (unsigned int corner = 0; corner < face_corners.size(); ++corner)
                       {
@@ -205,6 +227,21 @@ namespace aspect
                                     else
                                       temporary_variables[i+2].push_back(vel[corner][i]);
                                   }
+                                
+                                double bedrock_river_incision_rate_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, kff, MaterialModel::MaterialUtilities::arithmetic);
+                                // std::cout<< "bedrock_river_incision_rate_at_point: " << bedrock_river_incision_rate_at_point << std::endl;
+                                double bedrock_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, kdd, MaterialModel::MaterialUtilities::arithmetic);
+                                if (this->convert_output_to_years())
+                                  {
+                                    
+                                    temporary_variables[2+dim].push_back(bedrock_river_incision_rate_at_point*year_in_seconds);
+                                    temporary_variables[3+dim].push_back(bedrock_transport_coefficient_at_point*year_in_seconds);
+                                  }
+                                else
+                                  {
+                                    temporary_variables[2+dim].push_back(bedrock_river_incision_rate_at_point);
+                                    temporary_variables[3+dim].push_back(bedrock_transport_coefficient_at_point);
+                                  }
                               }
                           }
                         else
@@ -225,6 +262,21 @@ namespace aspect
                                   temporary_variables[i+2].push_back(vel[corner][i]*year_in_seconds);
                                 else
                                   temporary_variables[i+2].push_back(vel[corner][i]);
+                              }
+                              
+                            double bedrock_river_incision_rate_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, kff, MaterialModel::MaterialUtilities::arithmetic);
+                            // std::cout<< "bedrock_river_incision_rate_at_point: " << bedrock_river_incision_rate_at_point << std::endl;
+                            double bedrock_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, kdd, MaterialModel::MaterialUtilities::arithmetic);
+                            if (this->convert_output_to_years())
+                              {
+                                
+                                temporary_variables[2+dim].push_back(bedrock_river_incision_rate_at_point*year_in_seconds);
+                                temporary_variables[3+dim].push_back(bedrock_transport_coefficient_at_point*year_in_seconds);
+                              }
+                            else
+                              {
+                                temporary_variables[2+dim].push_back(bedrock_river_incision_rate_at_point);
+                                temporary_variables[3+dim].push_back(bedrock_transport_coefficient_at_point);
                               }
                           }
                       }
@@ -255,32 +307,32 @@ namespace aspect
               const std::string restart_step_filename = dirname + "fastscape_steps_restart.txt";
               const std::string restart_filename_basement = dirname + "fastscape_b_restart.txt";
 
-	      // Determine whether to create a VTK file this timestep.
+	            // Determine whether to create a VTK file this timestep.
               bool make_vtk = 0;
               if (this->get_time() >= last_output_time + output_interval || this->get_time()+a_dt >= end_time)
               {
                 // Don't create a visualization file on a restart.
                 if(!restart)
-		  make_vtk = 1;
+		              make_vtk = 1;
 
                 if (output_interval > 0)
-               {
-                // We need to find the last time output was supposed to be written.
-                // this is the last_output_time plus the largest positive multiple
-                // of output_intervals that passed since then. We need to handle the
-                // edge case where last_output_time+output_interval==current_time,
-                // we did an output and std::floor sadly rounds to zero. This is done
-                // by forcing std::floor to round 1.0-eps to 1.0.
-                const double magic = 1.0+2.0*std::numeric_limits<double>::epsilon();
-                last_output_time = last_output_time + std::floor((this->get_time()-last_output_time)/output_interval*magic) * output_interval/magic;
-                }
+                  {
+                    // We need to find the last time output was supposed to be written.
+                    // this is the last_output_time plus the largest positive multiple
+                    // of output_intervals that passed since then. We need to handle the
+                    // edge case where last_output_time+output_interval==current_time,
+                    // we did an output and std::floor sadly rounds to zero. This is done
+                    // by forcing std::floor to round 1.0-eps to 1.0.
+                    const double magic = 1.0+2.0*std::numeric_limits<double>::epsilon();
+                    last_output_time = last_output_time + std::floor((this->get_time()-last_output_time)/output_interval*magic) * output_interval/magic;
+                  }
               } 
 
               // Initialize kf and kd.
               for (int i=0; i<array_size; i++)
                 {
-                  kf[i] = kff;
-                  kd[i] = kdd;
+                  kf[i] = kff[0];
+                  kd[i] = kdd[0];
                 }
 
               // Get info from first processor.
@@ -327,6 +379,63 @@ namespace aspect
                         vy[temporary_variables[1][i]] = temporary_variables[3][i];
                     }
                 }
+
+              bool fastscape_mesh_filled = true;
+              const unsigned int fastscape_array_size = nx*ny;
+              std::vector<int> global_to_local(fastscape_array_size,-1);
+              for (unsigned int i = 0; i < temporary_variables[1].size(); ++i)
+              {
+                const unsigned int global_index = temporary_variables[1][i];
+                AssertThrow(global_index < global_to_local.size(),
+                            ExcMessage("global_index out of range for global_to_local"));
+                global_to_local[global_index] = i;
+              }
+              this->get_pcout() << "   Updating FastScape erodibility parameters from distribution functions..." << std::endl;
+              
+              // Initialize the bedrock river incision rate and transport coefficient,
+              // and check that there are no empty mesh points due to
+              // an improperly set maximum_surface_refinement_level, additional_refinement_levels,
+              // and surface_refinement_difference
+              for (unsigned int i=0; i<fastscape_array_size; ++i)
+                {
+                  //reset index
+                  const unsigned int ix = i % nx;
+                  const unsigned int iy = i / nx;
+
+                  // Physical coordinates of the cell center in Cartesian 2D
+                  const double x = grid_extent[0].first + (ix - use_ghost) * dx;
+                  const double y = grid_extent[1].first + (iy - use_ghost) * dy;
+
+                  const int index = global_to_local[i];
+
+                  // std::cout << "local_aspect_values[dim+3][index]: " << time_scaling_factor * local_aspect_values[dim+3][index] << std::endl;
+                  // std::cout << "bedrock_transport_coefficient_array[i]: " << bedrock_transport_coefficient_array[i] << std::endl;
+                  // std::cout << "index: " << index << std::endl;
+                  // std::cout << "local_aspect_values[dim+3].size(): " << local_aspect_values[dim+3].size() <<  std::endl;
+
+                  double kd_local = kdd[0];
+                  double kf_local = kff[0];
+                  if (index >= 0 && index < temporary_variables[dim+3].size())
+                    {
+                      // std::cout << "index: " << index << std::endl;
+                      kf_local = temporary_variables[dim+2][index];
+                      kd_local = temporary_variables[dim+3][index];
+                    }
+                  kf[i] = kf_local; // kff[0]; //
+                  kd[i] = kd_local; // kdd[0]; //
+
+                  // If this is a boundary node that is a ghost node then ignore that it
+                  // has not filled yet as the ghost nodes haven't been set.
+                  if (h[i] == std::numeric_limits<double>::max() && !is_ghost_node(i,false))
+                    fastscape_mesh_filled = false;
+                }
+              
+
+              fastscape_mesh_filled = Utilities::MPI::broadcast(this->get_mpi_communicator(), fastscape_mesh_filled, 0);
+              AssertThrow (fastscape_mesh_filled == true,
+                          ExcMessage("The FastScape mesh is missing data. A likely cause for this is that the "
+                                      "maximum surface refinement or surface refinement difference are improperly set."));
+
 
               if (current_timestep == 1 || restart)
                 {
@@ -420,15 +529,48 @@ namespace aspect
                  if(use_v)
                    fastscape_copy_h_(h.get());
                 }
-
-                // Find the appropriate sediment rain based off the time interval.
-                double time = this->get_time()/year_in_seconds;
-                double sediment_rain = sr_values[0];
-                for (unsigned int j=0; j<sr_times.size(); j++)
+              
+              // generate a combined array for kf kd both onshore and offshore
+              std::vector<double> combined_kd(fastscape_array_size);
+              std::vector<double> combined_kf(fastscape_array_size);
+              for (unsigned int i = 0; i < fastscape_array_size; ++i)
                 {
-                  if(time > sr_times[j])
-                       sediment_rain = sr_values[j+1];
+                  combined_kf[i] = kf[i];
+                  combined_kd[i] = kd[i];
                 }
+
+              // select additional output for Fastscape vtu
+              // the default output is kf.
+              std::vector<double> additional_output_field;
+              switch (additional_output_variables)
+                {
+                  case kf_output:
+                  {
+                    additional_output_field = combined_kf;
+                    break;
+                  }
+                  case kd_output:
+                  {
+                    additional_output_field = combined_kd;
+                    break;
+                  }
+                  case uplift_rate:
+                  {
+                    // additional_output_field = vz;
+                    break;
+                  }
+                  default:
+                    AssertThrow(false, ExcMessage("Invalid Fastscape variable."));
+                }
+
+              // Find the appropriate sediment rain based off the time interval.
+              double time = this->get_time()/year_in_seconds;
+              double sediment_rain = sr_values[0];
+              for (unsigned int j=0; j<sr_times.size(); j++)
+              {
+                if(time > sr_times[j])
+                      sediment_rain = sr_values[j+1];
+              }
 
               /*
                * Keep initial h values so we can calculate velocity later.
@@ -472,7 +614,7 @@ namespace aspect
                */
               // I redid the indexing here, at some point I should double check that these still work without issue.
               if (use_ghost)
-                 set_ghost_nodes(h.get(), vx.get(), vy.get(), vz.get(), nx, ny);
+                 set_ghost_nodes(h.get(), vx.get(), vy.get(), vz.get(), kd.get(), nx, ny);
 
 
               // Get current fastscape timestep.
@@ -543,9 +685,9 @@ namespace aspect
                 if (use_strat && current_timestep == 1)
                   fastscape_strati_(&nstepp, &nreflectorp, &steps, &vexp);
                 else if (!use_strat && current_timestep == 1)
-		  {
-                  this->get_pcout() << "      Writing initial VTK..." << std::endl;
-                  fastscape_named_vtk_(h.get(), &vexp, &visualization_step, c, &length);
+		              {
+                    this->get_pcout() << "      Writing initial VTK..." << std::endl;
+                    fastscape_named_vtk_(additional_output_field.data(), &vexp, &visualization_step, c, &length);
                   }
 
                 do
@@ -569,25 +711,22 @@ namespace aspect
 
               visualization_step = current_timestep;
               if (make_vtk)
-              {
-                 this->get_pcout() << "      Writing VTK..." << std::endl;
-                 fastscape_named_vtk_(h.get(), &vexp, &visualization_step, c, &length);
-              }
-
+                {
+                  this->get_pcout() << "      Writing VTK..." << std::endl;
+                  fastscape_named_vtk_(additional_output_field.data(), &vexp, &visualization_step, c, &length);
+                }
               // If we've reached the end time, destroy fastscape.
               if (this->get_time()+a_dt >= end_time)
                 {
                   this->get_pcout() << "      Destroying FastScape..." << std::endl;
                   fastscape_destroy_();
                 }
-
               // Find out our velocities from the change in height.
               // Where V is a vector of array size that exists on all processors.
               for (int i=0; i<array_size; i++)
                 {
                   V[i] = (h[i] - h_old[i])/a_dt;
                 }
-
               MPI_Bcast(&V[0], array_size, MPI_DOUBLE, 0, this->get_mpi_communicator());
             }
           else
@@ -597,7 +736,6 @@ namespace aspect
 
               MPI_Bcast(&V[0], array_size, MPI_DOUBLE, 0, this->get_mpi_communicator());
             }
-
           // Get the sizes needed for the data table.
           TableIndices<dim> size_idx;
           for (unsigned int d=0; d<dim; ++d)
@@ -687,7 +825,6 @@ namespace aspect
                     }
                 }
             }
-
           Functions::InterpolatedUniformGridData<dim> *velocities;
           velocities = new Functions::InterpolatedUniformGridData<dim> (grid_extent,
                                                                         table_intervals,
@@ -711,7 +848,7 @@ namespace aspect
     }
 
     template <int dim>
-    void FastScape<dim>::set_ghost_nodes(double *h, double *vx, double *vy, double *vz, int nx, int ny) const
+    void FastScape<dim>::set_ghost_nodes(double *h, double *vx, double *vy, double *vz, double *kd, int nx, int ny) const
     {
                  const int current_timestep = this->get_timestep_number ();
                  std::unique_ptr<double[]> slopep (new double[array_size]());
@@ -761,7 +898,7 @@ namespace aspect
                            * FastScape calculates the slope by looking at all nodes surrounding the point
                            * so we need to consider the slope over 2 dx.
                            */
-                          slope = left_flux/kdd;
+                          slope = left_flux/kd[j];
                           h[index_left] = h[index_left+1] + slope*2*dx;
                         }
                       else
@@ -772,28 +909,28 @@ namespace aspect
                            * the closest non-ghost node. E.g. if we're at a corner node, look instead up a row and inward.
                            */
                           if (j == 0)
-                            slope = left_flux/kdd - std::tan(slopep[index_left+nx+1]*numbers::PI/180.);
+                            slope = left_flux/kd[j] - std::tan(slopep[index_left+nx+1]*numbers::PI/180.);
                           else if (j==(ny-1))
-                            slope = left_flux/kdd - std::tan(slopep[index_left-nx+1]*numbers::PI/180.);
+                            slope = left_flux/kd[j] - std::tan(slopep[index_left-nx+1]*numbers::PI/180.);
                           else
-                            slope = left_flux/kdd - std::tan(slopep[index_left+1]*numbers::PI/180.);
+                            slope = left_flux/kd[j] - std::tan(slopep[index_left+1]*numbers::PI/180.);
 
                           h[index_left] = h[index_left] + slope*2*dx;
                         }
 
                       if (current_timestep == 1 || right_flux == 0)
                         {
-                          slope = right_flux/kdd;
+                          slope = right_flux/kd[j];
                           h[index_right] = h[index_right-1] + slope*2*dx;
                         }
                       else
                         {
                           if (j == 0)
-                            slope = right_flux/kdd - std::tan(slopep[index_right+nx-1]*numbers::PI/180.);
+                            slope = right_flux/kd[j] - std::tan(slopep[index_right+nx-1]*numbers::PI/180.);
                           else if (j==(ny-1))
-                            slope = right_flux/kdd - std::tan(slopep[index_right-nx-1]*numbers::PI/180.);
+                            slope = right_flux/kd[j] - std::tan(slopep[index_right-nx-1]*numbers::PI/180.);
                           else
-                            slope = right_flux/kdd - std::tan(slopep[index_right-1]*numbers::PI/180.);
+                            slope = right_flux/kd[j] - std::tan(slopep[index_right-1]*numbers::PI/180.);
 
                           h[index_right] = h[index_right] + slope*2*dx;
                         }
@@ -808,7 +945,7 @@ namespace aspect
                         {
                           // First we assume that flow is going to the left.
                           int side = index_left;
-	                  int op_side = index_right;
+	                        int op_side = index_right;
 
                           // Indexing depending on which side the ghost node is being set to.
                           int jj = 1;
@@ -875,34 +1012,34 @@ namespace aspect
 
                       if (current_timestep == 1 || top_flux == 0)
                         {
-                          slope = top_flux/kdd;
+                          slope = top_flux/kd[j];
                           h[index_top] = h[index_top-nx] + slope*2*dx;
                         }
                       else
                         {
                           if (j == 0)
-                            slope = top_flux/kdd - std::tan(slopep[index_top-nx+1]*numbers::PI/180.);
+                            slope = top_flux/kd[j] - std::tan(slopep[index_top-nx+1]*numbers::PI/180.);
                           else if (j==(nx-1))
-                            slope = top_flux/kdd - std::tan(slopep[index_top-nx-1]*numbers::PI/180.);
+                            slope = top_flux/kd[j] - std::tan(slopep[index_top-nx-1]*numbers::PI/180.);
                           else
-                            slope = top_flux/kdd - std::tan(slopep[index_top-nx]*numbers::PI/180.);
+                            slope = top_flux/kd[j] - std::tan(slopep[index_top-nx]*numbers::PI/180.);
 
                           h[index_top] = h[index_top] + slope*2*dx;
                         }
 
                       if (current_timestep == 1 || bottom_flux == 0)
                         {
-                          slope = bottom_flux/kdd;
+                          slope = bottom_flux/kd[j];
                           h[index_bot] = h[index_bot+nx] + slope*2*dx;
                         }
                       else
                         {
                           if (j == 0)
-                            slope = bottom_flux/kdd - std::tan(slopep[index_bot+nx+1]*numbers::PI/180.);
+                            slope = bottom_flux/kd[j] - std::tan(slopep[index_bot+nx+1]*numbers::PI/180.);
                           else if (j==(nx-1))
-                            slope = bottom_flux/kdd - std::tan(slopep[index_bot+nx-1]*numbers::PI/180.);
+                            slope = bottom_flux/kd[j] - std::tan(slopep[index_bot+nx-1]*numbers::PI/180.);
                           else
-                            slope = bottom_flux/kdd - std::tan(slopep[index_bot+nx]*numbers::PI/180.);
+                            slope = bottom_flux/kd[j] - std::tan(slopep[index_bot+nx]*numbers::PI/180.);
 
                           h[index_bot] = h[index_bot] + slope*2*dx;
                         }
@@ -947,6 +1084,24 @@ namespace aspect
                           vy[op_side-jj] = vy[side+jj];
                         }
                     }    
+    }
+
+    template <int dim>
+    bool FastScape<dim>::is_ghost_node(const unsigned int &index,
+                                       const bool &exclude_boundaries) const
+    {
+      if (use_ghost == false && exclude_boundaries == false)
+        return false;
+
+      const unsigned int row = index / nx; // Calculate the row index
+      const unsigned int col = index % nx; // Calculate the column index
+
+      // If we are at a boundary node and ghost nodes are enabled
+      // or we are excluding the boundaries then return true.
+      if (row == 0 || row == ny-1 || col == 0 || col == nx-1)
+        return true;
+      else
+        return false;
     }
 
     // TODO: Give better explanations of variables and cite the fastscape documentation.
@@ -1014,8 +1169,12 @@ namespace aspect
           prm.declare_entry ("Sediment rain intervals", "0",
                              Patterns::List (Patterns::Double(0)),
                              "A list of sediment rain times.");
-
-
+          prm.declare_entry ("Additional output variables", "river incision rate",
+                             Patterns::Selection("river incision rate|deposition coefficient|uplift rate"),
+                             "Select one type of Fastscape variable as output in Fastcape vtk."
+                             "Output are in units of per year. "
+                            );
+          
           prm.enter_subsection ("Boundary conditions");
           {
             prm.declare_entry ("Bottom", "1",
@@ -1063,14 +1222,14 @@ namespace aspect
             prm.declare_entry("Sediment deposition coefficient", "-1",
                               Patterns::Double(),
                               "Deposition coefficient for sediment");
-            prm.declare_entry("Bedrock river incision rate", "-1",
-                              Patterns::Double(),
+            prm.declare_entry("Bedrock river incision rate", "1e-5",
+                              Patterns::List(Patterns::Double(0.)),
                               "River incision rate for bedrock");
             prm.declare_entry("Sediment river incision rate", "-1",
                               Patterns::Double(),
                               "River incision rate for sediment ");
-            prm.declare_entry("Bedrock diffusivity", "1",
-                              Patterns::Double(),
+            prm.declare_entry("Bedrock diffusivity", "1e-2",
+                              Patterns::List(Patterns::Double(0.)),
                               "Diffusivity of bedrock.");
             prm.declare_entry("Sediment diffusivity", "-1",
                               Patterns::Double(),
@@ -1147,8 +1306,20 @@ namespace aspect
           sr_times = Utilities::string_to_double
                              (Utilities::split_string_list(prm.get ("Sediment rain intervals")));
 
-              if (sr_values.size() != sr_times.size()+1)
-                  AssertThrow(false, ExcMessage("Error: There must be one more sediment rain value than interval."));
+          if (sr_values.size() != sr_times.size()+1)
+              AssertThrow(false, ExcMessage("Error: There must be one more sediment rain value than interval."));
+          
+          // Set up Fastscape vtu output parameters
+          const std::string output_choice = prm.get("Additional output variables");
+
+          if (output_choice == "river incision rate")
+            additional_output_variables = kf_output;
+          else if (output_choice == "deposition coefficient")
+            additional_output_variables = kd_output;
+          else if (output_choice == "uplift rate")
+            additional_output_variables = uplift_rate;
+          else
+            AssertThrow(false, ExcMessage("Not a valid Fastscape field."));
 
 
           prm.enter_subsection("Boundary conditions");
@@ -1173,12 +1344,27 @@ namespace aspect
 
           prm.enter_subsection("Erosional parameters");
           {
+            const unsigned int n_fields = this->n_compositional_fields() + 1;
+            const std::vector<std::string> list_of_composition_names = this->introspection().get_composition_names();
             m = prm.get_double("Drainage area exponent");
             n = prm.get_double("Slope exponent");
             kfsed = prm.get_double("Sediment river incision rate");
-            kff = prm.get_double("Bedrock river incision rate");
+            // kff = prm.get_double("Bedrock river incision rate");
+            kff = Utilities::possibly_extend_from_1_to_N (Utilities::string_to_double(Utilities::split_string_list(prm.get("Bedrock river incision rate"))),
+                                                          n_fields,
+                                                          "Bedrock river incision rate");
             kdsed = prm.get_double("Sediment diffusivity");
-            kdd = prm.get_double("Bedrock diffusivity");
+            // kdd = prm.get_double("Bedrock diffusivity");
+            kdd = Utilities::possibly_extend_from_1_to_N (Utilities::string_to_double(Utilities::split_string_list(prm.get("Bedrock diffusivity"))),
+                                                          n_fields,
+                                                          "Bedrock diffusivity");
+            std::cout << "bedrock_diffusivity is: ";
+            for (unsigned int i=0; i<list_of_composition_names.size(); i++)
+              {
+                  std::cout<< list_of_composition_names[i] << ": " << kdd[i] << " ";
+              }
+            std::cout<<std::endl;
+
             g = prm.get_double("Bedrock deposition coefficient");
             gsed = prm.get_double("Sediment deposition coefficient");
             p = prm.get_double("Multi-direction slope exponent");

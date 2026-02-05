@@ -112,13 +112,34 @@ namespace aspect
        */
       void parse_parameters (ParameterHandler &prm);
 
-        /**
-         * A function that fills the viscosity derivatives in the
-         * MaterialModelOutputs object that is handed over, if they exist.
-         * Does nothing otherwise.
-         */
-        void set_ghost_nodes(double *h, double *vx, double *vy, double *vz, int nx, int ny) const;
+      /**
+       * Enumeration for selecting which type of additional output to use in Fastscape vtk.
+       * Select between Fastscape variables.
+       */
+      enum Fastscape_output_scheme
+      {
+        //
+        kf_output,
+        kd_output,
+        uplift_rate
+      };
+      Fastscape_output_scheme additional_output_variables;
 
+      mutable std::vector<double> additional_output_field;
+
+      /**
+       * A function that fills the viscosity derivatives in the
+       * MaterialModelOutputs object that is handed over, if they exist.
+       * Does nothing otherwise.
+       */
+      void set_ghost_nodes(double *h, double *vx, double *vy, double *vz, double *kd, int nx, int ny) const;
+    
+      /**
+       * Function to determine whether the current index is a ghost node
+       */
+      bool is_ghost_node(const unsigned int &index,
+                         const bool &exclude_boundaries) const;
+                        
     private:
       // Number of FastScape steps per ASPECT timestep.
       int nstep;
@@ -204,11 +225,11 @@ namespace aspect
       // Sediment deposition coefficient.
       double gsed;
       // Bedrock river incision rate for SPL.
-      double kff;
+      std::vector<double> kff;
       // Sediment river incision rate.
       double kfsed;
       // Bedrock transport coefficient (diffusivity).
-      double kdd;
+      std::vector<double> kdd;
       // Sediment transport coefficient.
       double kdsed;
 
