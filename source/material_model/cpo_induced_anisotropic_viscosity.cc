@@ -31,6 +31,11 @@
 #include <deal.II/lac/lapack_full_matrix.h>
 #include <deal.II/lac/lapack_templates.h>
 #include <deal.II/lac/scalapack.h>
+#include <deal.II/base/process_grid.h>
+
+#  include <deal.II/base/array_view.h>
+#  include <deal.II/base/mpi.h>
+#  include <deal.II/base/mpi.templates.h>
 
 #include <deal.II/physics/notation.h>
 #include <iostream>
