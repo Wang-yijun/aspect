@@ -26,7 +26,14 @@
 #include <aspect/simulator_signals.h>
 
 #include <deal.II/lac/lapack_full_matrix.h>
+
+#include <deal.II/lac/full_matrix.h>
+#include <deal.II/lac/lapack_full_matrix.h>
+#include <deal.II/lac/lapack_templates.h>
+#include <deal.II/lac/scalapack.h>
+
 #include <deal.II/physics/notation.h>
+#include <iostream>
 
 namespace aspect
 {
@@ -191,7 +198,7 @@ namespace aspect
             {
               // Create constant value to use for AV
               const double A_o = 1.1e5*std::exp(-530000/(8.314*in.temperature[q]));
-              const double n = 3.5;
+              const double n = 3; // n=3 for VPSC, n=3.5 for MDM+AV
               // The values of A_o and 0.73 were picked so that Gamma = 3.5322e-15[1/(s*Pa^n)] if T=1600K and d=1000 microns
               const double Gamma = (A_o/(std::pow(grain_size,0.73)));
 
@@ -267,15 +274,15 @@ namespace aspect
               R_CPO_K[5][5] = R[0][0]*R[1][1]+R[0][1]*R[1][0];
 
               SymmetricTensor<2,6> A;
-              A[0][0] = 2.0/3.0*(F+H);
-              A[0][1] = 2.0/3.0*(-F);
-              A[0][2] = 2.0/3.0*(-H);
-              A[1][1] = 2.0/3.0*(G+F);
-              A[1][2] = 2.0/3.0*(-G);
-              A[2][2] = 2.0/3.0*(H+G);
-              A[3][3] = 2.0/3.0*L;
-              A[4][4] = 2.0/3.0*M;
-              A[5][5] = 2.0/3.0*N;
+              A[0][0] = (G+H);
+              A[0][1] = (-H);
+              A[0][2] = (-G);
+              A[1][1] = (H+F);
+              A[1][2] = (-F);
+              A[2][2] = (F+G);
+              A[3][3] = (L);
+              A[4][4] = (M);
+              A[5][5] = (N);
 
               // A is the anisotropic tensor for the fluidity. We need its inverse, but it's not invertible due to singularity.
               // Thus we compute the Moore-Penrose pseudo inverse using SVD
@@ -297,6 +304,33 @@ namespace aspect
                       invA[ai][aj] = pinvA_mat_lapack(ai,aj);
                     }
                 }
+
+              // //Invert using ScaLAPACK in dealii
+              // FullMatrix<double> A_mat(6, 6);
+              // for (unsigned int ai=0; ai<6; ++ai)
+              //   {
+              //     for (unsigned int aj=0; aj<6; ++aj)
+              //       {
+              //         A_mat(ai,aj) = A[ai][aj];
+              //       }
+              //   }
+              // const double ratio = 1e-8;
+              // std::shared_ptr<Utilities::MPI::ProcessGrid> grid = std::make_shared<Utilities::MPI::ProcessGrid>(this->get_mpi_communicator(),6,6,4,4);
+              // ScaLAPACKMatrix<double> A_scalapack(6,6,grid,4,4);
+              // A_scalapack = A_mat;
+              // A_scalapack.pseudoinverse(ratio);
+              // FullMatrix<double> pinvA_mat(6,6);
+              // A_scalapack.copy_to(pinvA_mat);
+
+              // SymmetricTensor<2,6> invA;
+              // for (unsigned int ai=0; ai<6; ++ai)
+              //   {
+              //     for (unsigned int aj=0; aj<6; ++aj)
+              //       {
+              //         invA[ai][aj] = pinvA_mat(ai,aj);
+              //       }
+              //   }
+              // // std::cout << "invA " << invA <<std::endl;
 
               // Calculate the fluidity tensor in the CPO frame
               const Tensor<2,6> V = R_CPO_K * invA * transpose(R_CPO_K);
@@ -340,26 +374,32 @@ namespace aspect
 
                   const Tensor<2,dim> S_CPO= R_T * stress * R;
 
-                  double Jhill = F*Utilities::fixed_power<2>(S_CPO[0][0]-S_CPO[1][1]) + G*Utilities::fixed_power<2>(S_CPO[1][1]-S_CPO[2][2]) + H*Utilities::fixed_power<2>(S_CPO[2][2]-S_CPO[0][0]) + 2*L*Utilities::fixed_power<2>(S_CPO[1][2]) + 2*M*Utilities::fixed_power<2>(S_CPO[0][2]) + 2*N*Utilities::fixed_power<2>(S_CPO[0][1]);
+                  double Jhill = (F*Utilities::fixed_power<2>(S_CPO[1][1]-S_CPO[2][2]) + G*Utilities::fixed_power<2>(S_CPO[2][2]-S_CPO[0][0]) + H*Utilities::fixed_power<2>(S_CPO[0][0]-S_CPO[1][1]) + 2*L*Utilities::fixed_power<2>(S_CPO[1][2]) + 2*M*Utilities::fixed_power<2>(S_CPO[0][2]) + 2*N*Utilities::fixed_power<2>(S_CPO[0][1]));
                   if (Jhill < 0)
                     {
-                      Jhill = std::abs(F)*Utilities::fixed_power<2>(S_CPO[0][0]-S_CPO[1][1]) + std::abs(G)*Utilities::fixed_power<2>(S_CPO[1][1]-S_CPO[2][2]) + std::abs(H)*Utilities::fixed_power<2>(S_CPO[2][2]-S_CPO[0][0]) + 2*L*Utilities::fixed_power<2>(S_CPO[1][2]) + 2*M*Utilities::fixed_power<2>(S_CPO[0][2]) + 2*N*Utilities::fixed_power<2>(S_CPO[0][1]);
+                      Jhill = (std::abs(F)*Utilities::fixed_power<2>(S_CPO[1][1]-S_CPO[2][2]) + std::abs(G)*Utilities::fixed_power<2>(S_CPO[2][2]-S_CPO[0][0]) + std::abs(H)*Utilities::fixed_power<2>(S_CPO[0][0]-S_CPO[1][1]) + 2*L*Utilities::fixed_power<2>(S_CPO[1][2]) + 2*M*Utilities::fixed_power<2>(S_CPO[0][2]) + 2*N*Utilities::fixed_power<2>(S_CPO[0][1]));
                     }
 
                   AssertThrow(std::isfinite(Jhill),
                               ExcMessage("Jhill should be finite"));
                   AssertThrow(Jhill >= 0,
                               ExcMessage("Jhill should not be negative"));
-
-                  const double scalar_viscosity_new = (1 / (Gamma * std::pow(Jhill,(n-1)/2)));
+                  
+                  const double scalar_viscosity_new = (1 / ((2./3.) * Gamma * (1./numbers::SQRT2) * std::pow(Jhill,(n-1)/2)));
                   residual = std::abs(scalar_viscosity_new - scalar_viscosity);
                   scalar_viscosity = scalar_viscosity_new;
                   threshold = 0.001*scalar_viscosity;
                   n_iterations++;
+                  // std::cout << "scalar_viscosity: " << scalar_viscosity << std::endl;
+                  // std::cout << "Gamma: " << Gamma << std::endl;
+                  // std::cout << "1./numbers::SQRT2: " << 1./numbers::SQRT2 << std::endl;
+                  // std::cout << "std::pow(Jhill,(n-1)/2): " << std::pow(Jhill,(n-1)/2) << std::endl;
+                  // std::cout << "(2./3. * Gamma * 1./numbers::SQRT2 * std::pow(Jhill,(n-1)/2))" << (2./3. * Gamma * 1./numbers::SQRT2 * std::pow(Jhill,(n-1)/2)) << std::endl;
 
                 }
               // Store the scalar viscosity in out.viscosities
               out.viscosities[q] = scalar_viscosity;
+              
 
               AssertThrow(std::isfinite(out.viscosities[q]),
                           ExcMessage("Viscosity should be finite"));
