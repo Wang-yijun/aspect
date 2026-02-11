@@ -203,7 +203,7 @@ namespace aspect
             {
               // Create constant value to use for AV
               const double A_o = 1.1e5*std::exp(-530000/(8.314*in.temperature[q]));
-              const double n = 3; // n=3 for VPSC, n=3.5 for MDM+AV
+              const double n = 3.5; // n=3 for VPSC, n=3.5 for MDM+AV
               // The values of A_o and 0.73 were picked so that Gamma = 3.5322e-15[1/(s*Pa^n)] if T=1600K and d=1000 microns
               const double Gamma = (A_o/(std::pow(grain_size,0.73)));
 
@@ -227,7 +227,7 @@ namespace aspect
               const Tensor<2,3> R = transpose(euler_angles_to_rotation_matrix(phi1, theta, phi2));
 
               // Compute Hill Parameters FGHLMN from the eigenvalues of a,b,c axis
-              // CPO2Hill v5 model:
+              // CPO2Hill v3 model:
               const double F = Utilities::fixed_power<2>(eigvalue_a1)*CnI_F[0] + eigvalue_a1*CnI_F[1] + eigvalue_a2*CnI_F[2] + (1/eigvalue_a3)*CnI_F[3] + Utilities::fixed_power<2>(eigvalue_b1)*CnI_F[4] + eigvalue_b1*CnI_F[5] + eigvalue_b2*CnI_F[6] + (1/eigvalue_b3)*CnI_F[7] + Utilities::fixed_power<2>(eigvalue_c1)*CnI_F[8] + eigvalue_c1*CnI_F[9] + eigvalue_c2*CnI_F[10] + (1/eigvalue_c3)*CnI_F[11] + CnI_F[12];
               const double G = Utilities::fixed_power<2>(eigvalue_a1)*CnI_G[0] + eigvalue_a1*CnI_G[1] + eigvalue_a2*CnI_G[2] + (1/eigvalue_a3)*CnI_G[3] + Utilities::fixed_power<2>(eigvalue_b1)*CnI_G[4] + eigvalue_b1*CnI_G[5] + eigvalue_b2*CnI_G[6] + (1/eigvalue_b3)*CnI_G[7] + Utilities::fixed_power<2>(eigvalue_c1)*CnI_G[8] + eigvalue_c1*CnI_G[9] + eigvalue_c2*CnI_G[10] + (1/eigvalue_c3)*CnI_G[11] + CnI_G[12];
               const double H = Utilities::fixed_power<2>(eigvalue_a1)*CnI_H[0] + eigvalue_a1*CnI_H[1] + eigvalue_a2*CnI_H[2] + (1/eigvalue_a3)*CnI_H[3] + Utilities::fixed_power<2>(eigvalue_b1)*CnI_H[4] + eigvalue_b1*CnI_H[5] + eigvalue_b2*CnI_H[6] + (1/eigvalue_b3)*CnI_H[7] + Utilities::fixed_power<2>(eigvalue_c1)*CnI_H[8] + eigvalue_c1*CnI_H[9] + eigvalue_c2*CnI_H[10] + (1/eigvalue_c3)*CnI_H[11] + CnI_H[12];
@@ -310,33 +310,6 @@ namespace aspect
                     }
                 }
 
-              // //Invert using ScaLAPACK in dealii
-              // FullMatrix<double> A_mat(6, 6);
-              // for (unsigned int ai=0; ai<6; ++ai)
-              //   {
-              //     for (unsigned int aj=0; aj<6; ++aj)
-              //       {
-              //         A_mat(ai,aj) = A[ai][aj];
-              //       }
-              //   }
-              // const double ratio = 1e-8;
-              // std::shared_ptr<Utilities::MPI::ProcessGrid> grid = std::make_shared<Utilities::MPI::ProcessGrid>(this->get_mpi_communicator(),6,6,4,4);
-              // ScaLAPACKMatrix<double> A_scalapack(6,6,grid,4,4);
-              // A_scalapack = A_mat;
-              // A_scalapack.pseudoinverse(ratio);
-              // FullMatrix<double> pinvA_mat(6,6);
-              // A_scalapack.copy_to(pinvA_mat);
-
-              // SymmetricTensor<2,6> invA;
-              // for (unsigned int ai=0; ai<6; ++ai)
-              //   {
-              //     for (unsigned int aj=0; aj<6; ++aj)
-              //       {
-              //         invA[ai][aj] = pinvA_mat(ai,aj);
-              //       }
-              //   }
-              // // std::cout << "invA " << invA <<std::endl;
-
               // Calculate the fluidity tensor in the CPO frame
               const Tensor<2,6> V = R_CPO_K * invA * transpose(R_CPO_K);
 
@@ -375,7 +348,7 @@ namespace aspect
               const Tensor<2,dim> R_T = transpose(R);
               while (std::abs(residual) > threshold && n_iterations < max_iteration)
                 {
-                  stress = (1./2.) * (stress + 2*scalar_viscosity * V_r4 * deviatoric_strain_rate / 1e6);
+                  stress = (1./2.) * (stress + 2 * scalar_viscosity * V_r4 * deviatoric_strain_rate / 1e6);
 
                   const Tensor<2,dim> S_CPO= R_T * stress * R;
 
@@ -395,12 +368,6 @@ namespace aspect
                   scalar_viscosity = scalar_viscosity_new;
                   threshold = 0.001*scalar_viscosity;
                   n_iterations++;
-                  // std::cout << "scalar_viscosity: " << scalar_viscosity << std::endl;
-                  // std::cout << "Gamma: " << Gamma << std::endl;
-                  // std::cout << "1./numbers::SQRT2: " << 1./numbers::SQRT2 << std::endl;
-                  // std::cout << "std::pow(Jhill,(n-1)/2): " << std::pow(Jhill,(n-1)/2) << std::endl;
-                  // std::cout << "(2./3. * Gamma * 1./numbers::SQRT2 * std::pow(Jhill,(n-1)/2))" << (2./3. * Gamma * 1./numbers::SQRT2 * std::pow(Jhill,(n-1)/2)) << std::endl;
-
                 }
               // Store the scalar viscosity in out.viscosities
               out.viscosities[q] = scalar_viscosity;
