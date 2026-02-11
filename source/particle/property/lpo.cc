@@ -1565,7 +1565,7 @@ namespace aspect
                                  "same amount of MPI processes. It is implemented as final seed = "
                                  "user seed + MPI Rank. ");
 
-              prm.declare_entry ("Number of grains per praticle", "50",
+              prm.declare_entry ("Number of grains per praticle", "500",
                                  Patterns::Integer (0),
                                  "The number of grains of olivine and the number of grain of enstatite "
                                  "each particle contains.");

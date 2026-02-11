@@ -55,9 +55,14 @@ namespace aspect
     {
       // make sure a thread that may still be running in the background,
       // writing data, finishes
-      background_thread_master.join ();
-      background_thread_content_raw.join ();
-      background_thread_content_draw_volume_weighting.join ();
+      if (background_thread_master.joinable())
+        background_thread_master.join ();
+
+      if (background_thread_content_raw.joinable())
+        background_thread_content_raw.join ();
+
+      if (background_thread_content_draw_volume_weighting.joinable())
+        background_thread_content_draw_volume_weighting.join ();
     }
 
     template <int dim>
@@ -482,8 +487,13 @@ namespace aspect
         {
           // Wait for all previous write operations to finish, should
           // any be still active,
-          background_thread_master.join ();
-
+          if (background_thread_master.joinable())
+            {
+              background_thread_master.join ();
+              std::cout<<"master joinable"<<std::endl;
+            }
+            
+          std::cout<<"master not joinable"<<std::endl;
           // then continue with writing the master file
           background_thread_master = std::thread (&writer,
                                                           filename_master,
@@ -495,8 +505,12 @@ namespace aspect
             {
               // Wait for all previous write operations to finish, should
               // any be still active,
-              background_thread_content_raw.join ();
-
+              if (background_thread_content_raw.joinable())
+                {
+                  std::cout<<"content raw joinable"<<std::endl;
+                  background_thread_content_raw.join ();
+                }
+              std::cout<<"content raw not joinable"<<std::endl;
               // then continue with writing our own data.
               background_thread_content_raw = std::thread (&writer,
                                                                    filename_raw,
@@ -509,8 +523,12 @@ namespace aspect
             {
               // Wait for all previous write operations to finish, should
               // any be still active,
-              background_thread_content_draw_volume_weighting.join ();
-
+              if (background_thread_content_draw_volume_weighting.joinable())
+                {
+                  std::cout<<"content draw volume weighting joinable"<<std::endl;
+                  background_thread_content_draw_volume_weighting.join ();
+                }
+              std::cout<<"content draw volume weighting not joinable"<<std::endl;
               // then continue with writing our own data.
               background_thread_content_draw_volume_weighting = std::thread (&writer,
                                                                                      filename_draw_volume_weighting,
