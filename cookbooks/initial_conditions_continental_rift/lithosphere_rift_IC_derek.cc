@@ -19,8 +19,8 @@
 */
 
 
-#include </home/bbkyijun/aspect/cookbooks/fault_analysis/include/comp/lithosphere_rift.h>
-#include </home/bbkyijun/aspect/cookbooks/fault_analysis/include/temp/lithosphere_rift.h>
+#include "lithosphere_rift_IC_derek.h"
+#include "lithosphere_rift_IT_derek.h"
 #include <aspect/geometry_model/box.h>
 #include <aspect/utilities.h>
 

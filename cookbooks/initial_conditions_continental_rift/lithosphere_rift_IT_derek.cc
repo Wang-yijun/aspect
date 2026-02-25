@@ -19,8 +19,8 @@
 */
 
 
-#include </home/bbkyijun/aspect/cookbooks/fault_analysis/include/comp/lithosphere_rift.h>
-#include </home/bbkyijun/aspect/cookbooks/fault_analysis/include/temp/lithosphere_rift.h>
+#include "lithosphere_rift_IC_derek.h"
+#include "lithosphere_rift_IT_derek.h"
 #include <aspect/utilities.h>
 #include <aspect/geometry_model/box.h>
 #include <aspect/boundary_temperature/interface.h>
@@ -53,12 +53,6 @@ namespace aspect
       //AssertThrow((dynamic_cast<MaterialModel::ViscoPlasticStrain<dim> *> (const_cast<MaterialModel::Interface<dim> *>(&this->get_material_model()))) != 0,
       AssertThrow((dynamic_cast<MaterialModel::ViscoPlastic<dim> *> (const_cast<MaterialModel::Interface<dim> *>(&this->get_material_model()))) != 0,
                   ExcMessage("The lithosphere with rift initial temperature plugin requires the viscoplastic material model plugin."));
-      
-      // The simulator only keeps the initial conditions around for
-      // the first time step. As a consequence, we have to save a
-      // shared pointer to that object ourselves the first time we get here.
-      if (initial_composition_manager == nullptr)
-        initial_composition_manager = this->get_initial_composition_manager_pointer();
     }
 
 
@@ -76,9 +70,7 @@ namespace aspect
       double distance_to_rift_axis = 1e23;
       Point<dim-1> surface_position;
       std::pair<double, unsigned int> distance_to_L_polygon;
-
-      const std::list<std::unique_ptr<InitialComposition::Interface<dim> > > & initial_composition_objects = initial_composition_manager->get_active_initial_composition_conditions();
-      
+      const std::list<std::unique_ptr<InitialComposition::Interface<dim> > > & initial_composition_objects = this->get_initial_composition_manager().get_active_initial_composition_conditions();
       for (typename std::list<std::unique_ptr<InitialComposition::Interface<dim> > >::const_iterator it = initial_composition_objects.begin(); it != initial_composition_objects.end(); ++it)
         if ( InitialComposition::LithosphereRift<dim> *ic = dynamic_cast<InitialComposition::LithosphereRift<dim> *> ((*it).get()))
           {

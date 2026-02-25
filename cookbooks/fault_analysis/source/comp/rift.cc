@@ -19,7 +19,7 @@
  */
 
 
-#include </scratch/projects/bbp00039/bbkyijun/derek_plugins/include/comp/rift.h>
+#include </home/bbkyijun/aspect/cookbooks/fault_analysis/include/comp/rift.h>
 #include <aspect/postprocess/interface.h>
 #include <aspect/geometry_model/box.h>
 #include <aspect/geometry_model/chunk.h>

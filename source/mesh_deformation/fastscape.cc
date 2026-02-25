@@ -332,17 +332,18 @@ namespace aspect
           fastscape_iterations *= 2;
           fastscape_timestep_in_years *= 0.5;
         }
-
+      // std::cout<<"In compute velocity constraints flag 1"<<std::endl;
       // Vector to hold the velocities that represent the change to the surface.
       const unsigned int fastscape_array_size = fastscape_nx*fastscape_ny;
       std::vector<double> mesh_velocity_z(fastscape_array_size);
-
+      
       // FastScape requires multiple specially defined and ordered variables sent to its functions. To make
       // the transfer of these down to one process easier, we first fill out a vector of local_aspect_values,
       // then when we get down to one process we use these local_aspect_values to fill the double arrays
       // in the order needed for FastScape.
+      // std::cout<<"In compute velocity constraints flag 2"<<std::endl;
       std::vector<std::vector<double>> local_aspect_values = get_aspect_values();
-
+      
       // Run FastScape on single process.
       if (Utilities::MPI::this_mpi_process(this->get_mpi_communicator()) == 0)
         {
@@ -664,7 +665,6 @@ namespace aspect
       // std::cout<<"this->n_compositional_fields()+1: "<<this->n_compositional_fields()+1<<std::endl;
       AssertThrow(n_chemical_composition_fields <= this->n_compositional_fields(),
                   ExcMessage("n_chemical_composition_fields exceeds n_compositional_fields."));
-
       const types::boundary_id relevant_boundary = this->get_geometry_model().translate_symbolic_boundary_name_to_id ("top");
       std::vector<std::vector<double>> local_aspect_values(dim+4, std::vector<double>());
 
@@ -697,12 +697,26 @@ namespace aspect
                 // composition_values.reserve(n_chemical_composition_fields);
                 // std::cout<<"n_chemical_composition_fields: "<<n_chemical_composition_fields<<std::endl;
                 double volume_fraction_sum = 0.0;
+                // std::cout<<"In get aspect values flag 2"<<std::endl;
+                // // const auto &extractors = this->introspection().extractors.compositional_fields;
+                // std::cout << "n_chemical_composition_fields = "
+                //           << n_chemical_composition_fields << std::endl;
+
+                // std::cout << "extractors.compositional_fields.size() = "
+                //           << this->introspection().extractors.compositional_fields.size()
+                //           << std::endl;
                 for (unsigned int c=0; c<n_chemical_composition_fields; ++c)
                   {
                     this->introspection().extractors.compositional_fields[c];
-                    // std::cout<<"Getting values for compositional field[c] "<<std::endl;
+                    // std::cout<<"Getting values for compositional field[c]: "<<c<<std::endl;
+
+                    // fe_face_values[extractors[c]].get_function_values(this->get_solution(),composition_values_array[c]);
                     fe_face_values[this->introspection().extractors.compositional_fields[c]].get_function_values(this->get_solution(), composition_values_array[c]);
-                    
+                    AssertThrow(c < composition_values_array.size(),
+                                ExcMessage("composition_values_array too small"));
+                    AssertThrow(composition_values_array[c].size() > 0,
+                                ExcMessage("composition_values_array[c] empty"));
+
                     // std::cout<<"get values successful for compositional field "<<c<<std::endl;
                     // std::cout<<"composition_values_array.size(): "<<composition_values_array.size()<<std::endl;
                     // std::cout<<"composition_values_array[c].size(): "<<composition_values_array[c].size()<<std::endl;
@@ -720,7 +734,7 @@ namespace aspect
                 // 24 * 24 ?
                 // std::cout<<"sizeof(composition_values): "<<sizeof(composition_values)<<std::endl;
                 // std::cout<<"sizeof(composition_values[0]): "<<sizeof(composition_values[0])<<std::endl;
-
+                // std::cout<<"In get aspect values flag 3"<<std::endl;
                 for (unsigned int corner = 0; corner < face_corners.size(); ++corner)
                   {
                     const Point<dim> vertex = fe_face_values.quadrature_point(corner);
@@ -824,7 +838,7 @@ namespace aspect
       // std::cout<<"Size of bedrock_transport_coefficient_array: "<<bedrock_transport_coefficient_array.size()<<std::endl;
       // std::cout<<"Size of local_aspect_values[dim+2]: "<<local_aspect_values[dim+2].size()<<std::endl; //4160
       // std::cout<<"Size of local_aspect_values[2]: "<<local_aspect_values[2].size()<<std::endl;
-      
+      // std::cout<<"In fill fastscape array flag 1"<<std::endl;
       // Set time scaling factor based on time unit
       // This factor is use to scale the quantities when "Use years instead of seconds" in ASPECT is off.
       double time_scaling_factor = (this->convert_output_to_years() ? 1.0 : year_in_seconds);
@@ -843,10 +857,10 @@ namespace aspect
           else
             velocity_y[index] = local_aspect_values[3][i];
 
-          // bedrock_transport_coefficient_array[index] = time_scaling_factor * local_aspect_values[2+dim][i];
-          // bedrock_river_incision_rate_array[index] = time_scaling_factor *local_aspect_values[3+dim][i];
+          bedrock_river_incision_rate_array[index] = time_scaling_factor * local_aspect_values[2+dim][i];
+          bedrock_transport_coefficient_array[index] = time_scaling_factor *local_aspect_values[3+dim][i];
         }
-
+      // std::cout<<"In fill fastscape array flag 2"<<std::endl;
       for (unsigned int p=1; p<Utilities::MPI::n_mpi_processes(this->get_mpi_communicator()); ++p)
         {
           // First, find out the size of the array a process wants to send.
@@ -883,11 +897,11 @@ namespace aspect
               else
                 velocity_y[index] = local_aspect_values[3][i];
 
-              // bedrock_transport_coefficient_array[index] = time_scaling_factor * local_aspect_values[2+dim][i];
-              // bedrock_river_incision_rate_array[index] = time_scaling_factor *local_aspect_values[3+dim][i];
+              bedrock_river_incision_rate_array[index] = time_scaling_factor * local_aspect_values[2+dim][i];
+              bedrock_transport_coefficient_array[index] = time_scaling_factor *local_aspect_values[3+dim][i];
             }
         }
-      
+      // std::cout<<"In fill fastscape array flag 3"<<std::endl;
       bool fastscape_mesh_filled = true;
 
       std::vector<int> global_to_local(bedrock_transport_coefficient_array.size(),-1);
@@ -951,7 +965,11 @@ namespace aspect
           // If this is a boundary node that is a ghost node then ignore that it
           // has not filled yet as the ghost nodes haven't been set.
           if (elevation[i] == std::numeric_limits<double>::max() && !is_ghost_node(i,false))
-            fastscape_mesh_filled = false;
+            {
+              std::cout << "Missing elevation at FastScape index: "<< i << std::endl;
+              fastscape_mesh_filled = false;
+            }
+            
         }
       
 

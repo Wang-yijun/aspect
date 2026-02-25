@@ -19,8 +19,8 @@
 */
 
 
-#include </scratch/projects/bbp00039/bbkyijun/derek_plugins//include/geom/lithosphere_rift.h>
-#include </scratch/projects/bbp00039/bbkyijun/derek_plugins/include/comp/lithosphere_rift.h>
+#include </home/bbkyijun/aspect/cookbooks/fault_analysis/include/geom/lithosphere_rift.h>
+#include </home/bbkyijun/aspect/cookbooks/fault_analysis/include/comp/lithosphere_rift.h>
 #include <aspect/geometry_model/box.h>
 #include <aspect/gravity_model/interface.h>
 #include <aspect/utilities.h>
@@ -110,6 +110,21 @@ namespace aspect
     LithosphereRift<dim>::
     value (const Point<dim-1> &position) const
     {
+      // The simulator only keeps the initial conditions around for
+      // the first time step. As a consequence, we have to save a
+      // shared pointer to that object ourselves the first time we get
+      // here.
+      if (initial_composition_manager == nullptr)
+        const_cast<std::shared_ptr<const aspect::InitialComposition::Manager<dim>>&>(initial_composition_manager) = this->get_initial_composition_manager_pointer();
+
+      // Check that the required initial composition model is used
+      // We have to do it here instead of in initialize() because
+      // the names are not available upon initialization of the
+      // initial topography model yet.
+      const std::vector<std::string> active_initial_composition_models = initial_composition_manager->get_active_initial_composition_names();
+      AssertThrow(initial_composition_manager->template has_matching_initial_composition_model<const InitialComposition::LithosphereRift<dim>>(),
+                  ExcMessage("The 'lithosphere with rift' initial topography plugin requires the 'lithosphere with rift' initial composition plugin."));
+
       // When cartesian, position contains x(,y); when spherical, position contains lon(,lat) (in degrees);
       // Turn into a Point<dim-1>
       Point<dim-1> surface_position;
@@ -119,8 +134,12 @@ namespace aspect
       // Get the distance to the line segments along a path parallel to the surface
       double distance_to_rift_axis = 1e23;
       std::pair<double,unsigned int> distance_to_L_polygon;
-     // const std::list<std::unique_ptr<InitialComposition::Interface<dim> > > initial_composition_objects = this->get_initial_composition_manager().get_active_initial_composition_conditions();
-      const std::list<std::unique_ptr<InitialComposition::Interface<dim> > > & initial_composition_objects = this->get_initial_composition_manager().get_active_initial_composition_conditions();
+
+      // Get the initial composition plugin
+      // const InitialComposition::LithosphereRift<dim> &ic = initial_composition_manager->template get_matching_initial_composition_model<const InitialComposition::LithosphereRift<dim>>();
+      // std::cout<<"Before it breaks? "<<std::endl;
+      const std::list<std::unique_ptr<InitialComposition::Interface<dim> > > & initial_composition_objects = initial_composition_manager->get_active_initial_composition_conditions();
+      // std::cout<<"initial composition got "<<std::endl;
       for (typename std::list<std::unique_ptr<InitialComposition::Interface<dim> > >::const_iterator it = initial_composition_objects.begin(); it != initial_composition_objects.end(); ++it)
         if ( InitialComposition::LithosphereRift<dim> *ic = dynamic_cast<InitialComposition::LithosphereRift<dim> *> ((*it).get()))
           {

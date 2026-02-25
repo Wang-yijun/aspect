@@ -23,6 +23,7 @@
 #define _aspect_geometry_model__initial_topography_lithosphere_rift_h
 
 #include <aspect/geometry_model/initial_topography_model/interface.h>
+#include <aspect/initial_composition/interface.h>
 
 
 namespace aspect
@@ -143,6 +144,14 @@ namespace aspect
          * The maximum topography in this model
          */
         double maximum_topography;
+
+        /**
+         * A shared pointer to the initial composition object
+         * that ensures that the current object can continue
+         * to access the initial composition object beyond the
+         * first time step.
+         */
+        std::shared_ptr<const aspect::InitialComposition::Manager<dim>> initial_composition_manager;
 
     };
   }

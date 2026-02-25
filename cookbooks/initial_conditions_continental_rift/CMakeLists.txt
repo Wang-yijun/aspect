@@ -40,5 +40,7 @@ lithosphere_rift_IC.cc
 lithosphere_rift_IT_2.cc
 lithosphere_rift_topo.cc
 rift_box_initial_plastic_strain.cc
+# lithosphere_rift_IT_derek.cc
+# lithosphere_rift_IC_derek.cc
 )
 ASPECT_SETUP_PLUGIN(${TARGET})
