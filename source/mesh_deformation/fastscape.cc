@@ -147,8 +147,7 @@ namespace aspect
        * Create a .VTK file for the FastScape surface within the FastScape folder of the
        * ASPECT output folder.
        */
-      void fastscape_named_vtk_(double *fp,
-                                double *additional_outputs,
+      void fastscape_named_vtk_(double *additional_outputs,
                                 unsigned int *n_additional_outputs,
                                 int *ids,
                                 const double *vexp,
@@ -562,7 +561,6 @@ namespace aspect
 
           // Find timestep size, run FastScape, and make visualizations.
           execute_fastscape(elevation,
-                            bedrock_river_incision_rate_array,  // corresponds to FastScape's 'HHHHH' argument
                             velocity_x,
                             velocity_y,
                             velocity_z,
@@ -895,7 +893,6 @@ namespace aspect
 
     template <int dim>
     void FastScape<dim>::execute_fastscape(std::vector<double> &elevation,
-                                           std::vector<double> &extra_vtk_field,
                                            std::vector<double> &velocity_x,
                                            std::vector<double> &velocity_y,
                                            std::vector<double> &velocity_z,
@@ -930,8 +927,7 @@ namespace aspect
             // FastScape by default visualizes a field called HHHHH,
             // and the parameter this shows will be whatever is given as the first
             // position. At the moment it visualizes the bedrock diffusivity.
-            fastscape_named_vtk_(extra_vtk_field.data(),
-                                 additional_output_fields_flattened.data(),
+            fastscape_named_vtk_(additional_output_fields_flattened.data(),
                                  &n_outputs,
                                  additional_output_variable_ids.data(),
                                  &vexp,
@@ -939,7 +935,6 @@ namespace aspect
                                  dirname_char,
                                  &dirname_length);
 #else
-            (void)extra_vtk_field;
             (void)additional_output_fields_flattened;
             (void)n_outputs;
             (void)additional_output_variable_ids;
@@ -1013,8 +1008,7 @@ namespace aspect
             visualization_step = current_timestep;
             // Replace the default HHHHH field (bedrock river incision rate) with user specified field:
             // river incirion rate (combined_kf), deposition rate (combined_kd), or uplift rate.
-            fastscape_named_vtk_(extra_vtk_field.data(),
-                                 additional_output_fields_flattened.data(),
+            fastscape_named_vtk_(additional_output_fields_flattened.data(),
                                  &n_outputs,
                                  additional_output_variable_ids.data(),
                                  &vexp,
@@ -1022,7 +1016,6 @@ namespace aspect
                                  dirname_char,
                                  &dirname_length);
 #else
-            (void)extra_vtk_field;
             (void)additional_output_fields_flattened;
             (void)n_outputs;
             (void)additional_output_variable_ids;
