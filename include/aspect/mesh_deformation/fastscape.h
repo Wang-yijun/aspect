@@ -96,8 +96,8 @@ namespace aspect
           //
           kf,
           kd,
-          marine_kf,
-          marine_kd,
+          marine_sand_kd,
+          marine_silt_kd,
           uplift_rate
         };
         std::vector<FastscapeOutputVariable> additional_output_variables;

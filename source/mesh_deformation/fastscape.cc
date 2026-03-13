@@ -502,24 +502,24 @@ namespace aspect
                                              &sand_transport_coefficient,
                                              &silt_transport_coefficient);
 
-          // generate an array for marine sediment kf and kd for output purpose
-          std::vector<double> sediment_river_incision_rate_array(fastscape_array_size);
-          std::vector<double> sediment_transport_coefficient_array(fastscape_array_size);
-          for (unsigned int i = 0; i < fastscape_array_size; ++i)
-            {
-              sediment_river_incision_rate_array[i] = sediment_river_incision_rate;
-              sediment_transport_coefficient_array[i] = sediment_transport_coefficient;
-            }
+          // // generate an array for marine sediment kf and kd for output purpose
+          // std::vector<double> sediment_river_incision_rate_array(fastscape_array_size);
+          // std::vector<double> sediment_transport_coefficient_array(fastscape_array_size);
+          // for (unsigned int i = 0; i < fastscape_array_size; ++i)
+          //   {
+          //     sediment_river_incision_rate_array[i] = sediment_river_incision_rate;
+          //     sediment_transport_coefficient_array[i] = sediment_transport_coefficient;
+          //   }
 
           // select additional output for Fastscape vtu
           // the default output is kf.
           std::vector<std::vector<double>> additional_output_fields;
           additional_output_fields.clear();
-          additional_output_fields.resize(additional_output_variables.size());
+          additional_output_fields.resize(n_outputs);
           for (auto &v : additional_output_fields)
             v.resize(fastscape_array_size);
 
-          for (unsigned int k = 0; k < additional_output_variables.size(); ++k)
+          for (unsigned int k = 0; k < n_outputs; ++k)
             {
               switch (additional_output_variables[k])
               {
@@ -531,12 +531,12 @@ namespace aspect
                   additional_output_fields[k] = bedrock_transport_coefficient_array;
                   break;
 
-                case FastscapeOutputVariable::marine_kf:
-                  additional_output_fields[k] = sediment_river_incision_rate_array;
+                case FastscapeOutputVariable::marine_sand_kd:
+                  additional_output_fields[k] = std::vector<double>(fastscape_array_size, 0.0);
                   break;
 
-                case FastscapeOutputVariable::marine_kd:
-                  additional_output_fields[k] = sediment_transport_coefficient_array;
+                case FastscapeOutputVariable::marine_silt_kd:
+                  additional_output_fields[k] = std::vector<double>(fastscape_array_size, 0.0);
                   break;
 
                 case FastscapeOutputVariable::uplift_rate:
@@ -1792,6 +1792,7 @@ namespace aspect
     template <int dim>
     void FastScape<dim>::declare_parameters(ParameterHandler &prm)
     {
+      std::cout<< "Declaring FastScape plugin parameters: " << std::endl;
       prm.enter_subsection ("Mesh deformation");
       {
         prm.enter_subsection ("Fastscape");
@@ -1851,7 +1852,7 @@ namespace aspect
                             Patterns::Double(),
                             "Maximum topography change from the initial noise. Units: ${m}$");
           prm.declare_entry("Additional output variables", "bedrock river incision rate",
-                            Patterns::List (Patterns::Selection("bedrock river incision rate|bedrock deposition coefficient|marine sediment river incision rate|marine sediment deposition coefficient|uplift rate")),
+                            Patterns::List (Patterns::Selection("bedrock river incision rate|bedrock transport coefficient|marine sand transport coefficient|marine silt transport coefficient|uplift rate")),
                             "Select any number of additional Fastscape variables from river incision rate, deposition coefficient, "
                             "and uplift rate to outputs in the Fastcape vtk. "
                             "Output are in units of per year. "
@@ -2055,6 +2056,7 @@ namespace aspect
       {
         prm.enter_subsection("Fastscape");
         {
+          std::cout<< "Parsing FastScape plugin parameters: " << std::endl;
           fastscape_steps_per_aspect_step = prm.get_integer("Number of fastscape timesteps per aspect timestep");
           maximum_fastscape_timestep = prm.get_double("Maximum timestep length");
           vexp = prm.get_double("Vertical exaggeration");
@@ -2122,33 +2124,38 @@ namespace aspect
           std::vector<std::string> output_choices = Utilities::split_string_list
               (prm.get ("Additional output variables"));
           n_outputs = output_choices.size();
-
+          std::cout << "Additional FastScape output variables: " << std::endl;
           for (const std::string &choice_raw : output_choices)
             {
               const std::string choice = dealii::Utilities::trim(choice_raw);
 
               if (choice == "bedrock river incision rate")
                 {
+                  std::cout<< "Adding bedrock river incision rate to FastScape output." << std::endl;
                   additional_output_variables.push_back(FastscapeOutputVariable::kf);
                   additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::kf));
                 }
-              else if (choice == "bedrock deposition coefficient")
+              else if (choice == "bedrock transport coefficient")
                 {
+                  std::cout << "Adding bedrock transport coefficient to FastScape output." << std::endl;
                   additional_output_variables.push_back(FastscapeOutputVariable::kd);
                   additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::kd));
                 }
-              else if (choice == "marine sediment river incision rate")
+              else if (choice == "marine sand transport coefficient")
                 {
-                  additional_output_variables.push_back(FastscapeOutputVariable::marine_kf);
-                  additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::marine_kf));
+                  std::cout << "Adding marine sand transport coefficient to FastScape output." << std::endl;
+                  additional_output_variables.push_back(FastscapeOutputVariable::marine_sand_kd);
+                  additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::marine_sand_kd));
                 }
-              else if (choice == "marine sediment deposition coefficient")
+              else if (choice == "marine silt transport coefficient")
                 {
-                  additional_output_variables.push_back(FastscapeOutputVariable::marine_kd);
-                  additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::marine_kd));
+                  std::cout << "Adding marine silt transport coefficient to FastScape output." << std::endl;
+                  additional_output_variables.push_back(FastscapeOutputVariable::marine_silt_kd);
+                  additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::marine_silt_kd));
                 }
               else if (choice == "uplift rate")
                 {
+                  std::cout << "Adding uplift rate to FastScape output." << std::endl;
                   additional_output_variables.push_back(FastscapeOutputVariable::uplift_rate);
                   additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::uplift_rate));
                 }
