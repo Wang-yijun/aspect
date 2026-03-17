@@ -888,6 +888,7 @@ namespace aspect
               // Explicitly cast it back.
               const unsigned int index = local_aspect_values[1][i];
               elevation[index] = local_aspect_values[0][i];
+              // std::cout<<"elevation[index] at index: "<< index<<std::endl;
               velocity_x[index] = local_aspect_values[2][i];
               velocity_z[index] = local_aspect_values[dim+1][i];
 
@@ -966,7 +967,6 @@ namespace aspect
           // has not filled yet as the ghost nodes haven't been set.
           if (elevation[i] == std::numeric_limits<double>::max() && !is_ghost_node(i,false))
             {
-              std::cout << "Missing elevation at FastScape index: "<< i << std::endl;
               fastscape_mesh_filled = false;
             }
             
