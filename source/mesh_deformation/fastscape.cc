@@ -2056,12 +2056,11 @@ namespace aspect
       {
         prm.enter_subsection("Fastscape");
         {
-          std::cout<< "Parsing FastScape plugin parameters: " << std::endl;
           fastscape_steps_per_aspect_step = prm.get_integer("Number of fastscape timesteps per aspect timestep");
           maximum_fastscape_timestep = prm.get_double("Maximum timestep length");
           vexp = prm.get_double("Vertical exaggeration");
           additional_refinement_levels = prm.get_integer("Additional fastscape refinement");
-          average_out_of_plane_surface_topography = prm.get_bool("Average out of plane surface topography in 2d");
+          average_out_of_plane_surface_topography = prm.get_bool("Average out of plbbkane surface topography in 2d");
           fastscape_seed = prm.get_integer("Fastscape seed");
           maximum_surface_refinement_level = prm.get_integer("Maximum surface refinement level");
           surface_refinement_difference = prm.get_integer("Surface refinement difference");
@@ -2124,38 +2123,32 @@ namespace aspect
           std::vector<std::string> output_choices = Utilities::split_string_list
               (prm.get ("Additional output variables"));
           n_outputs = output_choices.size();
-          std::cout << "Additional FastScape output variables: " << std::endl;
           for (const std::string &choice_raw : output_choices)
             {
               const std::string choice = dealii::Utilities::trim(choice_raw);
 
               if (choice == "bedrock river incision rate")
                 {
-                  std::cout<< "Adding bedrock river incision rate to FastScape output." << std::endl;
                   additional_output_variables.push_back(FastscapeOutputVariable::kf);
                   additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::kf));
                 }
               else if (choice == "bedrock transport coefficient")
                 {
-                  std::cout << "Adding bedrock transport coefficient to FastScape output." << std::endl;
                   additional_output_variables.push_back(FastscapeOutputVariable::kd);
                   additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::kd));
                 }
               else if (choice == "marine sand transport coefficient")
                 {
-                  std::cout << "Adding marine sand transport coefficient to FastScape output." << std::endl;
                   additional_output_variables.push_back(FastscapeOutputVariable::marine_sand_kd);
                   additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::marine_sand_kd));
                 }
               else if (choice == "marine silt transport coefficient")
                 {
-                  std::cout << "Adding marine silt transport coefficient to FastScape output." << std::endl;
                   additional_output_variables.push_back(FastscapeOutputVariable::marine_silt_kd);
                   additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::marine_silt_kd));
                 }
               else if (choice == "uplift rate")
                 {
-                  std::cout << "Adding uplift rate to FastScape output." << std::endl;
                   additional_output_variables.push_back(FastscapeOutputVariable::uplift_rate);
                   additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::uplift_rate));
                 }
