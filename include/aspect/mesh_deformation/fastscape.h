@@ -151,6 +151,8 @@ namespace aspect
         void fill_fastscape_arrays(std::vector<double> &elevation,
                                    std::vector<double> &bedrock_transport_coefficient_array,
                                    std::vector<double> &bedrock_river_incision_rate_array,
+                                   std::vector<double> &sand_coefficient_array,
+                                   std::vector<double> &silt_coefficient_array,
                                    std::vector<double> &velocity_x,
                                    std::vector<double> &velocity_y,
                                    std::vector<double> &velocity_z,
@@ -598,14 +600,19 @@ namespace aspect
         double sand_silt_averaging_depth;
 
         /**
+         * Submarine diffusion decay coefficient for the exponential decay of the marine diffusion coefficient with depth. Units: 1/m.
+         */
+        double lamda_decay_coefficient;
+
+        /**
          * Sand marine transport coefficient. (marine diffusion, m^2/yr.)
          */
-        double sand_transport_coefficient;
+        std::vector<double> sand_transport_coefficient;
 
         /**
          * Silt marine transport coefficient. (marine diffusion, m^2/yr.)
          */
-        double silt_transport_coefficient;
+        std::vector<double> silt_transport_coefficient;
 
         /**
          * Flag to use the marine component of FastScape.
