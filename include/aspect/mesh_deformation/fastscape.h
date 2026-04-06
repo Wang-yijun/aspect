@@ -96,6 +96,8 @@ namespace aspect
           //
           kf,
           kd,
+          marine_sand_kd,
+          marine_silt_kd,
           uplift_rate
         };
         std::vector<FastscapeOutputVariable> additional_output_variables;
@@ -175,7 +177,6 @@ namespace aspect
          * Execute FastScape
          */
         void execute_fastscape(std::vector<double> &elevation,
-                               std::vector<double> &extra_vtk_field,
                                std::vector<double> &velocity_x,
                                std::vector<double> &velocity_y,
                                std::vector<double> &velocity_z,
