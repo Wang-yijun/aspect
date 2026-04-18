@@ -777,13 +777,15 @@ namespace aspect
                             double silt_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, silt_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
                             local_aspect_values[2+dim].push_back(bedrock_river_incision_rate_at_point);
                             local_aspect_values[3+dim].push_back(bedrock_transport_coefficient_at_point);
-                            if ((vertex(dim-1) - grid_extent[dim-1].second) >= current_sea_level)
+                            if ((vertex(dim-1) - grid_extent[dim-1].second) <= current_sea_level)
                               {
+                                // std::cout<<"Depth-dependent kd, sea level: "<<current_sea_level<<", elevation: "<<(vertex(dim-1) - grid_extent[dim-1].second)<<std::endl;
                                 local_aspect_values[4+dim].push_back(std::exp(-lamda_decay_coefficient * (current_sea_level - (vertex(dim-1) - grid_extent[dim-1].second))) *sand_transport_coefficient_at_point);
                                 local_aspect_values[5+dim].push_back(std::exp(-lamda_decay_coefficient * (current_sea_level - (vertex(dim-1) - grid_extent[dim-1].second))) *silt_transport_coefficient_at_point);
                               }
                             else
                               {
+                                // std::cout<<"Scalar kd, sea level: "<<current_sea_level<<", elevation: "<<(vertex(dim-1) - grid_extent[dim-1].second)<<std::endl;
                                 local_aspect_values[4+dim].push_back(sand_transport_coefficient_at_point);
                                 local_aspect_values[5+dim].push_back(silt_transport_coefficient_at_point);
                               }
@@ -818,13 +820,15 @@ namespace aspect
                         double silt_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, silt_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
                         local_aspect_values[2+dim].push_back(bedrock_river_incision_rate_at_point);
                         local_aspect_values[3+dim].push_back(bedrock_transport_coefficient_at_point);
-                        if ((vertex(dim-1) - grid_extent[dim-1].second) >= current_sea_level)
+                        if ((vertex(dim-1) - grid_extent[dim-1].second) <= current_sea_level)
                           {
+                            // std::cout<<"Depth-dependent kd, sea level: "<<current_sea_level<<", elevation: "<<(vertex(dim-1) - grid_extent[dim-1].second)<<std::endl;
                             local_aspect_values[4+dim].push_back(std::exp(-lamda_decay_coefficient * (current_sea_level - (vertex(dim-1) - grid_extent[dim-1].second))) *sand_transport_coefficient_at_point);
                             local_aspect_values[5+dim].push_back(std::exp(-lamda_decay_coefficient * (current_sea_level - (vertex(dim-1) - grid_extent[dim-1].second))) *silt_transport_coefficient_at_point);
                           }
                         else
                           {
+                            // std::cout<<"Scalar kd, sea level: "<<current_sea_level<<", elevation: "<<(vertex(dim-1) - grid_extent[dim-1].second)<<std::endl;
                             local_aspect_values[4+dim].push_back(sand_transport_coefficient_at_point);
                             local_aspect_values[5+dim].push_back(silt_transport_coefficient_at_point);
                           }
