@@ -195,14 +195,12 @@ namespace aspect
 
 
       // Retrieve the indices of the fields that represent the lithospheric layers.
-      AssertThrow(this->introspection().compositional_name_exists("upper_fast"),ExcMessage("We need a compositional field called 'upper_fast' representing the upper crust part, which is eroding fast."));
-      AssertThrow(this->introspection().compositional_name_exists("upper_slow"),ExcMessage("We need a compositional field called 'upper_slow' representing the upper crust part, which is eroding slowly."));
+      AssertThrow(this->introspection().compositional_name_exists("upper"),ExcMessage("We need a compositional field called 'upper' representing the upper crust."));
       AssertThrow(this->introspection().compositional_name_exists("lower"),ExcMessage("We need a compositional field called 'lower' representing the lower crust."));
       AssertThrow(this->introspection().compositional_name_exists("mantle_L"),ExcMessage("We need a compositional field called 'mantle_L' representing the lithospheric part of the mantle."));
 
       // For now, we assume a 3-layer system with an upper crust, lower crust and lithospheric mantle
-      const unsigned int id_upper_f = this->introspection().compositional_index_for_name("upper_fast");
-      const unsigned int id_upper_s = this->introspection().compositional_index_for_name("upper_slow");
+      const unsigned int id_upper = this->introspection().compositional_index_for_name("upper");
       const unsigned int id_lower = this->introspection().compositional_index_for_name("lower");
       const unsigned int id_mantle_L = this->introspection().compositional_index_for_name("mantle_L");
 
@@ -218,8 +216,7 @@ namespace aspect
                                                                n_fields+1,
                                                                "Compositional heating values");
           // This sets the heat productivity in W/m3 units
-          heat_productivities.push_back(temp_heat_productivities[id_upper_f+1]);
-          heat_productivities.push_back(temp_heat_productivities[id_upper_s+1]);
+          heat_productivities.push_back(temp_heat_productivities[id_upper+1]);
           heat_productivities.push_back(temp_heat_productivities[id_lower+1]);
           heat_productivities.push_back(temp_heat_productivities[id_mantle_L+1]);
         }
@@ -265,19 +262,17 @@ namespace aspect
                 }
             }
 
-          densities.push_back(densities_per_composition[id_upper_f+1][0]);
-          densities.push_back(densities_per_composition[id_upper_s+1][0]);
+          densities.push_back(densities_per_composition[id_upper+1][0]);
           densities.push_back(densities_per_composition[id_lower+1][0]);
           densities.push_back(densities_per_composition[id_mantle_L+1][0]);
 
           // Thermal diffusivity kappa = k/(rho*cp), so thermal conducitivity k = kappa*rho*cp
-          conductivities.push_back(temp_thermal_diffusivities[id_upper_f+1] * densities[0] * temp_heat_capacities[id_upper_f+1]);
-          conductivities.push_back(temp_thermal_diffusivities[id_upper_s+1] * densities[0] * temp_heat_capacities[id_upper_s+1]);
+          conductivities.push_back(temp_thermal_diffusivities[id_upper+1] * densities[0] * temp_heat_capacities[id_upper+1]);
           conductivities.push_back(temp_thermal_diffusivities[id_lower+1] * densities[1] * temp_heat_capacities[id_lower+1]);
           conductivities.push_back(temp_thermal_diffusivities[id_mantle_L+1] * densities[2] * temp_heat_capacities[id_mantle_L+1]);
 
           // To obtain the radioactive heating rate in W/kg, we divide the volumetric heating rate by density
-          AssertThrow(heat_productivities.size() == 4 && densities.size() == 4 && conductivities.size() == 4,
+          AssertThrow(heat_productivities.size() == 3 && densities.size() == 3 && conductivities.size() == 3,
                       ExcMessage("The entries for density, conductivity and heat production do not match with the expected number of layers (3)."));
 
           for (unsigned int i = 0; i<3; ++i)

@@ -48,8 +48,7 @@ namespace aspect
     {
       // Retrieve the indices of the fields that represent the lithospheric layers.
       // We assume a 3-layer system with an upper crust, lower crust and lithospheric mantle.
-      const unsigned int id_upper_f = this->introspection().compositional_index_for_name("upper_fast");
-      const unsigned int id_upper_s = this->introspection().compositional_index_for_name("upper_slow");
+      const unsigned int id_upper = this->introspection().compositional_index_for_name("upper");
       const unsigned int id_lower = this->introspection().compositional_index_for_name("lower");
       const unsigned int id_mantle_L = this->introspection().compositional_index_for_name("mantle_L");
 
@@ -65,13 +64,9 @@ namespace aspect
 
       // Get depth with respect to the surface.
       const double depth = this->get_geometry_model().depth(position);
-      const double x_coord = position(0);
 
       // Check which layer the current point lies in and return a value of 1 if the field corresponds to the layer.
-      // On the left side, material erodes faster; on the right side, material erodes more slowly.
-      if (depth <= local_thicknesses[0] && x_coord < 200e3 && compositional_index == id_upper_f)
-        return 1.;
-      else if (depth <= local_thicknesses[0] && x_coord >= 200e3 && compositional_index == id_upper_s)
+      if (depth <= local_thicknesses[0] && compositional_index == id_upper)
         return 1.;
       else if (depth > local_thicknesses[0] && depth <= local_thicknesses[0] + local_thicknesses[1]
                && compositional_index == id_lower)
@@ -243,9 +238,9 @@ namespace aspect
                             "The units of the coordinates are dependent on the geometry model. "
                             "In the box model they are in meters, in the chunks they are in degrees. Units: \\si{\\meter} or degrees.");
           prm.declare_entry("Lithospheric polygon layer thicknesses", "30000.",
-                            Patterns::List(Patterns::List(Patterns::Double(0), 0, 4, ","), 0, 10, ";"),
+                            Patterns::List(Patterns::List(Patterns::Double(0), 0, 3, ","), 0, 10, ";"),
                             "List of thicknesses of the lithospheric layers for each polygon."
-                            "For each polygon, a total of 4 thicknesses should be given (upper crust, lower crust, mantle lithosphere)."
+                            "For each polygon, a total of 3 thicknesses should be given (upper crust, lower crust, mantle lithosphere)."
                             "If only one value is given, then all layers are assigned the same value. Units: \\si{\\meter}");
         }
         prm.leave_subsection();
@@ -258,10 +253,8 @@ namespace aspect
     LithosphereRift<dim>::parse_parameters (ParameterHandler &prm)
     {
       // Check that the required compositional fields exist.
-      AssertThrow(this->introspection().compositional_name_exists("upper_fast"),
-                  ExcMessage("We need a compositional field called 'upper_fast' representing the upper crust part which erodes fast."));
-      AssertThrow(this->introspection().compositional_name_exists("upper_slow"),
-                  ExcMessage("We need a compositional field called 'upper_flow' representing the upper crust part which erodes slowly."));
+      AssertThrow(this->introspection().compositional_name_exists("upper"),
+                  ExcMessage("We need a compositional field called 'upper' representing the upper crust."));
       AssertThrow(this->introspection().compositional_name_exists("lower"),
                   ExcMessage("We need a compositional field called 'lower' representing the lower crust."));
       AssertThrow(this->introspection().compositional_name_exists("mantle_L"),
@@ -273,11 +266,11 @@ namespace aspect
         {
           sigma_rift             = prm.get_double ("Standard deviation of Gaussian rift geometry");
           A_rift                 = Utilities::possibly_extend_from_1_to_N(Utilities::string_to_double(Utilities::split_string_list(prm.get("Amplitude of Gaussian rift geometry"))),
-                                                                          4,
+                                                                          3,
                                                                           "Amplitude of Gaussian rift geometry");
           sigma_polygon          = prm.get_double ("Half width of polygon smoothing");
           reference_thicknesses  = Utilities::possibly_extend_from_1_to_N (Utilities::string_to_double(Utilities::split_string_list(prm.get("Layer thicknesses"))),
-                                                                           4,
+                                                                           3,
                                                                            "Layer thicknesses");
           // Read in the string of segments
           const std::string temp_all_segments = prm.get("Rift axis line segments");
@@ -345,8 +338,8 @@ namespace aspect
           for (unsigned int i_polygons = 0; i_polygons < n_polygons; ++i_polygons)
             {
               polygon_thicknesses[i_polygons] = Utilities::string_to_double(Utilities::split_string_list(temp_thicknesses[i_polygons],','));
-              AssertThrow(polygon_thicknesses[i_polygons].size() == 4,
-                          ExcMessage ("The number of layer thicknesses should be equal to 4 for polygon: " + Utilities::int_to_string(i_polygons) +
+              AssertThrow(polygon_thicknesses[i_polygons].size() == 3,
+                          ExcMessage ("The number of layer thicknesses should be equal to 3 for polygon: " + Utilities::int_to_string(i_polygons) +
                                       " but it is " + Utilities::int_to_string(polygon_thicknesses[i_polygons].size())));
 
               // Split the polygon string into point strings

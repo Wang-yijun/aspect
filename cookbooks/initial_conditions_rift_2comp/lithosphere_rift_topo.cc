@@ -39,8 +39,7 @@ namespace aspect
       // Assume the reference density is representative for each layer (despite temperature dependence)
 
       // For now, we assume a 3-layer system with an upper crust, lower crust and lithospheric mantle
-      const unsigned int id_upper_f = this->introspection().compositional_index_for_name("upper_fast");
-      const unsigned int id_upper_s = this->introspection().compositional_index_for_name("upper_slow");
+      const unsigned int id_upper = this->introspection().compositional_index_for_name("upper");
       const unsigned int id_lower = this->introspection().compositional_index_for_name("lower");
       const unsigned int id_mantle_L = this->introspection().compositional_index_for_name("mantle_L");
 
@@ -60,8 +59,7 @@ namespace aspect
       // Get the relevant densities for the lithosphere.
       // We take the reference density of the first phase.
       densities.push_back(densities_per_composition[0][0]);
-      densities.push_back(densities_per_composition[id_upper_f+1][0]);
-      densities.push_back(densities_per_composition[id_upper_s+1][0]);
+      densities.push_back(densities_per_composition[id_upper+1][0]);
       densities.push_back(densities_per_composition[id_lower+1][0]);
       densities.push_back(densities_per_composition[id_mantle_L+1][0]);
 
@@ -199,10 +197,10 @@ namespace aspect
         prm.enter_subsection("Lithosphere with rift");
         {
           A_rift = Utilities::possibly_extend_from_1_to_N(Utilities::string_to_double(Utilities::split_string_list(prm.get("Amplitude of Gaussian rift geometry"))),
-                                                          4,
+                                                          3,
                                                           "Amplitude of Gaussian rift geometry");
           reference_thicknesses = Utilities::possibly_extend_from_1_to_N(Utilities::string_to_double(Utilities::split_string_list(prm.get("Layer thicknesses"))),
-                                                                         4,
+                                                                         3,
                                                                          "Layer thicknesses");
           // Split the string into the separate polygons
           const std::vector<std::string> temp_thicknesses = Utilities::split_string_list(prm.get("Lithospheric polygon layer thicknesses"),';');
@@ -211,7 +209,7 @@ namespace aspect
           for (unsigned int i_polygons = 0; i_polygons < n_polygons; ++i_polygons)
             {
               polygon_thicknesses[i_polygons] = Utilities::string_to_double(Utilities::split_string_list(temp_thicknesses[i_polygons],','));
-              AssertThrow(polygon_thicknesses[i_polygons].size()==4, ExcMessage ("The number of layer thicknesses should be equal to 3."));
+              AssertThrow(polygon_thicknesses[i_polygons].size()==3, ExcMessage ("The number of layer thicknesses should be equal to 3."));
             }
         }
         prm.leave_subsection();
