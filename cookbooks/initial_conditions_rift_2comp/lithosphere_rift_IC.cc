@@ -48,6 +48,7 @@ namespace aspect
     {
       // Retrieve the indices of the fields that represent the lithospheric layers.
       // We assume a 3-layer system with an upper crust, lower crust and lithospheric mantle.
+      const unsigned int id_upper_left = this->introspection().compositional_index_for_name("upper_left");
       const unsigned int id_upper = this->introspection().compositional_index_for_name("upper");
       const unsigned int id_lower = this->introspection().compositional_index_for_name("lower");
       const unsigned int id_mantle_L = this->introspection().compositional_index_for_name("mantle_L");
@@ -66,7 +67,9 @@ namespace aspect
       const double depth = this->get_geometry_model().depth(position);
 
       // Check which layer the current point lies in and return a value of 1 if the field corresponds to the layer.
-      if (depth <= local_thicknesses[0] && compositional_index == id_upper)
+      if (depth <= local_thicknesses[0] && position(0) < 200e3 && compositional_index == id_upper_left)
+        return 1.;
+      else if (depth <= local_thicknesses[0] && position(0) >= 200e3 && compositional_index == id_upper)
         return 1.;
       else if (depth > local_thicknesses[0] && depth <= local_thicknesses[0] + local_thicknesses[1]
                && compositional_index == id_lower)
