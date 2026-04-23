@@ -777,15 +777,16 @@ namespace aspect
                             double silt_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, silt_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
                             local_aspect_values[2+dim].push_back(bedrock_river_incision_rate_at_point);
                             local_aspect_values[3+dim].push_back(bedrock_transport_coefficient_at_point);
-                            if ((vertex(dim-1) - grid_extent[dim-1].second) <= current_sea_level)
+
+                            if (current_sea_level > (vertex(dim-1) - grid_extent[dim-1].second))
                               {
                                 // std::cout<<"Depth-dependent kd, sea level: "<<current_sea_level<<", elevation: "<<(vertex(dim-1) - grid_extent[dim-1].second)<<std::endl;
+                                // std::cout<<"Original: "<<sand_transport_coefficient_at_point<<", Computed: "<<std::min(sand_transport_coefficient_at_point, std::exp(-lamda_decay_coefficient * std::abs(current_sea_level - (vertex(dim-1) - grid_extent[dim-1].second))) *sand_transport_coefficient_at_point)<<std::endl;
                                 local_aspect_values[4+dim].push_back(std::exp(-lamda_decay_coefficient * (current_sea_level - (vertex(dim-1) - grid_extent[dim-1].second))) *sand_transport_coefficient_at_point);
                                 local_aspect_values[5+dim].push_back(std::exp(-lamda_decay_coefficient * (current_sea_level - (vertex(dim-1) - grid_extent[dim-1].second))) *silt_transport_coefficient_at_point);
                               }
                             else
                               {
-                                // std::cout<<"Scalar kd, sea level: "<<current_sea_level<<", elevation: "<<(vertex(dim-1) - grid_extent[dim-1].second)<<std::endl;
                                 local_aspect_values[4+dim].push_back(sand_transport_coefficient_at_point);
                                 local_aspect_values[5+dim].push_back(silt_transport_coefficient_at_point);
                               }
@@ -820,15 +821,13 @@ namespace aspect
                         double silt_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, silt_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
                         local_aspect_values[2+dim].push_back(bedrock_river_incision_rate_at_point);
                         local_aspect_values[3+dim].push_back(bedrock_transport_coefficient_at_point);
-                        if ((vertex(dim-1) - grid_extent[dim-1].second) <= current_sea_level)
+                        if (current_sea_level > (vertex(dim-1) - grid_extent[dim-1].second))
                           {
-                            // std::cout<<"Depth-dependent kd, sea level: "<<current_sea_level<<", elevation: "<<(vertex(dim-1) - grid_extent[dim-1].second)<<std::endl;
                             local_aspect_values[4+dim].push_back(std::exp(-lamda_decay_coefficient * (current_sea_level - (vertex(dim-1) - grid_extent[dim-1].second))) *sand_transport_coefficient_at_point);
                             local_aspect_values[5+dim].push_back(std::exp(-lamda_decay_coefficient * (current_sea_level - (vertex(dim-1) - grid_extent[dim-1].second))) *silt_transport_coefficient_at_point);
                           }
                         else
                           {
-                            // std::cout<<"Scalar kd, sea level: "<<current_sea_level<<", elevation: "<<(vertex(dim-1) - grid_extent[dim-1].second)<<std::endl;
                             local_aspect_values[4+dim].push_back(sand_transport_coefficient_at_point);
                             local_aspect_values[5+dim].push_back(silt_transport_coefficient_at_point);
                           }
@@ -971,8 +970,8 @@ namespace aspect
               // std::cout << "index: " << index << std::endl;
               bedrock_river_incision_rate_local = time_scaling_factor * local_aspect_values[dim+2][index];
               bedrock_transport_coefficient_local = time_scaling_factor * local_aspect_values[dim+3][index]; 
-              sand_transport_coefficient_local = time_scaling_factor * local_aspect_values[4+dim][i];
-              silt_transport_coefficient_local = time_scaling_factor * local_aspect_values[5+dim][i];             
+              sand_transport_coefficient_local = time_scaling_factor * local_aspect_values[4+dim][index];
+              silt_transport_coefficient_local = time_scaling_factor * local_aspect_values[5+dim][index];             
             }
           
           bedrock_river_incision_rate_array[i] =
@@ -2071,7 +2070,7 @@ namespace aspect
             prm.declare_entry("Depth averaging thickness", "1e2",
                               Patterns::Double(),
                               "Depth averaging for the sand-silt equation. Units: ${m}$");
-            prm.declare_entry("Submarine diffusion decay coefficient", "0.003",
+            prm.declare_entry("Submarine diffusion decay coefficient", "5e-4",
                               Patterns::Double(),
                               "The dacay coefficient to compute depth-dependent sand and silt transport coefficient. Units: ${m}$");
             prm.declare_entry("Sand transport coefficient", "5e2",
@@ -2209,7 +2208,7 @@ namespace aspect
             // Make options file for parsing maps to double arrays for bedrock river incision rate and bedrock transport coefficient
             std::vector<std::string> chemical_field_names = this->introspection().chemical_composition_field_names();
             chemical_field_names.insert(chemical_field_names.begin(),"background");
-            // const unsigned int n_chemical_composition_fields = this->introspection().get_number_of_fields_of_type(CompositionalFieldDescription::chemical_composition)+1;
+            const unsigned int n_chemical_composition_fields = this->introspection().get_number_of_fields_of_type(CompositionalFieldDescription::chemical_composition)+1;
             std::vector<std::string> compositional_field_names = this->introspection().get_composition_names();
             compositional_field_names.insert(compositional_field_names.begin(),"background");
             Utilities::MapParsing::Options options(chemical_field_names, "Bedrock river incision rate");
@@ -2235,12 +2234,12 @@ namespace aspect
               {
                 options.list_of_allowed_keys = chemical_field_names;
                 constant_bedrock_river_incision_rate = Utilities::MapParsing::parse_map_to_double_array(prm.get("Bedrock river incision rate"), options);
-                // std::cout << "bedrock_river_incision_rate is: ";
-                // for (unsigned int i=0; i<n_chemical_composition_fields; i++)
-                //   {
-                //      std::cout<< chemical_field_names[i] << ": " << constant_bedrock_river_incision_rate[i] << " ";
-                //   }
-                // std::cout<<std::endl;
+                std::cout << "bedrock_river_incision_rate is: ";
+                for (unsigned int i=0; i<n_chemical_composition_fields; i++)
+                  {
+                     std::cout<< chemical_field_names[i] << ": " << constant_bedrock_river_incision_rate[i] << " ";
+                  }
+                std::cout<<std::endl;
               }
             // bedrock_river_incision_rate is: background: 1e-05 sediment_1: 2e-05 upper: 3e-05 lower: 4e-05 mantle_L: 5e-05 (kai_extension.prm)
 
