@@ -649,6 +649,7 @@ namespace aspect
       // std::cout<<"this->n_compositional_fields()+1: "<<this->n_compositional_fields()+1<<std::endl;
       AssertThrow(n_chemical_composition_fields <= this->n_compositional_fields(),
                   ExcMessage("n_chemical_composition_fields exceeds n_compositional_fields."));
+      std::vector<std::string> compositional_field_names = this->introspection().get_composition_names();
       const types::boundary_id relevant_boundary = this->get_geometry_model().translate_symbolic_boundary_name_to_id ("top");
       std::vector<std::vector<double>> local_aspect_values(dim+6, std::vector<double>());
       const double current_sea_level = use_sea_level_function
@@ -683,6 +684,7 @@ namespace aspect
                 std::vector<double> composition_values;
                 // composition_values.reserve(n_chemical_composition_fields);
                 // std::cout<<"n_chemical_composition_fields: "<<n_chemical_composition_fields<<std::endl;
+                // std::cout<<"this->n_compositional_fields(): "<<this->n_compositional_fields()<<std::endl;
                 double volume_fraction_sum = 0.0;
                 // std::cout<<"In get aspect values flag 2"<<std::endl;
                 // // const auto &extractors = this->introspection().extractors.compositional_fields;
@@ -692,30 +694,36 @@ namespace aspect
                 // std::cout << "extractors.compositional_fields.size() = "
                 //           << this->introspection().extractors.compositional_fields.size()
                 //           << std::endl;
-                for (unsigned int c=0; c<n_chemical_composition_fields; ++c)
+
+                // go through all compositions, only get the compositional values when the type is chemical composition
+                for (unsigned int c=0; c<this->n_compositional_fields(); ++c)
                   {
-                    this->introspection().extractors.compositional_fields[c];
-                    // std::cout<<"Getting values for compositional field[c]: "<<c<<std::endl;
+                    if (this->introspection().get_composition_descriptions()[c].type == CompositionalFieldDescription::chemical_composition)
+                      {
+                        this->introspection().extractors.compositional_fields[c];
+                        // std::cout<<"Getting values for compositional field[c]: "<<c<<std::endl;
+                        // std::cout<<"The field name is: "<<compositional_field_names[c]<<std::endl;
+                        
+                        // fe_face_values[extractors[c]].get_function_values(this->get_solution(),composition_values_array[c]);
+                        fe_face_values[this->introspection().extractors.compositional_fields[c]].get_function_values(this->get_solution(), composition_values_array[c]);
+                        AssertThrow(c < composition_values_array.size(),
+                                    ExcMessage("composition_values_array too small"));
+                        AssertThrow(composition_values_array[c].size() > 0,
+                                    ExcMessage("composition_values_array[c] empty"));
 
-                    // fe_face_values[extractors[c]].get_function_values(this->get_solution(),composition_values_array[c]);
-                    fe_face_values[this->introspection().extractors.compositional_fields[c]].get_function_values(this->get_solution(), composition_values_array[c]);
-                    AssertThrow(c < composition_values_array.size(),
-                                ExcMessage("composition_values_array too small"));
-                    AssertThrow(composition_values_array[c].size() > 0,
-                                ExcMessage("composition_values_array[c] empty"));
-
-                    // std::cout<<"get values successful for compositional field "<<c<<std::endl;
-                    // std::cout<<"composition_values_array.size(): "<<composition_values_array.size()<<std::endl;
-                    // std::cout<<"composition_values_array[c].size(): "<<composition_values_array[c].size()<<std::endl;
-                    // std::cout<<"Compositional fields: ";
-                    // for (unsigned int j=0; j<composition_values_array[c].size(); ++j)
-                    //   {
-                    //     std::cout<<composition_values_array[c][j]<<" ";
-                    //   }
-                    // std::cout<<std::endl;
-                    composition_values.push_back(composition_values_array[c][0]);
-                    // std::cout<<"composition_values[c]: "<<composition_values[c]<<std::endl;
-                    volume_fraction_sum += composition_values_array[c][0];
+                        // std::cout<<"get values successful for compositional field "<<c<<std::endl;
+                        // std::cout<<"composition_values_array.size(): "<<composition_values_array.size()<<std::endl;
+                        // std::cout<<"composition_values_array[c].size(): "<<composition_values_array[c].size()<<std::endl;
+                        // std::cout<<"Compositional fields: ";
+                        // for (unsigned int j=0; j<composition_values_array[c].size(); ++j)
+                        //   {
+                        //     std::cout<<composition_values_array[c][j]<<" ";
+                        //   }
+                        // std::cout<<std::endl;
+                        composition_values.push_back(composition_values_array[c][0]);
+                        // std::cout<<"composition_values[c]: "<<composition_values[c]<<std::endl;
+                        volume_fraction_sum += composition_values_array[c][0];
+                      }
                   }
                 composition_values.push_back(std::max(0.0, 1.0 - volume_fraction_sum));
                 // 24 * 24 ?
