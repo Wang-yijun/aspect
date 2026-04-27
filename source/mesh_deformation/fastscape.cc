@@ -2215,10 +2215,10 @@ namespace aspect
             
             // Make options file for parsing maps to double arrays for bedrock river incision rate and bedrock transport coefficient
             std::vector<std::string> chemical_field_names = this->introspection().chemical_composition_field_names();
-            chemical_field_names.insert(chemical_field_names.begin(),"background");
-            const unsigned int n_chemical_composition_fields = this->introspection().get_number_of_fields_of_type(CompositionalFieldDescription::chemical_composition)+1;
-            std::vector<std::string> compositional_field_names = this->introspection().get_composition_names();
-            compositional_field_names.insert(compositional_field_names.begin(),"background");
+            // chemical_field_names.insert(chemical_field_names.begin(),"background");
+            // const unsigned int n_chemical_composition_fields = this->introspection().get_number_of_fields_of_type(CompositionalFieldDescription::chemical_composition)+1;
+            // std::vector<std::string> compositional_field_names = this->introspection().get_composition_names();
+            // compositional_field_names.insert(compositional_field_names.begin(),"background");
             Utilities::MapParsing::Options options(chemical_field_names, "Bedrock river incision rate");
             sediment_river_incision_rate = prm.get_double("Sediment river incision rate");
             // kf
@@ -2242,12 +2242,12 @@ namespace aspect
               {
                 options.list_of_allowed_keys = chemical_field_names;
                 constant_bedrock_river_incision_rate = Utilities::MapParsing::parse_map_to_double_array(prm.get("Bedrock river incision rate"), options);
-                std::cout << "bedrock_river_incision_rate is: ";
-                for (unsigned int i=0; i<n_chemical_composition_fields; i++)
-                  {
-                     std::cout<< chemical_field_names[i] << ": " << constant_bedrock_river_incision_rate[i] << " ";
-                  }
-                std::cout<<std::endl;
+                // std::cout << "bedrock_river_incision_rate is: ";
+                // for (unsigned int i=0; i<n_chemical_composition_fields; i++)
+                //   {
+                //      std::cout<< chemical_field_names[i] << ": " << constant_bedrock_river_incision_rate[i] << " ";
+                //   }
+                // std::cout<<std::endl;
               }
             // bedrock_river_incision_rate is: background: 1e-05 sediment_1: 2e-05 upper: 3e-05 lower: 4e-05 mantle_L: 5e-05 (kai_extension.prm)
 
@@ -2337,10 +2337,10 @@ namespace aspect
 
             // get marine transport coefficient as an array
             std::vector<std::string> chemical_field_names = this->introspection().chemical_composition_field_names();
-            chemical_field_names.insert(chemical_field_names.begin(),"background");
+            // chemical_field_names.insert(chemical_field_names.begin(),"background");
             // const unsigned int n_chemical_composition_fields = this->introspection().get_number_of_fields_of_type(CompositionalFieldDescription::chemical_composition)+1;
-            std::vector<std::string> compositional_field_names = this->introspection().get_composition_names();
-            compositional_field_names.insert(compositional_field_names.begin(),"background");
+            // std::vector<std::string> compositional_field_names = this->introspection().get_composition_names();
+            // compositional_field_names.insert(compositional_field_names.begin(),"background");
             Utilities::MapParsing::Options options(chemical_field_names, "Sand transport coefficient");
             options.property_name = "Sand transport coefficient";
             sand_transport_coefficient = Utilities::MapParsing::parse_map_to_double_array(prm.get("Sand transport coefficient"), options);
