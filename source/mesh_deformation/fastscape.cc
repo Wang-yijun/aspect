@@ -506,6 +506,60 @@ namespace aspect
                                              sand_transport_coefficient_array.data(),
                                              silt_transport_coefficient_array.data());
 
+          // Generate a combined array for kf and kd both onshore and offshore.
+          // Onshore, kf and kd can have different values for bedrock and
+          // sediment. With use_marine_component = true, offshore only
+          // the silt and sand diffusion coefficients are used, not kf and kd.
+          std::vector<double> combined_kd(fastscape_array_size);
+          std::vector<double> combined_kf(fastscape_array_size);
+          for (unsigned int i = 0; i < fastscape_array_size; ++i)
+            {
+              // For cells above sea level, grep the continental erosion parameters.
+              if (elevation[i] >= current_sea_level || !use_marine_component)
+                {
+                  std::vector<double> basement(fastscape_array_size);
+                  fastscape_copy_basement_(basement.data());
+                  const double sediment_thickness = elevation[i] - basement[i];
+
+                  // The same incision rate is used for sediments as for bedrock
+                  // if the sediment rate is set to something smaller than zero
+                  // (by default -1).
+                  if (sediment_river_incision_rate < 0. || sediment_thickness <= 1.)
+                    combined_kf[i] = bedrock_river_incision_rate_array[i];
+                  // If a different rate is set for sediment and bedrock,
+                  // the sediment rate is only used for sediment layers
+                  // at least 1 m thick.
+                  else if (sediment_river_incision_rate >= 0. && sediment_thickness > 1.)
+                    combined_kf[i] = sediment_river_incision_rate;
+                  else
+                    combined_kf[i] = numbers::signaling_nan<double>();
+
+                  // The same diffusion coefficient is used for sediments as for bedrock.
+                  // if the sediment coefficient is set to something smaller than zero
+                  // (by default -1).
+                  if (sediment_transport_coefficient < 0 || sediment_thickness <= 1.)
+                    combined_kd[i] = bedrock_transport_coefficient_array[i];
+                  // If a different rate is set for sediment and bedrock,
+                  // the sediment coefficient is only used for sediment layers
+                  // at least 1 m thick.
+                  else if (sediment_transport_coefficient >= 0. && sediment_thickness > 1.)
+                    combined_kd[i] = sediment_transport_coefficient;
+                  else
+                    combined_kd[i] = numbers::signaling_nan<double>();
+                }
+              // Below sea level, when the marine component is used,
+              // kf and kd are not used.
+              else if (elevation[i] < current_sea_level && use_marine_component)
+                {
+                  combined_kf[i] = numbers::signaling_nan<double>();
+                  combined_kd[i] = numbers::signaling_nan<double>();
+                }
+              else
+                {
+                  AssertThrow (false, ExcMessage ("Unexpected conditions reached while filling the kf and kd arrays in the FastScape interface."));
+                }
+            }
+
           // select additional output for Fastscape vtu
           // the default output is kf.
           std::vector<std::vector<double>> additional_output_fields;
@@ -519,11 +573,11 @@ namespace aspect
               switch (additional_output_variables[k])
               {
                 case FastscapeOutputVariable::kf:
-                  additional_output_fields[k] = bedrock_river_incision_rate_array;
+                  additional_output_fields[k] = combined_kf;
                   break;
 
                 case FastscapeOutputVariable::kd:
-                  additional_output_fields[k] = bedrock_transport_coefficient_array;
+                  additional_output_fields[k] = combined_kd;
                   break;
 
                 case FastscapeOutputVariable::marine_sand_kd:
