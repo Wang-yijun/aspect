@@ -552,13 +552,13 @@ namespace aspect
               else if (elevation[i] < current_sea_level && use_marine_component)
                 {
                   combined_kf[i] = numbers::signaling_nan<double>();
-                  combined_kd[i] = numbers::signaling_nan<double>();
+                  combined_kd[i] = sand_transport_coefficient_array[i];
                 }
               else
                 {
                   AssertThrow (false, ExcMessage ("Unexpected conditions reached while filling the kf and kd arrays in the FastScape interface."));
                 }
-            }
+          }
 
           // select additional output for Fastscape vtu
           // the default output is kf.
@@ -706,9 +706,6 @@ namespace aspect
       std::vector<std::string> compositional_field_names = this->introspection().get_composition_names();
       const types::boundary_id relevant_boundary = this->get_geometry_model().translate_symbolic_boundary_name_to_id ("top");
       std::vector<std::vector<double>> local_aspect_values(dim+6, std::vector<double>());
-      const double current_sea_level = use_sea_level_function
-                                       ? sea_level_function.value(Point<1>())
-                                       : sea_level_constant_value;
 
       // Get a quadrature rule that exists only on the corners, and increase the refinement if specified.
       const QIterated<dim-1> face_corners (QTrapezoid<1>(),
@@ -839,19 +836,8 @@ namespace aspect
                             double silt_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, silt_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
                             local_aspect_values[2+dim].push_back(bedrock_river_incision_rate_at_point);
                             local_aspect_values[3+dim].push_back(bedrock_transport_coefficient_at_point);
-
-                            if (current_sea_level > (vertex(dim-1) - grid_extent[dim-1].second))
-                              {
-                                // std::cout<<"Depth-dependent kd, sea level: "<<current_sea_level<<", elevation: "<<(vertex(dim-1) - grid_extent[dim-1].second)<<std::endl;
-                                // std::cout<<"Original: "<<sand_transport_coefficient_at_point<<", Computed: "<<std::min(sand_transport_coefficient_at_point, std::exp(-lamda_decay_coefficient * std::abs(current_sea_level - (vertex(dim-1) - grid_extent[dim-1].second))) *sand_transport_coefficient_at_point)<<std::endl;
-                                local_aspect_values[4+dim].push_back(std::exp(-lamda_decay_coefficient * (current_sea_level - (vertex(dim-1) - grid_extent[dim-1].second))) *sand_transport_coefficient_at_point);
-                                local_aspect_values[5+dim].push_back(std::exp(-lamda_decay_coefficient * (current_sea_level - (vertex(dim-1) - grid_extent[dim-1].second))) *silt_transport_coefficient_at_point);
-                              }
-                            else
-                              {
-                                local_aspect_values[4+dim].push_back(sand_transport_coefficient_at_point);
-                                local_aspect_values[5+dim].push_back(silt_transport_coefficient_at_point);
-                              }
+                            local_aspect_values[4+dim].push_back(sand_transport_coefficient_at_point);
+                            local_aspect_values[5+dim].push_back(silt_transport_coefficient_at_point);
                           }
                       }
                     // 3D case
@@ -883,16 +869,8 @@ namespace aspect
                         double silt_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, silt_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
                         local_aspect_values[2+dim].push_back(bedrock_river_incision_rate_at_point);
                         local_aspect_values[3+dim].push_back(bedrock_transport_coefficient_at_point);
-                        if (current_sea_level > (vertex(dim-1) - grid_extent[dim-1].second))
-                          {
-                            local_aspect_values[4+dim].push_back(std::exp(-lamda_decay_coefficient * (current_sea_level - (vertex(dim-1) - grid_extent[dim-1].second))) *sand_transport_coefficient_at_point);
-                            local_aspect_values[5+dim].push_back(std::exp(-lamda_decay_coefficient * (current_sea_level - (vertex(dim-1) - grid_extent[dim-1].second))) *silt_transport_coefficient_at_point);
-                          }
-                        else
-                          {
-                            local_aspect_values[4+dim].push_back(sand_transport_coefficient_at_point);
-                            local_aspect_values[5+dim].push_back(silt_transport_coefficient_at_point);
-                          }
+                        local_aspect_values[4+dim].push_back(sand_transport_coefficient_at_point);
+                        local_aspect_values[5+dim].push_back(silt_transport_coefficient_at_point);
                       }
                   }
               }
@@ -920,6 +898,9 @@ namespace aspect
       // Set time scaling factor based on time unit
       // This factor is use to scale the quantities when "Use years instead of seconds" in ASPECT is off.
       double time_scaling_factor = (this->convert_output_to_years() ? 1.0 : year_in_seconds);
+      const double current_sea_level = use_sea_level_function
+                                       ? sea_level_function.value(Point<1>())
+                                       : sea_level_constant_value;
 
       for (unsigned int i=0; i<local_aspect_values[1].size(); ++i)
         {
@@ -1050,6 +1031,13 @@ namespace aspect
             bedrock_transport_coefficient_local; //constant_bedrock_transport_coefficient[0]; //
           sand_transport_coefficient_array[i] = sand_transport_coefficient_local;
           silt_transport_coefficient_array[i] = silt_transport_coefficient_local;
+
+          if (elevation[i] < current_sea_level)
+            {
+              sand_transport_coefficient_array[i] = std::exp(-lamda_decay_coefficient * (current_sea_level - elevation[i]))*sand_transport_coefficient_local;
+              silt_transport_coefficient_array[i] = std::exp(-lamda_decay_coefficient * (current_sea_level - elevation[i]))*silt_transport_coefficient_local;
+              // std::cout<<"sand_transport_coefficient_array[i] below sea level for index ["<<index<<"] : "<<sand_transport_coefficient_array[i]<<std::endl;
+            }
 
           // If this is a boundary node that is a ghost node then ignore that it
           // has not filled yet as the ghost nodes haven't been set.
