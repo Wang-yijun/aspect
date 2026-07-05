@@ -147,7 +147,9 @@ namespace aspect
        * Create a .VTK file for the FastScape surface within the FastScape folder of the
        * ASPECT output folder.
        */
-      void fastscape_named_vtk_(double *fp,
+      void fastscape_named_vtk_(double *additional_outputs,
+                                unsigned int *n_additional_outputs,
+                                int *ids,
                                 const double *vexp,
                                 unsigned int *astep,
                                 const char *c,
@@ -267,10 +269,11 @@ namespace aspect
             grid_extent[d].first = geometry->get_origin()[d];
             grid_extent[d].second = geometry->get_extents()[d];
           }
-      // Get the x and y repetitions used in the parameter file so
-      // the FastScape cell size can be properly set.
-      repetitions = geometry->get_repetitions();
+        // Get the x and y repetitions used in the parameter file so
+        // the FastScape cell size can be properly set.
+        repetitions = geometry->get_repetitions();
       }
+
       // Set number of x points, which is generally 1+(FastScape refinement level)^2.
       // The FastScape refinement level is a combination of the maximum ASPECT refinement level
       // at the surface and any additional refinement we want in FastScape. If
@@ -364,11 +367,15 @@ namespace aspect
           std::vector<double> velocity_z(fastscape_array_size);
           std::vector<double> bedrock_river_incision_rate_array(fastscape_array_size);
           std::vector<double> bedrock_transport_coefficient_array(fastscape_array_size);
+          std::vector<double> sand_transport_coefficient_array(fastscape_array_size);
+          std::vector<double> silt_transport_coefficient_array(fastscape_array_size);
           std::vector<double> elevation_old(fastscape_array_size);
 
           fill_fastscape_arrays(elevation,
                                 bedrock_transport_coefficient_array,
                                 bedrock_river_incision_rate_array,
+                                sand_transport_coefficient_array,
+                                silt_transport_coefficient_array,
                                 velocity_x,
                                 velocity_y,
                                 velocity_z,
@@ -508,55 +515,114 @@ namespace aspect
                                              &silt_efold_depth,
                                              &sand_silt_ratio,
                                              &sand_silt_averaging_depth,
-                                             &sand_transport_coefficient,
-                                             &silt_transport_coefficient);
+                                             sand_transport_coefficient_array.data(),
+                                             silt_transport_coefficient_array.data());
 
-          // generate a combined array for kf and kd both onshore and offshore
+          // Generate a combined array for kf and kd both onshore and offshore.
+          // Onshore, kf and kd can have different values for bedrock and
+          // sediment. With use_marine_component = true, offshore only
+          // the silt and sand diffusion coefficients are used, not kf and kd.
           std::vector<double> combined_kd(fastscape_array_size);
           std::vector<double> combined_kf(fastscape_array_size);
           for (unsigned int i = 0; i < fastscape_array_size; ++i)
             {
-              // for cells below sea level, grep the marine sediment data
-              if (elevation[i] >= current_sea_level)
+              // For cells above sea level, grep the continental erosion parameters.
+              if (elevation[i] >= current_sea_level || !use_marine_component)
                 {
-                  combined_kf[i] = bedrock_river_incision_rate_array[i];
-                  combined_kd[i] = bedrock_transport_coefficient_array[i];
+                  std::vector<double> basement(fastscape_array_size);
+                  fastscape_copy_basement_(basement.data());
+                  const double sediment_thickness = elevation[i] - basement[i];
+
+                  // The same incision rate is used for sediments as for bedrock
+                  // if the sediment rate is set to something smaller than zero
+                  // (by default -1).
+                  if (sediment_river_incision_rate < 0. || sediment_thickness <= 1.)
+                    combined_kf[i] = bedrock_river_incision_rate_array[i];
+                  // If a different rate is set for sediment and bedrock,
+                  // the sediment rate is only used for sediment layers
+                  // at least 1 m thick.
+                  else if (sediment_river_incision_rate >= 0. && sediment_thickness > 1.)
+                    combined_kf[i] = sediment_river_incision_rate;
+                  else
+                    combined_kf[i] = numbers::signaling_nan<double>();
+
+                  // The same diffusion coefficient is used for sediments as for bedrock.
+                  // if the sediment coefficient is set to something smaller than zero
+                  // (by default -1).
+                  if (sediment_transport_coefficient < 0 || sediment_thickness <= 1.)
+                    combined_kd[i] = bedrock_transport_coefficient_array[i];
+                  // If a different rate is set for sediment and bedrock,
+                  // the sediment coefficient is only used for sediment layers
+                  // at least 1 m thick.
+                  else if (sediment_transport_coefficient >= 0. && sediment_thickness > 1.)
+                    combined_kd[i] = sediment_transport_coefficient;
+                  else
+                    combined_kd[i] = numbers::signaling_nan<double>();
                 }
-              // for cells below sea level, grep the marine sediment data
+              // Below sea level, when the marine component is used,
+              // kf and kd are not used.
+              else if (elevation[i] < current_sea_level && use_marine_component)
+                {
+                  combined_kf[i] = numbers::signaling_nan<double>();
+                  combined_kd[i] = sand_transport_coefficient_array[i];
+                }
               else
                 {
-                  combined_kf[i] = sediment_river_incision_rate;
-                  combined_kd[i] = sediment_transport_coefficient;
+                  AssertThrow (false, ExcMessage ("Unexpected conditions reached while filling the kf and kd arrays in the FastScape interface."));
                 }
-            }
+          }
 
           // select additional output for Fastscape vtu
           // the default output is kf.
-          std::vector<double> additional_output_field;
-          switch (additional_output_variable)
+          std::vector<std::vector<double>> additional_output_fields;
+          additional_output_fields.clear();
+          additional_output_fields.resize(additional_output_variables.size());
+          for (auto &v : additional_output_fields)
+            v.resize(fastscape_array_size);
+
+          for (unsigned int k = 0; k < additional_output_variables.size(); ++k)
             {
-              case FastscapeOutputVariable::kf:
+              switch (additional_output_variables[k])
               {
-                additional_output_field = combined_kf;
-                break;
+                case FastscapeOutputVariable::kf:
+                  additional_output_fields[k] = combined_kf;
+                  break;
+
+                case FastscapeOutputVariable::kd:
+                  additional_output_fields[k] = combined_kd;
+                  break;
+
+                case FastscapeOutputVariable::marine_sand_kd:
+                  additional_output_fields[k] = sand_transport_coefficient_array;
+                  break;
+
+                case FastscapeOutputVariable::marine_silt_kd:
+                  additional_output_fields[k] = silt_transport_coefficient_array;
+                  break;
+
+                case FastscapeOutputVariable::uplift_rate:
+                  additional_output_fields[k] = velocity_z;
+                  break;
+
+                default:
+                  AssertThrow(false, ExcMessage("Invalid Fastscape variable."));
               }
-              case FastscapeOutputVariable::kd:
-              {
-                additional_output_field = combined_kd;
-                break;
-              }
-              case FastscapeOutputVariable::uplift_rate:
-              {
-                additional_output_field = velocity_z;
-                break;
-              }
-              default:
-                AssertThrow(false, ExcMessage("Invalid Fastscape variable."));
             }
+
+          // Sanity checks
+          for (unsigned int k = 0; k < n_outputs; ++k)
+            AssertThrow(additional_output_fields[k].size() == fastscape_array_size,
+                        ExcMessage("additional_output_fields[k] has wrong size"));
+          // Flatten the 2D vector into a 1D vector for passing to FastScape.
+          additional_output_fields_flattened.clear();
+          additional_output_fields_flattened.reserve(n_outputs * fastscape_array_size);
+          for (unsigned int k = 0; k < n_outputs; ++k)
+            std::copy(additional_output_fields[k].begin(),
+                      additional_output_fields[k].end(),
+                      additional_output_fields_flattened.begin() + k*fastscape_array_size);
 
           // Find timestep size, run FastScape, and make visualizations.
           execute_fastscape(elevation,
-                            bedrock_river_incision_rate_array,  // corresponds to FastScape's 'HHHHH' argument
                             velocity_x,
                             velocity_y,
                             velocity_z,
@@ -644,9 +710,14 @@ namespace aspect
     std::vector<std::vector<double>>
     FastScape<dim>::get_aspect_values() const
     {
-
+      const unsigned int n_chemical_composition_fields = this->introspection().get_number_of_fields_of_type(CompositionalFieldDescription::chemical_composition);
+      // std::cout<<"n_chemical_composition_fields in get_aspect_values: "<<n_chemical_composition_fields<<std::endl;
+      // std::cout<<"this->n_compositional_fields()+1: "<<this->n_compositional_fields()+1<<std::endl;
+      AssertThrow(n_chemical_composition_fields <= this->n_compositional_fields(),
+                  ExcMessage("n_chemical_composition_fields exceeds n_compositional_fields."));
+      std::vector<std::string> compositional_field_names = this->introspection().get_composition_names();
       const types::boundary_id relevant_boundary = this->get_geometry_model().translate_symbolic_boundary_name_to_id ("top");
-      std::vector<std::vector<double>> local_aspect_values(dim+2, std::vector<double>());
+      std::vector<std::vector<double>> local_aspect_values(dim+6, std::vector<double>());
 
       // Get a quadrature rule that exists only on the corners, and increase the refinement if specified.
       const QIterated<dim-1> face_corners (QTrapezoid<1>(),
@@ -670,6 +741,58 @@ namespace aspect
                 fe_face_values.reinit(cell, face_no);
                 fe_face_values[this->introspection().extractors.velocities].get_function_values(this->get_solution(), vel);
 
+                // Get compositional erosional parameters
+                std::vector<std::vector<double>> composition_values_array(this->n_compositional_fields(), std::vector<double>(fe_face_values.n_quadrature_points));
+                // std::vector<double> composition_values(n_chemical_composition_fields);
+                std::vector<double> composition_values;
+                // composition_values.reserve(n_chemical_composition_fields);
+                // std::cout<<"n_chemical_composition_fields: "<<n_chemical_composition_fields<<std::endl;
+                // std::cout<<"this->n_compositional_fields(): "<<this->n_compositional_fields()<<std::endl;
+                double volume_fraction_sum = 0.0;
+                // std::cout<<"In get aspect values flag 2"<<std::endl;
+                // // const auto &extractors = this->introspection().extractors.compositional_fields;
+                // std::cout << "n_chemical_composition_fields = "
+                //           << n_chemical_composition_fields << std::endl;
+
+                // std::cout << "extractors.compositional_fields.size() = "
+                //           << this->introspection().extractors.compositional_fields.size()
+                //           << std::endl;
+
+                // go through all compositions, only get the compositional values when the type is chemical composition
+                for (unsigned int c=0; c<this->n_compositional_fields(); ++c)
+                  {
+                    if (this->introspection().get_composition_descriptions()[c].type == CompositionalFieldDescription::chemical_composition)
+                      {
+                        this->introspection().extractors.compositional_fields[c];
+                        // std::cout<<"Getting values for compositional field[c]: "<<c<<std::endl;
+                        // std::cout<<"The field name is: "<<compositional_field_names[c]<<std::endl;
+                        
+                        // fe_face_values[extractors[c]].get_function_values(this->get_solution(),composition_values_array[c]);
+                        fe_face_values[this->introspection().extractors.compositional_fields[c]].get_function_values(this->get_solution(), composition_values_array[c]);
+                        AssertThrow(c < composition_values_array.size(),
+                                    ExcMessage("composition_values_array too small"));
+                        AssertThrow(composition_values_array[c].size() > 0,
+                                    ExcMessage("composition_values_array[c] empty"));
+
+                        // std::cout<<"get values successful for compositional field "<<c<<std::endl;
+                        // std::cout<<"composition_values_array.size(): "<<composition_values_array.size()<<std::endl;
+                        // std::cout<<"composition_values_array[c].size(): "<<composition_values_array[c].size()<<std::endl;
+                        // std::cout<<"Compositional fields: ";
+                        // for (unsigned int j=0; j<composition_values_array[c].size(); ++j)
+                        //   {
+                        //     std::cout<<composition_values_array[c][j]<<" ";
+                        //   }
+                        // std::cout<<std::endl;
+                        composition_values.push_back(composition_values_array[c][0]);
+                        // std::cout<<"composition_values[c]: "<<composition_values[c]<<std::endl;
+                        volume_fraction_sum += composition_values_array[c][0];
+                      }
+                  }
+                composition_values.push_back(std::max(0.0, 1.0 - volume_fraction_sum));
+                // 24 * 24 ?
+                // std::cout<<"sizeof(composition_values): "<<sizeof(composition_values)<<std::endl;
+                // std::cout<<"sizeof(composition_values[0]): "<<sizeof(composition_values[0])<<std::endl;
+                // std::cout<<"In get aspect values flag 3"<<std::endl;
                 for (unsigned int corner = 0; corner < face_corners.size(); ++corner)
                   {
                     const Point<dim> vertex = fe_face_values.quadrature_point(corner);
@@ -701,17 +824,32 @@ namespace aspect
                             const double index = std::round(indx)+fastscape_nx*ys;
 
                             local_aspect_values[0].push_back(vertex(dim-1) - grid_extent[dim-1].second);
-
+                            // std::cout << "saved elevation." << std::endl;
+                            
                             // In local_aspect_values[1], we store integer indices even though the
                             // type of the left hand side is 'double'. We will have to cast back
                             // when we read from local_aspect_values[1].
                             local_aspect_values[1].push_back(static_cast<double>(index-1));
+                            // std::cout << "saved vx." << std::endl;
 
                             for (unsigned int d=0; d<dim; ++d)
                               {
                                 // Always convert to m/yr for FastScape
                                 local_aspect_values[2+d].push_back(vel[corner][d]*year_in_seconds);
                               }
+                            // std::cout << "saved vy." << std::endl;
+
+                            // std::cout<< "composition_values.size(): " << composition_values.size() << std::endl; //7
+                            // std::cout<< "constant_bedrock_river_incision_rate.size(): " << constant_bedrock_river_incision_rate.size() << std::endl; //5
+                            double bedrock_river_incision_rate_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, constant_bedrock_river_incision_rate, MaterialModel::MaterialUtilities::arithmetic);
+                            // std::cout<< "bedrock_river_incision_rate_at_point: " << bedrock_river_incision_rate_at_point << std::endl;
+                            double bedrock_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, constant_bedrock_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
+                            double sand_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, sand_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
+                            double silt_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, silt_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
+                            local_aspect_values[2+dim].push_back(bedrock_river_incision_rate_at_point);
+                            local_aspect_values[3+dim].push_back(bedrock_transport_coefficient_at_point);
+                            local_aspect_values[4+dim].push_back(sand_transport_coefficient_at_point);
+                            local_aspect_values[5+dim].push_back(silt_transport_coefficient_at_point);
                           }
                       }
                     // 3D case
@@ -736,6 +874,15 @@ namespace aspect
                           {
                             local_aspect_values[2+d].push_back(vel[corner][d]*year_in_seconds);
                           }
+
+                        double bedrock_river_incision_rate_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, constant_bedrock_river_incision_rate, MaterialModel::MaterialUtilities::arithmetic);
+                        double bedrock_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, constant_bedrock_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
+                        double sand_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, sand_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
+                        double silt_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value (composition_values, silt_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
+                        local_aspect_values[2+dim].push_back(bedrock_river_incision_rate_at_point);
+                        local_aspect_values[3+dim].push_back(bedrock_transport_coefficient_at_point);
+                        local_aspect_values[4+dim].push_back(sand_transport_coefficient_at_point);
+                        local_aspect_values[5+dim].push_back(silt_transport_coefficient_at_point);
                       }
                   }
               }
@@ -748,11 +895,25 @@ namespace aspect
     void FastScape<dim>::fill_fastscape_arrays(std::vector<double> &elevation,
                                                std::vector<double> &bedrock_transport_coefficient_array,
                                                std::vector<double> &bedrock_river_incision_rate_array,
+                                               std::vector<double> &sand_transport_coefficient_array,
+                                               std::vector<double> &silt_transport_coefficient_array,
                                                std::vector<double> &velocity_x,
                                                std::vector<double> &velocity_y,
                                                std::vector<double> &velocity_z,
                                                std::vector<std::vector<double>> &local_aspect_values) const
     {
+      // std::cout<<"Size of velocity_x: "<<velocity_x.size()<<std::endl; //2119
+      // std::cout<<"Size of bedrock_transport_coefficient_array: "<<bedrock_transport_coefficient_array.size()<<std::endl;
+      // std::cout<<"Size of local_aspect_values[dim+2]: "<<local_aspect_values[dim+2].size()<<std::endl; //4160
+      // std::cout<<"Size of local_aspect_values[2]: "<<local_aspect_values[2].size()<<std::endl;
+      // std::cout<<"In fill fastscape array flag 1"<<std::endl;
+      // Set time scaling factor based on time unit
+      // This factor is use to scale the quantities when "Use years instead of seconds" in ASPECT is off.
+      double time_scaling_factor = (this->convert_output_to_years() ? 1.0 : year_in_seconds);
+      const double current_sea_level = use_sea_level_function
+                                       ? sea_level_function.value(Point<1>())
+                                       : sea_level_constant_value;
+
       for (unsigned int i=0; i<local_aspect_values[1].size(); ++i)
         {
           // In get_aspect_values(), we store an integer value in local_aspect_values[1][...].
@@ -766,8 +927,13 @@ namespace aspect
             velocity_y[index] = 0;
           else
             velocity_y[index] = local_aspect_values[3][i];
-        }
 
+          bedrock_river_incision_rate_array[index] = time_scaling_factor * local_aspect_values[2+dim][i];
+          bedrock_transport_coefficient_array[index] = time_scaling_factor *local_aspect_values[3+dim][i];
+          sand_transport_coefficient_array[index] = time_scaling_factor *local_aspect_values[4+dim][i];
+          silt_transport_coefficient_array[index] = time_scaling_factor *local_aspect_values[5+dim][i];
+        }
+      // std::cout<<"In fill fastscape array flag 2"<<std::endl;
       for (unsigned int p=1; p<Utilities::MPI::n_mpi_processes(this->get_mpi_communicator()); ++p)
         {
           // First, find out the size of the array a process wants to send.
@@ -795,6 +961,7 @@ namespace aspect
               // Explicitly cast it back.
               const unsigned int index = local_aspect_values[1][i];
               elevation[index] = local_aspect_values[0][i];
+              // std::cout<<"elevation[index] at index: "<< index<<std::endl;
               velocity_x[index] = local_aspect_values[2][i];
               velocity_z[index] = local_aspect_values[dim+1][i];
 
@@ -803,14 +970,30 @@ namespace aspect
                 velocity_y[index] = 0;
               else
                 velocity_y[index] = local_aspect_values[3][i];
+
+              bedrock_river_incision_rate_array[index] = time_scaling_factor * local_aspect_values[2+dim][i];
+              bedrock_transport_coefficient_array[index] = time_scaling_factor *local_aspect_values[3+dim][i];
+              sand_transport_coefficient_array[index] = time_scaling_factor *local_aspect_values[4+dim][i];
+              silt_transport_coefficient_array[index] = time_scaling_factor *local_aspect_values[5+dim][i];
             }
         }
+      // std::cout<<"In fill fastscape array flag 3"<<std::endl;
+      bool fastscape_mesh_filled = true;
 
+      std::vector<int> global_to_local(bedrock_transport_coefficient_array.size(),-1);
+      for (unsigned int i = 0; i < local_aspect_values[1].size(); ++i)
+      {
+        const int global_index = local_aspect_values[1][i];
+        AssertThrow(static_cast<std::size_t>(global_index) < global_to_local.size(),
+                    ExcMessage("global_index out of range for global_to_local"));
+        global_to_local[global_index] = i;
+      }
+      this->get_pcout() << "   Updating FastScape erodibility parameters from distribution functions..." << std::endl;
       // Initialize the bedrock river incision rate and transport coefficient,
       // and check that there are no empty mesh points due to
       // an improperly set maximum_surface_refinement_level, additional_refinement_levels,
       // and surface_refinement_difference
-      bool fastscape_mesh_filled = true;
+      
       const unsigned int fastscape_array_size = fastscape_nx*fastscape_ny;
       for (unsigned int i=0; i<fastscape_array_size; ++i)
         {
@@ -822,31 +1005,61 @@ namespace aspect
           const double x = grid_extent[0].first + (ix - use_ghost_nodes) * fastscape_dx;
           const double y = grid_extent[1].first + (iy - use_ghost_nodes) * fastscape_dy;
 
-          // Set time scaling factor based on time unit
-          // This factor is use to scale the quantities when "Use years instead of seconds" in ASPECT is off.
-          double time_scaling_factor = (this->convert_output_to_years() ? 1.0 : year_in_seconds);
+          const int index = global_to_local[i];
           // Update bedrock transport coefficient kd
-          bedrock_transport_coefficient_array[i] =
-            (use_kd_distribution_function
-             ?  // update with time scaling
-             time_scaling_factor * kd_distribution_function.value(Point<2>(x, y))
-             :
-             time_scaling_factor * constant_bedrock_transport_coefficient);
+          // std::cout << "local_aspect_values[dim+3][index]: " << time_scaling_factor * local_aspect_values[dim+3][index] << std::endl;
+          // std::cout << "bedrock_transport_coefficient_array[i]: " << bedrock_transport_coefficient_array[i] << std::endl;
+          // std::cout << "index: " << index << std::endl;
+          // std::cout << "local_aspect_values[dim+3].size(): " << local_aspect_values[dim+3].size() <<  std::endl;
+          // AssertThrow(index < local_aspect_values[dim+3].size(),
+          //   ExcMessage("index out of range for local_aspect_values[dim+3]"));
+          // AssertThrow(i < bedrock_transport_coefficient_array.size(),
+          //   ExcMessage("i out of range for bedrock_transport_coefficient_array"));
 
-          // Update Bedrock river incision rate kf
+          double bedrock_river_incision_rate_local = constant_bedrock_river_incision_rate[0];
+          double bedrock_transport_coefficient_local = constant_bedrock_transport_coefficient[0];
+          double sand_transport_coefficient_local = sand_transport_coefficient[0];
+          double silt_transport_coefficient_local = silt_transport_coefficient[0];
+          if (index >= 0 && static_cast<std::size_t>(index) < local_aspect_values[dim+3].size())
+            {
+              // std::cout << "index: " << index << std::endl;
+              bedrock_river_incision_rate_local = time_scaling_factor * local_aspect_values[dim+2][index];
+              bedrock_transport_coefficient_local = time_scaling_factor * local_aspect_values[dim+3][index]; 
+              sand_transport_coefficient_local = time_scaling_factor * local_aspect_values[4+dim][index];
+              silt_transport_coefficient_local = time_scaling_factor * local_aspect_values[5+dim][index];             
+            }
+          
           bedrock_river_incision_rate_array[i] =
             (use_kf_distribution_function)
             ?  // update with time scaling
             time_scaling_factor * kf_distribution_function.value(Point<2>(x, y))
             :
-            time_scaling_factor * constant_bedrock_river_incision_rate;
+            bedrock_river_incision_rate_local; //constant_bedrock_river_incision_rate[0]; //
+          bedrock_transport_coefficient_array[i] =
+            (use_kd_distribution_function)
+            ?  // update with time scaling
+            time_scaling_factor * kd_distribution_function.value(Point<2>(x, y))
+            :
+            bedrock_transport_coefficient_local; //constant_bedrock_transport_coefficient[0]; //
+          sand_transport_coefficient_array[i] = sand_transport_coefficient_local;
+          silt_transport_coefficient_array[i] = silt_transport_coefficient_local;
 
+          if (elevation[i] < current_sea_level)
+            {
+              sand_transport_coefficient_array[i] = std::exp(-lamda_decay_coefficient * (current_sea_level - elevation[i]))*sand_transport_coefficient_local;
+              silt_transport_coefficient_array[i] = std::exp(-lamda_decay_coefficient * (current_sea_level - elevation[i]))*silt_transport_coefficient_local;
+              // std::cout<<"sand_transport_coefficient_array[i] below sea level for index ["<<index<<"] : "<<sand_transport_coefficient_array[i]<<std::endl;
+            }
 
           // If this is a boundary node that is a ghost node then ignore that it
           // has not filled yet as the ghost nodes haven't been set.
           if (elevation[i] == std::numeric_limits<double>::max() && !is_ghost_node(i,false))
-            fastscape_mesh_filled = false;
+            {
+              fastscape_mesh_filled = false;
+            }
+            
         }
+      
 
       fastscape_mesh_filled = Utilities::MPI::broadcast(this->get_mpi_communicator(), fastscape_mesh_filled, 0);
       AssertThrow (fastscape_mesh_filled == true,
@@ -889,7 +1102,6 @@ namespace aspect
 
     template <int dim>
     void FastScape<dim>::execute_fastscape(std::vector<double> &elevation,
-                                           std::vector<double> &extra_vtk_field,
                                            std::vector<double> &velocity_x,
                                            std::vector<double> &velocity_y,
                                            std::vector<double> &velocity_z,
@@ -924,13 +1136,17 @@ namespace aspect
             // FastScape by default visualizes a field called HHHHH,
             // and the parameter this shows will be whatever is given as the first
             // position. At the moment it visualizes the bedrock diffusivity.
-            fastscape_named_vtk_(extra_vtk_field.data(),
+            fastscape_named_vtk_(additional_output_fields_flattened.data(),
+                                 &n_outputs,
+                                 additional_output_variable_ids.data(),
                                  &vexp,
                                  &visualization_step,
                                  dirname_char,
                                  &dirname_length);
 #else
-            (void)extra_vtk_field;
+            (void)additional_output_fields_flattened;
+            (void)n_outputs;
+            (void)additional_output_variable_ids;
             (void)vexp;
             (void)visualization_step;
             (void)dirname_char;
@@ -999,13 +1215,17 @@ namespace aspect
 #ifdef ASPECT_HAVE_FASTSCAPE_NAMED_VTK
             this->get_pcout() << "      Writing FastScape VTK..." << std::endl;
             visualization_step = current_timestep;
-            fastscape_named_vtk_(extra_vtk_field.data(),
+            fastscape_named_vtk_(additional_output_fields_flattened.data(),
+                                 &n_outputs,
+                                 additional_output_variable_ids.data(),
                                  &vexp,
                                  &visualization_step,
                                  dirname_char,
                                  &dirname_length);
 #else
-            (void)extra_vtk_field;
+            (void)additional_output_fields_flattened;
+            (void)n_outputs;
+            (void)additional_output_variable_ids;
             (void)vexp;
             (void)visualization_step;
             (void)dirname_char;
@@ -1729,9 +1949,10 @@ namespace aspect
           prm.declare_entry("Initial noise magnitude", "5",
                             Patterns::Double(),
                             "Maximum topography change from the initial noise. Units: ${m}$");
-          prm.declare_entry("Additional output variables", "river incision rate",
-                            Patterns::Selection("river incision rate|deposition coefficient|uplift rate"),
-                            "Select one additional Fastscape variable to output in the Fastcape vtk. "
+          prm.declare_entry("Additional output variables", "bedrock river incision rate",
+                            Patterns::List (Patterns::Selection("bedrock river incision rate|bedrock transport coefficient|marine sand transport coefficient|marine silt transport coefficient|uplift rate")),
+                            "Select any number of additional Fastscape variables from river incision rate, deposition coefficient, "
+                            "and uplift rate to outputs in the Fastcape vtk. "
                             "Output are in units of per year. "
                            );
           prm.declare_entry("Use box with lithosphere 2d", "true",
@@ -1799,7 +2020,7 @@ namespace aspect
                               "Whether to define bedrock river incision rate using a distribution function. "
                               "If false, a constant kf value will be used.");
             prm.declare_entry("Bedrock river incision rate", "1e-5",
-                              Patterns::Double(),
+                              Patterns::List(Patterns::Double(0.)),
                               "River incision rate for bedrock in the Stream Power Law. "
                               "Units: ${m^(1-2drainage_area_exponent)/yr}$ if ``Use years instead of seconds in output'' is true; "
                               "otherwise, the units are ${m^(1-2drainage_area_exponent)/s}$");
@@ -1820,7 +2041,7 @@ namespace aspect
                               "Whether to define Bedrock transport coefficient (diffusivity) using a distribution function. "
                               "If false, a constant kd value will be used.");
             prm.declare_entry("Bedrock diffusivity", "1e-2",
-                              Patterns::Double(),
+                              Patterns::List(Patterns::Double(0.)),
                               "Transport coefficient (diffusivity) for bedrock. Units: ${m^2/yr}$ if ``Use years instead of seconds in output'' "
                               "is true; otherwise, the units are ${m^2/s}$.");
             prm.enter_subsection ("kd distribution function");
@@ -1914,12 +2135,19 @@ namespace aspect
             prm.declare_entry("Depth averaging thickness", "1e2",
                               Patterns::Double(),
                               "Depth averaging for the sand-silt equation. Units: ${m}$");
+            prm.declare_entry("Submarine diffusion decay coefficient", "5e-4",
+                              Patterns::Double(),
+                              "The dacay coefficient to compute depth-dependent sand and silt transport coefficient. Units: ${m}$");
             prm.declare_entry("Sand transport coefficient", "5e2",
-                              Patterns::Double(),
-                              "Transport coefficient (diffusivity) for sand. Units: ${m^2/yr}$");
+                              Patterns::List(Patterns::Double(0.)),
+                              "Transport coefficient (diffusivity) for sand. "
+                              "Units: ${m^(1-2drainage_area_exponent)/yr}$ if ``Use years instead of seconds in output'' is true; "
+                              "otherwise, the units are ${m^(1-2drainage_area_exponent)/s}$");
             prm.declare_entry("Silt transport coefficient", "2.5e2",
-                              Patterns::Double(),
-                              "Transport coefficient (diffusivity) for silt. Units: ${m^2/yr}$ ");
+                              Patterns::List(Patterns::Double(0.)),
+                              "Transport coefficient (diffusivity) for silt. "
+                              "Units: ${m^(1-2drainage_area_exponent)/yr}$ if ``Use years instead of seconds in output'' is true; "
+                              "otherwise, the units are ${m^(1-2drainage_area_exponent)/s}$");
           }
           prm.leave_subsection();
 
@@ -2026,22 +2254,56 @@ namespace aspect
           }
           prm.leave_subsection();
 
-          // Set up Fastscape vtu output parameters
-          const std::string output_choice = prm.get("Additional output variables");
+          // const std::string output_choice = prm.get("Additional output variables");
+          std::vector<std::string> output_choices = Utilities::split_string_list
+              (prm.get ("Additional output variables"));
+          n_outputs = output_choices.size();
 
-          if (output_choice == "river incision rate")
-            additional_output_variable = FastscapeOutputVariable::kf;
-          else if (output_choice == "deposition coefficient")
-            additional_output_variable = FastscapeOutputVariable::kd;
-          else if (output_choice == "uplift rate")
-            additional_output_variable = FastscapeOutputVariable::uplift_rate;
-          else
-            AssertThrow(false, ExcMessage("Not a valid Fastscape field."));
+          for (const std::string &choice_raw : output_choices)
+            {
+              const std::string choice = dealii::Utilities::trim(choice_raw);
+
+              if (choice == "bedrock river incision rate")
+                {
+                  additional_output_variables.push_back(FastscapeOutputVariable::kf);
+                  additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::kf));
+                }
+              else if (choice == "bedrock transport coefficient")
+                {
+                  additional_output_variables.push_back(FastscapeOutputVariable::kd);
+                  additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::kd));
+                }
+              else if (choice == "marine sand transport coefficient")
+                {
+                  additional_output_variables.push_back(FastscapeOutputVariable::marine_sand_kd);
+                  additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::marine_sand_kd));
+                }
+              else if (choice == "marine silt transport coefficient")
+                {
+                  additional_output_variables.push_back(FastscapeOutputVariable::marine_silt_kd);
+                  additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::marine_silt_kd));
+                }
+              else if (choice == "uplift rate")
+                {
+                  additional_output_variables.push_back(FastscapeOutputVariable::uplift_rate);
+                  additional_output_variable_ids.push_back(static_cast<int>(FastscapeOutputVariable::uplift_rate));
+                }
+              else
+                AssertThrow(false, ExcMessage("Not a valid FastScape field: " + choice));
+            }
 
           prm.enter_subsection("Erosional parameters");
           {
             drainage_area_exponent_m = prm.get_double("Drainage area exponent");
             slope_exponent_n = prm.get_double("Slope exponent");
+
+            // Make options file for parsing maps to double arrays for bedrock river incision rate and bedrock transport coefficient
+            std::vector<std::string> chemical_field_names = this->introspection().chemical_composition_field_names();
+            // chemical_field_names.insert(chemical_field_names.begin(),"background");
+            // const unsigned int n_chemical_composition_fields = this->introspection().get_number_of_fields_of_type(CompositionalFieldDescription::chemical_composition)+1;
+            // std::vector<std::string> compositional_field_names = this->introspection().get_composition_names();
+            // compositional_field_names.insert(compositional_field_names.begin(),"background");
+            Utilities::MapParsing::Options options(chemical_field_names, "Bedrock river incision rate");
             sediment_river_incision_rate = prm.get_double("Sediment river incision rate");
             // kf
             use_kf_distribution_function = prm.get_bool("Use kf distribution function");
@@ -2055,12 +2317,24 @@ namespace aspect
                 // If using the function description for the kf, no parts of the code
                 // base should use the constant_bedrock_river_incision_rate variable. Poison it to
                 // make sure it really isn't used anywhere:
-                constant_bedrock_river_incision_rate = numbers::signaling_nan<double>();
+                constant_bedrock_river_incision_rate.assign(
+                  constant_bedrock_river_incision_rate.size(),
+                  numbers::signaling_nan<double>()
+                );
               }
             else
               {
-                constant_bedrock_river_incision_rate = prm.get_double("Bedrock river incision rate");
+                options.list_of_allowed_keys = chemical_field_names;
+                constant_bedrock_river_incision_rate = Utilities::MapParsing::parse_map_to_double_array(prm.get("Bedrock river incision rate"), options);
+                // std::cout << "bedrock_river_incision_rate is: ";
+                // for (unsigned int i=0; i<n_chemical_composition_fields; i++)
+                //   {
+                //      std::cout<< chemical_field_names[i] << ": " << constant_bedrock_river_incision_rate[i] << " ";
+                //   }
+                // std::cout<<std::endl;
               }
+            // bedrock_river_incision_rate is: background: 1e-05 sediment_1: 2e-05 upper: 3e-05 lower: 4e-05 mantle_L: 5e-05 (kai_extension.prm)
+
             sediment_transport_coefficient = prm.get_double("Sediment diffusivity");
             // kd
             use_kd_distribution_function = prm.get_bool("Use kd distribution function");
@@ -2074,11 +2348,15 @@ namespace aspect
                 // If using the function description for the kd, no parts of the code
                 // base should use the constant_bedrock_river_incision_rate variable. Poison it to
                 // make sure it really isn't used anywhere:
-                constant_bedrock_transport_coefficient = numbers::signaling_nan<double>();
+                constant_bedrock_transport_coefficient.assign(
+                  constant_bedrock_transport_coefficient.size(),
+                  numbers::signaling_nan<double>()
+                );
               }
             else
               {
-                constant_bedrock_transport_coefficient = prm.get_double("Bedrock diffusivity");
+                options.property_name = "Bedrock diffusivity";
+                constant_bedrock_transport_coefficient = Utilities::MapParsing::parse_map_to_double_array(prm.get("Bedrock diffusivity"), options);
               }
             bedrock_deposition_g = prm.get_double("Bedrock deposition coefficient");
             sediment_deposition_g = prm.get_double("Sediment deposition coefficient");
@@ -2138,14 +2416,25 @@ namespace aspect
             silt_efold_depth = prm.get_double("Silt e-folding depth");
             sand_silt_ratio = prm.get_double("Sand-silt ratio");
             sand_silt_averaging_depth = prm.get_double("Depth averaging thickness");
-            sand_transport_coefficient = prm.get_double("Sand transport coefficient");
-            silt_transport_coefficient = prm.get_double("Silt transport coefficient");
+            lamda_decay_coefficient = prm.get_double("Submarine diffusion decay coefficient");
 
-            if (!this->convert_output_to_years())
-              {
-                sand_transport_coefficient *= year_in_seconds;
-                silt_transport_coefficient *= year_in_seconds;
-              }
+            // get marine transport coefficient as an array
+            std::vector<std::string> chemical_field_names = this->introspection().chemical_composition_field_names();
+            // chemical_field_names.insert(chemical_field_names.begin(),"background");
+            // const unsigned int n_chemical_composition_fields = this->introspection().get_number_of_fields_of_type(CompositionalFieldDescription::chemical_composition)+1;
+            // std::vector<std::string> compositional_field_names = this->introspection().get_composition_names();
+            // compositional_field_names.insert(compositional_field_names.begin(),"background");
+            Utilities::MapParsing::Options options(chemical_field_names, "Sand transport coefficient");
+            options.property_name = "Sand transport coefficient";
+            sand_transport_coefficient = Utilities::MapParsing::parse_map_to_double_array(prm.get("Sand transport coefficient"), options);
+            options.property_name = "Silt transport coefficient";
+            silt_transport_coefficient = Utilities::MapParsing::parse_map_to_double_array(prm.get("Silt transport coefficient"), options);
+
+            // if (!this->convert_output_to_years())
+            //   {
+            //     sand_transport_coefficient *= year_in_seconds;
+            //     silt_transport_coefficient *= year_in_seconds;
+            //   }
           }
           prm.leave_subsection();
         }
