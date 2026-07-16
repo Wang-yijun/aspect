@@ -21,6 +21,7 @@
 
 #include <aspect/mesh_deformation/fastscape.h>
 #include <aspect/geometry_model/box.h>
+#include <cmath>
 #include <deal.II/numerics/vector_tools.h>
 #include <aspect/postprocess/visualization.h>
 #include <ctime>
@@ -252,14 +253,25 @@ namespace aspect
 
       std::array<unsigned int, dim> repetitions;
 
-      if (use_boxlitho_2d)
+      if (use_boxlitho)
       {
         grid_extent[0].first = 0;
         grid_extent[1].first = 0;
-        grid_extent[0].second = x_extent_2d;
-        grid_extent[1].second = model_height;
-        repetitions[0] = x_repetitions_2d;
-        repetitions[1] = y_repetitions_2d;
+        grid_extent[0].second = x_extent;
+        repetitions[0] = x_repetitions;
+        
+        if (dim == 2)
+        {
+          grid_extent[1].second = y_extent;
+          repetitions[1] = y_repetitions;
+        }
+        else if (dim ==3)
+        {
+          grid_extent[1].second = y_extent;
+          repetitions[1] = y_repetitions;
+          grid_extent[2].second = z_extent;
+          repetitions[2] = z_repetitions;
+        }
       }
       else
       {
@@ -1955,7 +1967,7 @@ namespace aspect
                             "and uplift rate to outputs in the Fastcape vtk. "
                             "Output are in units of per year. "
                            );
-          prm.declare_entry("Use box with lithosphere 2d", "true",
+          prm.declare_entry("Use box with lithosphere", "true",
                             Patterns::Bool(),
                             "Flag on to autorize the user to enter its own model dimension X extent and XY repetitions");                         
 
@@ -2151,20 +2163,26 @@ namespace aspect
           }
           prm.leave_subsection();
 
-          prm.enter_subsection("Box with lithosphere 2d");
+          prm.enter_subsection("Box with lithosphere");
           {
-          prm.declare_entry("X extent in 2d", "2208000",
-                            Patterns::Double(),
-                            "Set a X extent in meters.");  
-          prm.declare_entry("Model height", "100000",
-                            Patterns::Double(),
-                            "Y extent when used with 2D");                                                
-          prm.declare_entry("X repetitions in 2d", "69",
-                            Patterns::Double(),
-                            "Set a X repetitions.");
-          prm.declare_entry("Y repetitions in 2d", "35",
-                            Patterns::Double(),
-                            "Set a Y repetitions.");
+            prm.declare_entry("X extent", "2208000",
+                              Patterns::Double(),
+                              "Set a X extent in meters.");  
+            prm.declare_entry("Y extent", "100000",
+                              Patterns::Double(),
+                              "Y extent");   
+            prm.declare_entry("Z extent", "100000",
+                              Patterns::Double(),
+                              "Z extent");                                                
+            prm.declare_entry("X repetitions", "69",
+                              Patterns::Double(),
+                              "Set a X repetitions.");
+            prm.declare_entry("Y repetitions", "35",
+                              Patterns::Double(),
+                              "Set a Y repetitions.");
+            prm.declare_entry("Z repetitions", "35",
+                              Patterns::Double(),
+                              "Set a Z repetitions.");
           }    
           prm.leave_subsection();   
         }
@@ -2199,14 +2217,16 @@ namespace aspect
                                 (Utilities::split_string_list(prm.get ("Sediment rain rates")));
           sediment_rain_times = Utilities::string_to_double
                                 (Utilities::split_string_list(prm.get ("Sediment rain time intervals")));
-          use_boxlitho_2d = prm.get_bool("Use box with lithosphere 2d");
+          use_boxlitho = prm.get_bool("Use box with lithosphere");
 
-          prm.enter_subsection("Box with lithosphere 2d");
+          prm.enter_subsection("Box with lithosphere");
           {
-            x_extent_2d = prm.get_double("X extent in 2d");
-            model_height = prm.get_double("Model height");            
-            x_repetitions_2d = prm.get_double("X repetitions in 2d");
-            y_repetitions_2d = prm.get_double("Y repetitions in 2d");
+            x_extent = prm.get_double("X extent");
+            y_extent = prm.get_double("Y extent");
+            z_extent = prm.get_double("Z extent");            
+            x_repetitions = prm.get_double("X repetitions");
+            y_repetitions = prm.get_double("Y repetitions");
+            z_repetitions = prm.get_double("Z repetitions");
           }
           prm.leave_subsection();
 

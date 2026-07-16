@@ -671,13 +671,15 @@ namespace aspect
          * @}
          */
 
-        bool use_boxlitho_2d;  
+        bool use_boxlitho;  
 
-        // Box with lithosphere 2d parameters     
-        double x_extent_2d;
-        double x_repetitions_2d;
-        double model_height;
-        double y_repetitions_2d;
+        // Box with lithosphere parameters     
+        double x_extent;
+        double x_repetitions;
+        double y_extent;
+        double y_repetitions;
+        double z_extent;
+        double z_repetitions;
         // int x_repetitions;
         // int y_repetitions;
     };
