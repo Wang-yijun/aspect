@@ -26,6 +26,7 @@
 #include <aspect/postprocess/visualization.h>
 #include <ctime>
 #include <aspect/simulator.h>
+#include <aspect/geometry_model/two_merged_boxes.h>
 
 namespace aspect
 {
@@ -199,11 +200,14 @@ namespace aspect
     {
       CitationInfo::add("fastscape");
 
-      // AssertThrow(Plugins::plugin_type_matches<const GeometryModel::Box<dim>>(this->get_geometry_model()),
-      //             ExcMessage("FastScape can only be run with a box geometry model."));
-
-      const GeometryModel::Box<dim> *geometry
+      const GeometryModel::Box<dim> *box_geometry
         = dynamic_cast<const GeometryModel::Box<dim>*> (&this->get_geometry_model());
+      const GeometryModel::TwoMergedBoxes<dim> *two_merged_boxes_geometry
+        = dynamic_cast<const GeometryModel::TwoMergedBoxes<dim>*> (&this->get_geometry_model());
+
+      AssertThrow(box_geometry != nullptr || two_merged_boxes_geometry != nullptr,
+                  ExcMessage("FastScape can only be run with the 'box' or "
+                             "'box with lithosphere boundary indicators' geometry models."));
 
       // Find the id associated with the top boundary and boundaries that call mesh deformation.
       const types::boundary_id top_boundary = this->get_geometry_model().translate_symbolic_boundary_name_to_id ("top");
@@ -251,40 +255,26 @@ namespace aspect
                                   "Please change it to type generic so that it does not affect material properties."));
         }
 
-      std::array<unsigned int, dim> repetitions;
+      const Point<dim> origin = (box_geometry != nullptr
+                                 ? box_geometry->get_origin()
+                                 : two_merged_boxes_geometry->get_origin());
+      const Point<dim> extents = (box_geometry != nullptr
+                                  ? box_geometry->get_extents()
+                                  : two_merged_boxes_geometry->get_extents());
 
-      if (use_boxlitho)
-      {
-        grid_extent[0].first = 0;
-        grid_extent[1].first = 0;
-        grid_extent[0].second = x_extent;
-        repetitions[0] = x_repetitions;
-        
-        if (dim == 2)
+      // The first entry represents the minimum coordinate of the model domain,
+      // and the second the model extent.
+      for (unsigned int d=0; d<dim; ++d)
         {
-          grid_extent[1].second = y_extent;
-          repetitions[1] = y_repetitions;
+          grid_extent[d].first = origin[d];
+          grid_extent[d].second = extents[d];
         }
-        else if (dim ==3)
-        {
-          grid_extent[1].second = y_extent;
-          repetitions[1] = y_repetitions;
-          grid_extent[2].second = z_extent;
-          repetitions[2] = z_repetitions;
-        }
-      }
-      else
-      {
-        // The first entry represents the minimum coordinates of the model domain, the second the model extent.
-        for (unsigned int d=0; d<dim; ++d)
-          {
-            grid_extent[d].first = geometry->get_origin()[d];
-            grid_extent[d].second = geometry->get_extents()[d];
-          }
-        // Get the x and y repetitions used in the parameter file so
-        // the FastScape cell size can be properly set.
-        repetitions = geometry->get_repetitions();
-      }
+
+      // Get the x and y repetitions used in the parameter file so
+      // the FastScape cell size can be properly set.
+      const std::array<unsigned int, dim> repetitions = (box_geometry != nullptr
+                                                         ? box_geometry->get_repetitions()
+                                                         : two_merged_boxes_geometry->get_repetitions());
 
       // Set number of x points, which is generally 1+(FastScape refinement level)^2.
       // The FastScape refinement level is a combination of the maximum ASPECT refinement level
@@ -1967,9 +1957,9 @@ namespace aspect
                             "and uplift rate to outputs in the Fastcape vtk. "
                             "Output are in units of per year. "
                            );
-          prm.declare_entry("Use box with lithosphere", "true",
-                            Patterns::Bool(),
-                            "Flag on to autorize the user to enter its own model dimension X extent and XY repetitions");                         
+          // prm.declare_entry("Use box with lithosphere", "true",
+          //                   Patterns::Bool(),
+          //                   "Flag on to autorize the user to enter its own model dimension X extent and XY repetitions");                         
 
           prm.enter_subsection ("Boundary conditions");
           {
@@ -2163,28 +2153,28 @@ namespace aspect
           }
           prm.leave_subsection();
 
-          prm.enter_subsection("Box with lithosphere");
-          {
-            prm.declare_entry("X extent", "2208000",
-                              Patterns::Double(),
-                              "Set a X extent in meters.");  
-            prm.declare_entry("Y extent", "100000",
-                              Patterns::Double(),
-                              "Y extent");   
-            prm.declare_entry("Z extent", "100000",
-                              Patterns::Double(),
-                              "Z extent");                                                
-            prm.declare_entry("X repetitions", "69",
-                              Patterns::Double(),
-                              "Set a X repetitions.");
-            prm.declare_entry("Y repetitions", "35",
-                              Patterns::Double(),
-                              "Set a Y repetitions.");
-            prm.declare_entry("Z repetitions", "35",
-                              Patterns::Double(),
-                              "Set a Z repetitions.");
-          }    
-          prm.leave_subsection();   
+          // prm.enter_subsection("Box with lithosphere");
+          // {
+          //   prm.declare_entry("X extent", "2208000",
+          //                     Patterns::Double(),
+          //                     "Set a X extent in meters.");  
+          //   prm.declare_entry("Y extent", "100000",
+          //                     Patterns::Double(),
+          //                     "Y extent");   
+          //   prm.declare_entry("Z extent", "100000",
+          //                     Patterns::Double(),
+          //                     "Z extent");                                                
+          //   prm.declare_entry("X repetitions", "69",
+          //                     Patterns::Double(),
+          //                     "Set a X repetitions.");
+          //   prm.declare_entry("Y repetitions", "35",
+          //                     Patterns::Double(),
+          //                     "Set a Y repetitions.");
+          //   prm.declare_entry("Z repetitions", "35",
+          //                     Patterns::Double(),
+          //                     "Set a Z repetitions.");
+          // }    
+          // prm.leave_subsection();   
         }
         prm.leave_subsection();
       }
@@ -2217,18 +2207,18 @@ namespace aspect
                                 (Utilities::split_string_list(prm.get ("Sediment rain rates")));
           sediment_rain_times = Utilities::string_to_double
                                 (Utilities::split_string_list(prm.get ("Sediment rain time intervals")));
-          use_boxlitho = prm.get_bool("Use box with lithosphere");
+          // use_boxlitho = prm.get_bool("Use box with lithosphere");
 
-          prm.enter_subsection("Box with lithosphere");
-          {
-            x_extent = prm.get_double("X extent");
-            y_extent = prm.get_double("Y extent");
-            z_extent = prm.get_double("Z extent");            
-            x_repetitions = prm.get_double("X repetitions");
-            y_repetitions = prm.get_double("Y repetitions");
-            z_repetitions = prm.get_double("Z repetitions");
-          }
-          prm.leave_subsection();
+          // prm.enter_subsection("Box with lithosphere");
+          // {
+          //   x_extent = prm.get_double("X extent");
+          //   y_extent = prm.get_double("Y extent");
+          //   z_extent = prm.get_double("Z extent");            
+          //   x_repetitions = prm.get_double("X repetitions");
+          //   y_repetitions = prm.get_double("Y repetitions");
+          //   z_repetitions = prm.get_double("Z repetitions");
+          // }
+          // prm.leave_subsection();
 
           if (!this->convert_output_to_years())
             {
