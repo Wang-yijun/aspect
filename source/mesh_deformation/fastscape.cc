@@ -20,6 +20,7 @@
 #include <aspect/global.h>
 
 #include <aspect/mesh_deformation/fastscape.h>
+#include <aspect/material_model/utilities.h>
 #include <aspect/geometry_model/box.h>
 #include <aspect/geometry_model/two_merged_boxes.h>
 #include <deal.II/numerics/vector_tools.h>
@@ -372,11 +373,15 @@ namespace aspect
           std::vector<double> velocity_z(fastscape_array_size);
           std::vector<double> bedrock_river_incision_rate_array(fastscape_array_size);
           std::vector<double> bedrock_transport_coefficient_array(fastscape_array_size);
+          std::vector<double> sand_transport_coefficient_array(fastscape_array_size);
+          std::vector<double> silt_transport_coefficient_array(fastscape_array_size);
           std::vector<double> elevation_old(fastscape_array_size);
 
           fill_fastscape_arrays(elevation,
                                 bedrock_transport_coefficient_array,
                                 bedrock_river_incision_rate_array,
+                                sand_transport_coefficient_array,
+                                silt_transport_coefficient_array,
                                 velocity_x,
                                 velocity_y,
                                 velocity_z,
@@ -509,15 +514,32 @@ namespace aspect
 
           // Add sediments through marine sedimentation
           if (use_marine_component)
-            fastscape_set_marine_parameters_(&current_sea_level,
-                                             &silt_surface_porosity,
-                                             &sand_surface_porosity,
-                                             &silt_efold_depth,
-                                             &sand_efold_depth,
-                                             &incoming_silt_fraction,
-                                             &sand_silt_averaging_depth,
-                                             &silt_transport_coefficient,
-                                             &sand_transport_coefficient);
+            {
+#ifdef ASPECT_FASTSCAPE_MARINE_ARRAYS
+              for (unsigned int i=0; i<fastscape_array_size; ++i)
+                {
+                  const double water_depth = std::max(0.0, current_sea_level-elevation[i]);
+                  const double decay_factor = std::exp(-lambda_decay_coefficient * water_depth);
+
+                  sand_transport_coefficient_array[i] *= decay_factor;
+                  silt_transport_coefficient_array[i] *= decay_factor;
+                }
+#endif
+              fastscape_set_marine_parameters_(&current_sea_level,
+                                               &silt_surface_porosity,
+                                               &sand_surface_porosity,
+                                               &silt_efold_depth,
+                                               &sand_efold_depth,
+                                               &incoming_silt_fraction,
+                                               &sand_silt_averaging_depth,
+#ifdef ASPECT_FASTSCAPE_MARINE_ARRAYS
+                                               silt_transport_coefficient_array.data(),
+                                               sand_transport_coefficient_array.data());
+#else
+                                               &silt_transport_coefficient_array[0],
+                                               &sand_transport_coefficient_array[0]);
+#endif
+            }
 
           // Generate a combined array for kf and kd both onshore and offshore.
           // Onshore, kf and kd can have different values for bedrock and
@@ -581,7 +603,9 @@ namespace aspect
                   // The combined marine diffusion coefficient is an approximation
                   // of the actual diffusion, which is solved for both sediment
                   // types separately in Fastscape.
-                  const double marine_diffusion_coefficient = silt_fraction[i] * silt_transport_coefficient + (1. - silt_fraction[i]) * sand_transport_coefficient;
+                  const double marine_diffusion_coefficient =
+                    silt_fraction[i] * silt_transport_coefficient_array[i]
+                    + (1. - silt_fraction[i]) * sand_transport_coefficient_array[i];
                   combined_kd[i] = marine_diffusion_coefficient;
                 }
               else
@@ -710,9 +734,11 @@ namespace aspect
     FastScape<dim>::get_aspect_values() const
     {
 #ifdef ASPECT_WITH_FASTSCAPE
-
+#ifdef ASPECT_FASTSCAPE_MARINE_ARRAYS
+      const std::vector<unsigned int> chemical_composition_idx = this->introspection().chemical_composition_field_indices();
+#endif
       const types::boundary_id relevant_boundary = this->get_geometry_model().translate_symbolic_boundary_name_to_id ("top");
-      std::vector<std::vector<double>> local_aspect_values(dim+2, std::vector<double>());
+      std::vector<std::vector<double>> local_aspect_values(dim+4, std::vector<double>());
 
       // Get a quadrature rule that exists only on the corners, and increase the refinement if specified.
       const QIterated<dim-1> face_corners (QTrapezoid<1>(),
@@ -735,6 +761,19 @@ namespace aspect
                 std::vector<Tensor<1,dim>> vel(face_corners.size());
                 fe_face_values.reinit(cell, face_no);
                 fe_face_values[this->introspection().extractors.velocities].get_function_values(this->get_solution(), vel);
+#ifdef ASPECT_FASTSCAPE_MARINE_ARRAYS
+                std::vector<std::vector<double>> composition_values_array(chemical_composition_idx.size(), std::vector<double>(face_corners.size()));
+
+                if (use_compositional_erosion_marine)
+                  for (unsigned int c=0; c<chemical_composition_idx.size(); ++c)
+                    {
+                      const unsigned int field = chemical_composition_idx[c];
+                      fe_face_values[
+                        this->introspection().extractors.compositional_fields[field]
+                      ].get_function_values(this->get_solution(),
+                                            composition_values_array[c]);
+                    }
+#endif
 
                 for (unsigned int corner = 0; corner < face_corners.size(); ++corner)
                   {
@@ -751,6 +790,28 @@ namespace aspect
                     // whole number and we can ignore the point.
                     if (std::abs(indx - std::round(indx)) >= node_tolerance)
                       continue;
+
+                    double sand_transport_coefficient_at_point = sand_transport_coefficient;
+                    double silt_transport_coefficient_at_point = silt_transport_coefficient;
+
+#ifdef ASPECT_FASTSCAPE_MARINE_ARRAYS
+                    if (use_compositional_erosion_marine)
+                      {
+                        std::vector<double> composition_values(chemical_composition_idx.size()+1, 0.0);
+
+                        double volume_fraction_sum = 0.0;
+                        for (unsigned int c=0; c<chemical_composition_idx.size(); ++c)
+                          {
+                            composition_values[c+1] = composition_values_array[c][corner];
+                            volume_fraction_sum += composition_values[c+1];
+                          }
+
+                        composition_values[0] = std::max(0.0, 1.0-volume_fraction_sum);
+
+                        sand_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value(composition_values, sand_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
+                        silt_transport_coefficient_at_point = MaterialModel::MaterialUtilities::average_value(composition_values, silt_transport_coefficient, MaterialModel::MaterialUtilities::arithmetic);
+                      }
+#endif
 
 
                     // If we're in 2D, we want to take the values and apply them to every row of X points.
@@ -778,6 +839,8 @@ namespace aspect
                                 // Always convert to m/yr for FastScape
                                 local_aspect_values[2+d].push_back(vel[corner][d]*year_in_seconds);
                               }
+                            local_aspect_values[dim+2].push_back(sand_transport_coefficient_at_point);
+                            local_aspect_values[dim+3].push_back(silt_transport_coefficient_at_point);
                           }
                       }
                     // 3D case
@@ -802,6 +865,8 @@ namespace aspect
                           {
                             local_aspect_values[2+d].push_back(vel[corner][d]*year_in_seconds);
                           }
+                        local_aspect_values[dim+2].push_back(sand_transport_coefficient_at_point);
+                        local_aspect_values[dim+3].push_back(silt_transport_coefficient_at_point);
                       }
                   }
               }
@@ -817,12 +882,32 @@ namespace aspect
     void FastScape<dim>::fill_fastscape_arrays(std::vector<double> &elevation,
                                                std::vector<double> &bedrock_transport_coefficient_array,
                                                std::vector<double> &bedrock_river_incision_rate_array,
+                                               std::vector<double> &sand_transport_coefficient_array,
+                                               std::vector<double> &silt_transport_coefficient_array,
                                                std::vector<double> &velocity_x,
                                                std::vector<double> &velocity_y,
                                                std::vector<double> &velocity_z,
                                                std::vector<std::vector<double>> &local_aspect_values) const
     {
 #ifdef ASPECT_WITH_FASTSCAPE
+      const double time_scaling_factor =
+        this->convert_output_to_years() ? 1.0 : year_in_seconds;
+
+      std::fill(sand_transport_coefficient_array.begin(),
+                sand_transport_coefficient_array.end(),
+#ifdef ASPECT_FASTSCAPE_MARINE_ARRAYS
+                time_scaling_factor * sand_transport_coefficient[0]);
+#else
+                time_scaling_factor * sand_transport_coefficient);
+#endif
+      std::fill(silt_transport_coefficient_array.begin(),
+                silt_transport_coefficient_array.end(),
+#ifdef ASPECT_FASTSCAPE_MARINE_ARRAYS
+                time_scaling_factor * silt_transport_coefficient[0]);
+#else
+                time_scaling_factor * silt_transport_coefficient);
+#endif
+
       for (unsigned int i=0; i<local_aspect_values[1].size(); ++i)
         {
           // In get_aspect_values(), we store an integer value as a double in local_aspect_values[1][...].
@@ -836,6 +921,14 @@ namespace aspect
             velocity_y[index] = 0;
           else
             velocity_y[index] = local_aspect_values[3][i];
+
+#ifdef ASPECT_FASTSCAPE_MARINE_ARRAYS
+          if (use_compositional_erosion_marine)
+            {
+              sand_transport_coefficient_array[index] = time_scaling_factor * local_aspect_values[dim+2][i];
+              silt_transport_coefficient_array[index] = time_scaling_factor * local_aspect_values[dim+3][i];
+            }
+#endif
         }
 
       for (unsigned int p=1; p<Utilities::MPI::n_mpi_processes(this->get_mpi_communicator()); ++p)
@@ -873,6 +966,14 @@ namespace aspect
                 velocity_y[index] = 0;
               else
                 velocity_y[index] = local_aspect_values[3][i];
+
+#ifdef ASPECT_FASTSCAPE_MARINE_ARRAYS
+              if (use_compositional_erosion_marine)
+                {
+                  sand_transport_coefficient_array[index] = time_scaling_factor * local_aspect_values[dim+2][i];
+                  silt_transport_coefficient_array[index] = time_scaling_factor * local_aspect_values[dim+3][i];
+                }
+#endif
             }
         }
 
@@ -930,6 +1031,8 @@ namespace aspect
       (void) elevation;
       (void) bedrock_transport_coefficient_array;
       (void) bedrock_river_incision_rate_array;
+      (void) sand_transport_coefficient_array;
+      (void) silt_transport_coefficient_array;
       (void) velocity_x;
       (void) velocity_y;
       (void) velocity_z;
@@ -2134,12 +2237,38 @@ namespace aspect
             prm.declare_entry("Depth averaging thickness", "1e2",
                               Patterns::Double(),
                               "Depth averaging for the sand-silt equation. Units: $\\si{m}$");
+#ifdef ASPECT_FASTSCAPE_MARINE_ARRAYS
+            prm.declare_entry("Submarine diffusion decay coefficient", "0.0",
+                              Patterns::Double(0.),
+                              "Exponential decay coefficient for marine diffusivity "
+                              "with water depth. Units: inverse meters.");
+            prm.declare_entry("Allow compositional erosion for marine", "false",
+                              Patterns::Bool(),
+                              "Whether to average sand and silt transport coefficients "
+                              "according to chemical compositions.");
+#endif
             prm.declare_entry("Sand transport coefficient", "5e2",
+#ifdef ASPECT_FASTSCAPE_MARINE_ARRAYS
+                              Patterns::List(Patterns::Double(0.)),
+#else
                               Patterns::Double(),
-                              "Transport coefficient (diffusivity) for sand. Units: $\\si{m^2\\per\\year}$");
+#endif
+                              "Sand transport coefficients for background material "
+                              "followed by chemical composition fields or a single value "
+                              "applies to all compositions. Units: square meters per "
+                              "year if output uses years, otherwise square meters "
+                              "per second.");
             prm.declare_entry("Silt transport coefficient", "2.5e2",
+#ifdef ASPECT_FASTSCAPE_MARINE_ARRAYS
+                              Patterns::List(Patterns::Double(0.)),
+#else
                               Patterns::Double(),
-                              "Transport coefficient (diffusivity) for silt. Units: $\\si{m^2\\per\\year}$ ");
+#endif
+                              "Silt transport coefficients for background material "
+                              "followed by chemical composition fields or a single value "
+                              "applies to all compositions. Units: square meters per "
+                              "year if output uses years, otherwise square meters "
+                              "per second.");
           }
           prm.leave_subsection();
         }
@@ -2338,14 +2467,24 @@ namespace aspect
             silt_efold_depth = prm.get_double("Silt e-folding depth");
             incoming_silt_fraction = prm.get_double("Silt fraction");
             sand_silt_averaging_depth = prm.get_double("Depth averaging thickness");
+            
+#ifdef ASPECT_FASTSCAPE_MARINE_ARRAYS
+            lambda_decay_coefficient = prm.get_double("Submarine diffusion decay coefficient");
+            use_compositional_erosion_marine = prm.get_bool("Allow compositional erosion for marine");
+            std::vector<std::string> chemical_field_names =
+              this->introspection().chemical_composition_field_names();
+            chemical_field_names.insert(chemical_field_names.begin(),
+                                        "background");
+            Utilities::MapParsing::Options options(chemical_field_names, "");
+            options.list_of_allowed_keys = chemical_field_names;
+            options.property_name = "Sand transport coefficient";
+            sand_transport_coefficient = Utilities::MapParsing::parse_map_to_double_array(prm.get(options.property_name), options);
+            options.property_name = "Silt transport coefficient";
+            silt_transport_coefficient = Utilities::MapParsing::parse_map_to_double_array(prm.get(options.property_name), options);
+#else
             sand_transport_coefficient = prm.get_double("Sand transport coefficient");
             silt_transport_coefficient = prm.get_double("Silt transport coefficient");
-
-            if (!this->convert_output_to_years())
-              {
-                sand_transport_coefficient *= year_in_seconds;
-                silt_transport_coefficient *= year_in_seconds;
-              }
+#endif
           }
           prm.leave_subsection();
         }

@@ -159,6 +159,8 @@ namespace aspect
         void fill_fastscape_arrays(std::vector<double> &elevation,
                                    std::vector<double> &bedrock_transport_coefficient_array,
                                    std::vector<double> &bedrock_river_incision_rate_array,
+                                   std::vector<double> &sand_transport_coefficient_array,
+                                   std::vector<double> &silt_transport_coefficient_array,
                                    std::vector<double> &velocity_x,
                                    std::vector<double> &velocity_y,
                                    std::vector<double> &velocity_z,
@@ -661,6 +663,32 @@ namespace aspect
          */
         double sand_silt_averaging_depth;
 
+#ifdef ASPECT_FASTSCAPE_MARINE_ARRAYS  
+        /**
+         * Decay coefficient for the exponential decay of marine diffusivity with water depth.
+         * This variable is read from the parameter file through a parameter called 'Submarine diffusion decay coefficient'.
+         */
+        double lambda_decay_coefficient;
+        
+        /**
+         * Flag to use the compositional erosion marine component of FastScape.
+         * This variable is read from the parameter file through a parameter called 'Allow compositional erosion for marine'.
+         */
+        bool use_compositional_erosion_marine;
+
+        /**
+         * Sand marine transport coefficient. (marine diffusion, m^2/yr.)
+         * This variable is read from the parameter file through a parameter called 'Sand transport coefficient'.
+         */
+        std::vector<double> sand_transport_coefficient;
+
+        /**
+         * Silt marine transport coefficient. (marine diffusion, m^2/yr.)
+         * This variable is read from the parameter file through a parameter called 'Silt transport coefficient'.
+         */
+        std::vector<double> silt_transport_coefficient;
+#endif
+        
         /**
          * Sand marine transport coefficient. (marine diffusion, m^2/yr.)
          * This variable is read from the parameter file through a parameter called 'Sand transport coefficient'.

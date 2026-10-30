@@ -280,6 +280,10 @@ set(ASPECT_WITH_FASTSCAPE OFF CACHE BOOL
      older, Fortran-based version), or not.")
 message(STATUS "Using ASPECT_WITH_FASTSCAPE = '${ASPECT_WITH_FASTSCAPE}'")
 
+# option(ASPECT_FASTSCAPE_MARINE_ARRAYS
+#        "The linked FastScape library accepts arrays of marine transport coefficients"
+#        OFF)
+
 if(ASPECT_WITH_FASTSCAPE)
   find_library(FASTSCAPE_LIB_NAME NAMES fastscapelib_fortran
                PATHS $ENV{FASTSCAPE_DIR} ${FASTSCAPE_DIR} PATH_SUFFIXES lib
@@ -311,6 +315,16 @@ if(ASPECT_WITH_FASTSCAPE)
       endif()
     endforeach()
     message(STATUS "FastScape version number is ${FASTSCAPE_VERSION}")
+
+    # Local convention: versions newer than 2.9.1 use marine arrays.
+    if("${FASTSCAPE_VERSION}" VERSION_GREATER "2.9.1")
+      set(ASPECT_FASTSCAPE_MARINE_ARRAYS ON)
+    else()
+      set(ASPECT_FASTSCAPE_MARINE_ARRAYS OFF)
+    endif()
+
+    message(STATUS
+      "FastScape accept marine diffusion arrays instead of scalars: ${ASPECT_FASTSCAPE_MARINE_ARRAYS}")
 
     # Get the subversion numbers
     string(REPLACE "." ";" _fastscape_version_parts "${FASTSCAPE_VERSION}")
